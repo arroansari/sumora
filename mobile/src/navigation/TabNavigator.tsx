@@ -37,6 +37,13 @@ export const TabNavigator: React.FC = () => {
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: styles.tabBarLabel,
         tabBarIconStyle: styles.tabBarIcon,
+        tabBarItemStyle: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 0,
+        },
+        tabBarHideOnKeyboard: true,
       }}>
       <Tab.Screen
         name="Home"

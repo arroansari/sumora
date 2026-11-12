@@ -25,53 +25,53 @@ class IntegrationsController {
     }
   }
 
+  /**
+   * GET /api/integrations/youtube/callback
+   * Receives the OAuth2 authorization code from Google.
+   * Decodes userId from state, exchanges code for tokens, syncs subscriptions,
+   * then deep-links back to the mobile app via sumora://oauth/callback
+   */
   async handleYouTubeCallback(req, res, next) {
     try {
       const { code, state, error: oauthError } = req.query;
 
+      // ── OAuth error from Google (user denied, etc.) ──────────────────
       if (oauthError) {
-        return res.status(400).json({
-          error: 'OAuthError',
-          message: `Google OAuth error: ${oauthError}`,
-        });
+        const errorUrl = `sumora://oauth/callback?success=false&error=${encodeURIComponent(oauthError)}`;
+        return res.redirect(errorUrl);
       }
 
       if (!code) {
-        return res.status(400).json({
-          error: 'BadRequest',
-          message: 'Authorization code is required',
-        });
+        const errorUrl = `sumora://oauth/callback?success=false&error=missing_code`;
+        return res.redirect(errorUrl);
       }
 
+      // ── Resolve userId from JWT (authenticated endpoint) or state ────
       let userId = req.user?.id;
       if (!userId && state) {
         try {
           const decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
           userId = decodedState.userId;
         } catch (err) {
-          return res.status(400).json({
-            error: 'InvalidState',
-            message: 'Invalid state parameter in OAuth callback',
-          });
+          const errorUrl = `sumora://oauth/callback?success=false&error=invalid_state`;
+          return res.redirect(errorUrl);
         }
       }
 
       if (!userId) {
-        return res.status(401).json({
-          error: 'Unauthorized',
-          message: 'Unable to identify user session from OAuth callback',
-        });
+        const errorUrl = `sumora://oauth/callback?success=false&error=unauthenticated`;
+        return res.redirect(errorUrl);
       }
 
-      const result = await integrationsService.handleYouTubeCallback(userId, code);
+      // ── Run full token exchange + subscription sync ───────────────────
+      await integrationsService.handleYouTubeCallback(userId, code);
 
-      res.status(200).json({
-        success: true,
-        message: 'YouTube connected and channels synced successfully',
-        data: result,
-      });
+      // ── Deep-link back to the mobile app on success ───────────────────
+      return res.redirect(`sumora://oauth/callback?success=true`);
     } catch (error) {
-      next(error);
+      console.error('[IntegrationsController] YouTube callback error:', error.message);
+      const errorUrl = `sumora://oauth/callback?success=false&error=${encodeURIComponent(error.message)}`;
+      return res.redirect(errorUrl);
     }
   }
 
@@ -87,4 +87,3 @@ class IntegrationsController {
 }
 
 module.exports = new IntegrationsController();
-

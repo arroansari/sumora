@@ -19,7 +19,7 @@ class VideosController {
   async getVideo(req, res, next) {
     try {
       const { videoId } = req.params;
-      const video = await videosService.getVideoById(videoId);
+      const video = await videosService.getVideoById(req.user.id, videoId);
       res.status(200).json({
         success: true,
         data: video,
