@@ -1,7 +1,6 @@
 import React, {
   useState,
   useEffect,
-  useRef,
   useMemo,
   useCallback,
   useDeferredValue,
@@ -16,9 +15,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   ListRenderItemInfo,
-  Animated,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { sourcesApi, integrationsApi } from '../../services/api';
@@ -38,7 +37,8 @@ const SORT_OPTIONS: FilterPillOption<SortFilter>[] = [
   { label: 'Z → A', value: 'z_a' },
 ];
 
-const UNDO_DURATION_MS = 6000;
+/** AsyncStorage key to track whether the YouTube thumbnail sync has already run. */
+const SYNC_DONE_KEY = 'sumora:yt_thumb_sync_done';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -115,26 +115,6 @@ const ChannelRow = React.memo<ChannelRowProps>(({ item, styles, onToggle }) => (
   </View>
 ));
 
-// ─── UndoBanner ──────────────────────────────────────────────────────────────
-
-interface UndoBannerProps {
-  count: number;
-  countdown: number;
-  onUndo: () => void;
-  styles: ReturnType<typeof createFollowingStyles>;
-}
-
-const UndoBanner = React.memo<UndoBannerProps>(({ count, countdown, onUndo, styles }) => (
-  <View style={styles.undoBanner}>
-    <Text style={styles.undoBannerText}>
-      Untracked {count} channel{count !== 1 ? 's' : ''} · {countdown}s
-    </Text>
-    <TouchableOpacity onPress={onUndo} style={styles.undoButton}>
-      <Text style={styles.undoButtonText}>Undo</Text>
-    </TouchableOpacity>
-  </View>
-));
-
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export const FollowingScreen: React.FC = () => {
@@ -152,12 +132,6 @@ export const FollowingScreen: React.FC = () => {
   const [newChannelName, setNewChannelName] = useState<string>('');
   const [adding, setAdding] = useState<boolean>(false);
 
-  // Undo state
-  const [undoCountdown, setUndoCountdown] = useState<number>(0);
-  const removedSourcesRef = useRef<TrackedSource[]>([]);
-  const undoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   useEffect(() => {
     let isMounted = true;
 
@@ -168,15 +142,21 @@ export const FollowingScreen: React.FC = () => {
           setSources(data);
         }
 
-        // Backfill channel profile images for already-connected YouTube accounts
+        // Backfill channel thumbnails only ONCE (first time channels have no thumbnails).
+        // We persist a flag so this never runs again on subsequent tab visits.
         if (data.length > 0 && !data.some((s) => Boolean(s.thumbnailUrl))) {
-          try {
-            const synced = await integrationsApi.syncYouTube();
-            if (isMounted && synced.sources) {
-              setSources(synced.sources);
+          const alreadySynced = await AsyncStorage.getItem(SYNC_DONE_KEY);
+          if (!alreadySynced) {
+            try {
+              const synced = await integrationsApi.syncYouTube();
+              if (isMounted && synced.sources) {
+                setSources(synced.sources);
+              }
+              // Mark as done so we never call this endpoint again automatically
+              await AsyncStorage.setItem(SYNC_DONE_KEY, 'true');
+            } catch {
+              // Ignore if YouTube account isn't connected or rate-limited
             }
-          } catch {
-            // Ignore if YouTube account isn't connected
           }
         }
       } catch (err: any) {
@@ -192,14 +172,6 @@ export const FollowingScreen: React.FC = () => {
 
     return () => {
       isMounted = false;
-    };
-  }, []);
-
-  // Cleanup timers on unmount
-  useEffect(() => {
-    return () => {
-      if (undoTimerRef.current) clearInterval(undoTimerRef.current);
-      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
     };
   }, []);
 
@@ -274,94 +246,6 @@ export const FollowingScreen: React.FC = () => {
     }
   }, [newChannelId, newChannelName]);
 
-  // ── Untrack All ────────────────────────────────────────────────────────────
-
-  const startUndoTimer = useCallback(() => {
-    if (undoTimerRef.current) clearInterval(undoTimerRef.current);
-    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
-
-    setUndoCountdown(Math.round(UNDO_DURATION_MS / 1000));
-
-    undoTimerRef.current = setInterval(() => {
-      setUndoCountdown((prev) => {
-        if (prev <= 1) {
-          if (undoTimerRef.current) clearInterval(undoTimerRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    undoTimeoutRef.current = setTimeout(() => {
-      // Undo window expired — clear ref so GC can collect
-      removedSourcesRef.current = [];
-      setUndoCountdown(0);
-    }, UNDO_DURATION_MS);
-  }, []);
-
-  const handleUntrackAll = useCallback(() => {
-    if (sources.length === 0) return;
-
-    Alert.alert(
-      'Untrack All Channels?',
-      `This will stop tracking all ${sources.length} channel${sources.length !== 1 ? 's' : ''}. You have 6 seconds to undo.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Untrack All',
-          style: 'destructive',
-          onPress: async () => {
-            // Snapshot for undo
-            removedSourcesRef.current = [...sources];
-            const count = sources.length;
-
-            // Optimistically clear the list
-            setSources([]);
-            startUndoTimer();
-
-            // Fire-and-forget removals in background
-            try {
-              await Promise.all(
-                removedSourcesRef.current.map((s) => sourcesApi.remove(s.id))
-              );
-            } catch (err: any) {
-              // If calls fail, undo banner is still available
-              console.warn('[FollowingScreen] Untrack all partial failure:', err.message);
-            }
-          },
-        },
-      ]
-    );
-  }, [sources, startUndoTimer]);
-
-  const handleUndo = useCallback(async () => {
-    if (undoTimerRef.current) clearInterval(undoTimerRef.current);
-    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
-    setUndoCountdown(0);
-
-    const toRestore = removedSourcesRef.current;
-    removedSourcesRef.current = [];
-
-    if (toRestore.length === 0) return;
-
-    try {
-      // Re-add all channels; use optimistic update first
-      setSources(toRestore);
-      await Promise.all(
-        toRestore.map((s) =>
-          sourcesApi.add({
-            platform: s.platform ?? 'youtube',
-            sourceId: s.sourceId,
-            sourceName: s.sourceName,
-          })
-        )
-      );
-    } catch (err: any) {
-      Alert.alert('Undo Failed', 'Some channels could not be re-added. Please refresh.');
-      console.warn('[FollowingScreen] Undo re-add failed:', err.message);
-    }
-  }, []);
-
   // ── Render helpers ─────────────────────────────────────────────────────────
 
   const keyExtractor = useCallback((item: TrackedSource) => item.id, []);
@@ -417,16 +301,6 @@ export const FollowingScreen: React.FC = () => {
         </Text>
       </View>
 
-      {/* Undo Banner */}
-      {undoCountdown > 0 && (
-        <UndoBanner
-          count={removedSourcesRef.current.length}
-          countdown={undoCountdown}
-          onUndo={handleUndo}
-          styles={styles}
-        />
-      )}
-
       {/* Collapsible Manual Add Channel Box */}
       {showAddForm && (
         <View style={styles.addBox}>
@@ -459,7 +333,7 @@ export const FollowingScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Search + Filters */}
+      {/* Search + Sort Filters */}
       {sources.length > 0 && (
         <View style={styles.searchSection}>
           <SearchBar
@@ -476,21 +350,14 @@ export const FollowingScreen: React.FC = () => {
             style={styles.filterPillsRow}
           />
 
-          {/* Bulk action row */}
-          <View style={styles.bulkActionRow}>
-            {searchQuery.trim().length > 0 && (
+          {/* Search result count */}
+          {searchQuery.trim().length > 0 && (
+            <View style={styles.searchMetaRow}>
               <Text style={styles.searchMetaText}>
                 {filteredSources.length} of {sources.length} channels
               </Text>
-            )}
-            <View style={{ flex: 1 }} />
-            <TouchableOpacity
-              style={styles.untrackAllButton}
-              onPress={handleUntrackAll}
-              activeOpacity={0.75}>
-              <Text style={styles.untrackAllButtonText}>⚠ Untrack All</Text>
-            </TouchableOpacity>
-          </View>
+            </View>
+          )}
         </View>
       )}
 
@@ -499,7 +366,7 @@ export const FollowingScreen: React.FC = () => {
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading channels...</Text>
         </View>
-      ) : sources.length === 0 && undoCountdown === 0 ? (
+      ) : sources.length === 0 ? (
         <View style={styles.centerContainer}>
           <Text style={{ fontSize: 44, marginBottom: 12 }}>⭐️</Text>
           <Text style={styles.emptyTitle}>No Channels Tracked</Text>
@@ -507,7 +374,7 @@ export const FollowingScreen: React.FC = () => {
             Connect your YouTube account or tap "+ Add" above to start summarizing uploads.
           </Text>
         </View>
-      ) : filteredSources.length === 0 && sources.length > 0 ? (
+      ) : filteredSources.length === 0 ? (
         <View style={styles.centerContainer}>
           <Text style={{ fontSize: 38, marginBottom: 10 }}>🔎</Text>
           <Text style={styles.emptyTitle}>No Matching Channels</Text>
