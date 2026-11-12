@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
+import React, { useState, useMemo, useCallback, useDeferredValue } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,14 @@ import {
   ActivityIndicator,
   Alert,
   TouchableOpacity,
+  RefreshControl,
   ListRenderItemInfo,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
-import { preferencesApi, sourcesApi } from '../../services/api';
+import { preferencesApi, sourcesApi, integrationsApi } from '../../services/api';
 import { NotificationPreference, TrackedSource } from '../../types/models.types';
 import { SearchBar } from '../../components/atoms/SearchBar';
 import { FilterPills, FilterPillOption } from '../../components/atoms/FilterPills';
@@ -21,7 +23,7 @@ import { createNotificationsStyles } from './NotificationsScreen.styles';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type MuteFilter = 'all' | 'active' | 'muted';
-type SortFilter = 'newest' | 'a_z';
+type SortFilter = 'newest' | 'oldest' | 'a_z' | 'z_a';
 
 const MUTE_FILTER_OPTIONS: FilterPillOption<MuteFilter>[] = [
   { label: 'All', value: 'all' },
@@ -31,7 +33,9 @@ const MUTE_FILTER_OPTIONS: FilterPillOption<MuteFilter>[] = [
 
 const SORT_OPTIONS: FilterPillOption<SortFilter>[] = [
   { label: 'Newest First', value: 'newest' },
+  { label: 'Oldest First', value: 'oldest' },
   { label: 'A → Z', value: 'a_z' },
+  { label: 'Z → A', value: 'z_a' },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -133,6 +137,9 @@ export const NotificationsScreen: React.FC = () => {
 
   const [preferences, setPreferences] = useState<NotificationPreference[]>([]);
   const [sources, setSources] = useState<TrackedSource[]>([]);
+  const [isYouTubeConnected, setIsYouTubeConnected] = useState<boolean>(false);
+  const [syncing, setSyncing] = useState<boolean>(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [mutedChannels, setMutedChannels] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -140,33 +147,77 @@ export const NotificationsScreen: React.FC = () => {
   const [muteFilter, setMuteFilter] = useState<MuteFilter>('all');
   const [sortFilter, setSortFilter] = useState<SortFilter>('newest');
 
-  useEffect(() => {
-    let isMounted = true;
+  const fetchNotificationData = useCallback(async () => {
+    const [prefs, channels, accounts] = await Promise.all([
+      preferencesApi.get().catch(() => []),
+      sourcesApi.list().catch(() => []),
+      integrationsApi.list().catch(() => []),
+    ]);
+    return {
+      prefs,
+      channels,
+      ytConnected: accounts.some((a) => a.platform === 'youtube' && a.status === 'active'),
+    };
+  }, []);
 
-    async function loadNotificationData() {
-      try {
-        const [prefs, channels] = await Promise.all([
-          preferencesApi.get().catch(() => []),
-          sourcesApi.list().catch(() => []),
-        ]);
-        if (isMounted) {
-          setPreferences(prefs);
-          setSources(channels);
-        }
-      } catch (err: any) {
-        console.warn('[NotificationsScreen] Load error:', err.message);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+
+      async function loadNotificationData() {
+        try {
+          const { prefs, channels, ytConnected } = await fetchNotificationData();
+          if (isMounted) {
+            setPreferences(prefs);
+            setSources(channels);
+            setIsYouTubeConnected(ytConnected);
+          }
+        } catch (err: any) {
+          console.warn('[NotificationsScreen] Load error:', err.message);
+        } finally {
+          if (isMounted) {
+            setLoading(false);
+          }
         }
       }
+
+      loadNotificationData();
+
+      return () => {
+        isMounted = false;
+      };
+    }, [fetchNotificationData])
+  );
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const { prefs, channels, ytConnected } = await fetchNotificationData();
+      setPreferences(prefs);
+      setSources(channels);
+      setIsYouTubeConnected(ytConnected);
+    } catch (err: any) {
+      console.warn('[NotificationsScreen] Refresh failed');
+    } finally {
+      setRefreshing(false);
     }
+  }, [fetchNotificationData]);
 
-    loadNotificationData();
-
-    return () => {
-      isMounted = false;
-    };
+  const handleSyncYouTube = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const synced = await integrationsApi.syncYouTube();
+      if (synced.sources) {
+        setSources(synced.sources);
+      } else {
+        const channels = await sourcesApi.list().catch(() => []);
+        setSources(channels);
+      }
+    } catch (err: any) {
+      Alert.alert('Sync Failed', err.message || 'Could not sync YouTube subscriptions.');
+    } finally {
+      setSyncing(false);
+    }
   }, []);
 
   const isYouTubeEnabled =
@@ -189,16 +240,30 @@ export const NotificationsScreen: React.FC = () => {
 
     // 3. Sort
     const copy = [...result];
-    if (sortFilter === 'a_z') {
-      copy.sort((a, b) =>
-        a.sourceName.localeCompare(b.sourceName, undefined, { sensitivity: 'base' })
-      );
-    } else {
-      // 'newest' — sort by createdAt DESC (default API order preserved)
-      copy.sort(
-        (a, b) =>
-          new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-      );
+    switch (sortFilter) {
+      case 'a_z':
+        copy.sort((a, b) =>
+          a.sourceName.localeCompare(b.sourceName, undefined, { sensitivity: 'base' })
+        );
+        break;
+      case 'z_a':
+        copy.sort((a, b) =>
+          b.sourceName.localeCompare(a.sourceName, undefined, { sensitivity: 'base' })
+        );
+        break;
+      case 'oldest':
+        copy.sort(
+          (a, b) =>
+            new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime()
+        );
+        break;
+      case 'newest':
+      default:
+        copy.sort(
+          (a, b) =>
+            new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+        );
+        break;
     }
 
     return copy;
@@ -383,8 +448,23 @@ export const NotificationsScreen: React.FC = () => {
       return (
         <View style={styles.card}>
           <Text style={{ color: colors.textMuted, textAlign: 'center', padding: 8 }}>
-            No tracked channels yet. Connect YouTube or add channels to configure notifications.
+            {isYouTubeConnected
+              ? 'Your YouTube account is connected, but no channels are synced yet.'
+              : 'No tracked channels yet. Connect YouTube or add channels to configure notifications.'}
           </Text>
+          {isYouTubeConnected && (
+            <TouchableOpacity
+              style={styles.syncEmptyButton}
+              onPress={handleSyncYouTube}
+              disabled={syncing}
+              activeOpacity={0.8}>
+              {syncing ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.syncEmptyButtonText}>↻ Sync YouTube Subscriptions</Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       );
     }
@@ -408,7 +488,7 @@ export const NotificationsScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
     );
-  }, [sources.length, styles, colors.textMuted, searchQuery, muteFilter]);
+  }, [sources.length, styles, colors.textMuted, searchQuery, muteFilter, isYouTubeConnected, syncing, handleSyncYouTube]);
 
   if (loading) {
     return (
@@ -441,6 +521,13 @@ export const NotificationsScreen: React.FC = () => {
         updateCellsBatchingPeriod={50}
         windowSize={5}
         removeClippedSubviews={true}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
+        }
       />
     </SafeAreaView>
   );

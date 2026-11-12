@@ -1,6 +1,5 @@
 import React, {
   useState,
-  useEffect,
   useMemo,
   useCallback,
   useDeferredValue,
@@ -18,6 +17,7 @@ import {
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { sourcesApi, integrationsApi } from '../../services/api';
@@ -122,6 +122,8 @@ export const FollowingScreen: React.FC = () => {
   const styles = useMemo(() => createFollowingStyles(colors), [colors]);
 
   const [sources, setSources] = useState<TrackedSource[]>([]);
+  const [isYouTubeConnected, setIsYouTubeConnected] = useState<boolean>(false);
+  const [syncing, setSyncing] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -132,47 +134,72 @@ export const FollowingScreen: React.FC = () => {
   const [newChannelName, setNewChannelName] = useState<string>('');
   const [adding, setAdding] = useState<boolean>(false);
 
-  useEffect(() => {
-    let isMounted = true;
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
 
-    async function fetchSources() {
-      try {
-        const data = await sourcesApi.list();
-        if (isMounted) {
-          setSources(data);
-        }
+      async function fetchSources() {
+        try {
+          const [data, accounts] = await Promise.all([
+            sourcesApi.list(),
+            integrationsApi.list().catch(() => []),
+          ]);
+          if (isMounted) {
+            setSources(data);
+            setIsYouTubeConnected(
+              accounts.some((a) => a.platform === 'youtube' && a.status === 'active')
+            );
+          }
 
-        // Backfill channel thumbnails only ONCE (first time channels have no thumbnails).
-        // We persist a flag so this never runs again on subsequent tab visits.
-        if (data.length > 0 && !data.some((s) => Boolean(s.thumbnailUrl))) {
-          const alreadySynced = await AsyncStorage.getItem(SYNC_DONE_KEY);
-          if (!alreadySynced) {
-            try {
-              const synced = await integrationsApi.syncYouTube();
-              if (isMounted && synced.sources) {
-                setSources(synced.sources);
+          // Backfill channel thumbnails only ONCE (first time channels have no thumbnails).
+          // We persist a flag so this never runs again on subsequent tab visits.
+          if (data.length > 0 && !data.some((s) => Boolean(s.thumbnailUrl))) {
+            const alreadySynced = await AsyncStorage.getItem(SYNC_DONE_KEY);
+            if (!alreadySynced) {
+              try {
+                const synced = await integrationsApi.syncYouTube();
+                if (isMounted && synced.sources) {
+                  setSources(synced.sources);
+                }
+                // Mark as done so we never call this endpoint again automatically
+                await AsyncStorage.setItem(SYNC_DONE_KEY, 'true');
+              } catch {
+                // Ignore if YouTube account isn't connected or rate-limited
               }
-              // Mark as done so we never call this endpoint again automatically
-              await AsyncStorage.setItem(SYNC_DONE_KEY, 'true');
-            } catch {
-              // Ignore if YouTube account isn't connected or rate-limited
             }
           }
-        }
-      } catch (err: any) {
-        console.warn('[FollowingScreen] Failed to load sources:', err.message);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
+        } catch (err: any) {
+          console.warn('[FollowingScreen] Failed to load sources:', err.message);
+        } finally {
+          if (isMounted) {
+            setLoading(false);
+          }
         }
       }
+
+      fetchSources();
+
+      return () => {
+        isMounted = false;
+      };
+    }, [])
+  );
+
+  const handleSyncYouTube = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const synced = await integrationsApi.syncYouTube();
+      if (synced.sources) {
+        setSources(synced.sources);
+      } else {
+        const data = await sourcesApi.list();
+        setSources(data);
+      }
+    } catch (err: any) {
+      Alert.alert('Sync Failed', err.message || 'Could not sync YouTube subscriptions.');
+    } finally {
+      setSyncing(false);
     }
-
-    fetchSources();
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
   const filteredSources = useMemo(() => {
@@ -368,11 +395,30 @@ export const FollowingScreen: React.FC = () => {
         </View>
       ) : sources.length === 0 ? (
         <View style={styles.centerContainer}>
-          <Text style={{ fontSize: 44, marginBottom: 12 }}>⭐️</Text>
-          <Text style={styles.emptyTitle}>No Channels Tracked</Text>
-          <Text style={styles.emptySubtitle}>
-            Connect your YouTube account or tap "+ Add" above to start summarizing uploads.
+          <Text style={{ fontSize: 44, marginBottom: 12 }}>
+            {isYouTubeConnected ? '📺' : '⭐️'}
           </Text>
+          <Text style={styles.emptyTitle}>
+            {isYouTubeConnected ? 'No Channels Synced Yet' : 'No Channels Tracked'}
+          </Text>
+          <Text style={styles.emptySubtitle}>
+            {isYouTubeConnected
+              ? 'Your YouTube account is connected! Tap below to sync your subscribed channels.'
+              : 'Connect your YouTube account or tap "+ Add" above to start summarizing uploads.'}
+          </Text>
+          {isYouTubeConnected && (
+            <TouchableOpacity
+              style={styles.syncEmptyButton}
+              onPress={handleSyncYouTube}
+              disabled={syncing}
+              activeOpacity={0.8}>
+              {syncing ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.syncEmptyButtonText}>↻ Sync YouTube Subscriptions</Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       ) : filteredSources.length === 0 ? (
         <View style={styles.centerContainer}>

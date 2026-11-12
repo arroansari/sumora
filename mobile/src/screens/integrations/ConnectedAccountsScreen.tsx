@@ -21,6 +21,7 @@ export const ConnectedAccountsScreen: React.FC = () => {
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [connecting, setConnecting] = useState<boolean>(false);
+  const [syncing, setSyncing] = useState<boolean>(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   // ── Fetch connected accounts ──────────────────────────────────────────
@@ -126,6 +127,21 @@ export const ConnectedAccountsScreen: React.FC = () => {
     }
   }, []);
 
+  // ── Sync Subscriptions ────────────────────────────────────────────────
+  const handleSyncYouTube = useCallback(async () => {
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const result = await integrationsApi.syncYouTube();
+      setSyncMessage(`Synced ${result.syncedChannelsCount} YouTube channels!`);
+      setTimeout(() => setSyncMessage(null), 4000);
+    } catch (err: any) {
+      Alert.alert('Sync Failed', err.message || 'Could not sync YouTube subscriptions.');
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
+
   // ── Disconnect ────────────────────────────────────────────────────────
   const handleDisconnect = useCallback((id: string, platformName: string) => {
     Alert.alert(
@@ -196,11 +212,26 @@ export const ConnectedAccountsScreen: React.FC = () => {
             {loading ? (
               <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} />
             ) : isYouTubeConnected ? (
-              <TouchableOpacity
-                style={styles.disconnectButton}
-                onPress={() => youtubeAccount && handleDisconnect(youtubeAccount.id, 'YouTube')}>
-                <Text style={styles.disconnectButtonText}>Disconnect Account</Text>
-              </TouchableOpacity>
+              <View>
+                <TouchableOpacity
+                  style={styles.syncButton}
+                  onPress={handleSyncYouTube}
+                  disabled={syncing}>
+                  {syncing ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                      <Text style={styles.syncButtonText}>Syncing Subscriptions…</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.syncButtonText}>↻ Sync Subscriptions</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.disconnectButton}
+                  onPress={() => youtubeAccount && handleDisconnect(youtubeAccount.id, 'YouTube')}>
+                  <Text style={styles.disconnectButtonText}>Disconnect Account</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <TouchableOpacity
                 style={styles.connectButton}

@@ -247,4 +247,19 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     bulkButtonMuteText: {
       color: '#EF4444',
     },
+    syncEmptyButton: {
+      marginTop: 12,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      borderRadius: 10,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      alignSelf: 'center',
+    },
+    syncEmptyButtonText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
   });

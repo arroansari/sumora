@@ -230,6 +230,21 @@ export const createFollowingStyles = (colors: ThemeColors) =>
       fontWeight: '700',
       color: colors.primary,
     },
+    syncEmptyButton: {
+      marginTop: 18,
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderRadius: 12,
+      backgroundColor: colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    syncEmptyButtonText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
 
     // ── Filter pills ──────────────────────────────────────────────────────────
     filterPillsRow: {

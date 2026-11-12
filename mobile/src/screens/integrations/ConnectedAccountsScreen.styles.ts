@@ -89,6 +89,19 @@ export const createConnectedAccountsStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       justifyContent: 'center',
     },
+    syncButton: {
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 10,
+    },
+    syncButtonText: {
+      color: '#FFFFFF',
+      fontWeight: '700',
+      fontSize: 14,
+    },
     disconnectButtonText: {
       color: '#EF4444',
       fontWeight: '600',
