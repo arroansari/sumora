@@ -101,6 +101,14 @@ export const integrationsApi = {
     return res.data;
   },
 
+  syncYouTube: async (): Promise<{ syncedChannelsCount: number; sources: TrackedSource[] }> => {
+    const res = await request<{ data: { syncedChannelsCount: number; sources: TrackedSource[] } }>(
+      '/integrations/youtube/sync',
+      { method: 'POST' }
+    );
+    return res.data;
+  },
+
   disconnect: async (id: string): Promise<{ success: boolean }> => {
     return request<{ success: boolean }>(`/integrations/${id}`, {
       method: 'DELETE',

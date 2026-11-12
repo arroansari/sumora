@@ -3,13 +3,13 @@ import {
   View,
   Text,
   FlatList,
-  Image,
   TouchableOpacity,
   Linking,
   ActivityIndicator,
   RefreshControl,
   ListRenderItemInfo,
 } from 'react-native';
+import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { videosApi } from '../../services/api';
@@ -65,7 +65,15 @@ const FeedItemCard = React.memo<FeedCardProps>(({ item, styles, onReadSummary, o
     <View style={styles.card}>
       <View style={styles.thumbnailContainer}>
         {item.thumbnailUrl ? (
-          <Image source={{ uri: item.thumbnailUrl }} style={styles.thumbnail} resizeMode="cover" />
+          <FastImage
+            source={{
+              uri: item.thumbnailUrl,
+              priority: FastImage.priority.high,
+              cache: FastImage.cacheControl.immutable,
+            }}
+            style={styles.thumbnail as ImageStyle}
+            resizeMode={FastImage.resizeMode.cover}
+          />
         ) : (
           <View style={styles.thumbnailPlaceholder}>
             <Text style={{ fontSize: 32 }}>▶</Text>

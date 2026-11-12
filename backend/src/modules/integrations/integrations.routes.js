@@ -19,6 +19,11 @@ router.get('/youtube/callback', (req, res, next) =>
   integrationsController.handleYouTubeCallback(req, res, next)
 );
 
+// Re-sync YouTube subscriptions & channel profile thumbnails
+router.post('/youtube/sync', authenticate, (req, res, next) =>
+  integrationsController.syncYouTube(req, res, next)
+);
+
 // Disconnect integration
 router.delete('/:id', authenticate, (req, res, next) =>
   integrationsController.disconnect(req, res, next)

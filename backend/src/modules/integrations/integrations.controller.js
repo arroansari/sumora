@@ -75,6 +75,18 @@ class IntegrationsController {
     }
   }
 
+  async syncYouTube(req, res, next) {
+    try {
+      const result = await integrationsService.syncYouTubeSubscriptions(req.user.id);
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async disconnect(req, res, next) {
     try {
       const { id } = req.params;

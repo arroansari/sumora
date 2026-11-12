@@ -88,3 +88,4 @@ class InlinePipelineService {
 }
 
 module.exports = new InlinePipelineService();
+

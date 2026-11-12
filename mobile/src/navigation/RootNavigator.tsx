@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Linking } from 'react-native';
+import { Linking, View, ActivityIndicator } from 'react-native';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation.types';
@@ -78,10 +78,18 @@ function processOAuthUrl(
 
 export const RootNavigator: React.FC = () => {
   const { colors } = useAppTheme();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isRestoring } = useAuth();
   const navigationRef = useRef<NavigationContainerRef<RootStackParamList> | null>(null);
 
   useOAuthDeepLink(navigationRef);
+
+  if (isRestoring) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer ref={navigationRef}>

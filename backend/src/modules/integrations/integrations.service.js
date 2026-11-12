@@ -1,5 +1,5 @@
 const prisma = require('../../config/db');
-const { encrypt } = require('../../utils/encryption.util');
+const { encrypt, decrypt } = require('../../utils/encryption.util');
 const youTubeService = require('./youtube/youtube.service');
 const webSubService = require('./youtube/websub.service');
 
@@ -121,9 +121,11 @@ class IntegrationsService {
           platform: 'youtube',
           sourceId: channel.sourceId,
           sourceName: channel.sourceName,
+          thumbnailUrl: channel.thumbnailUrl || null,
         },
         update: {
           sourceName: channel.sourceName,
+          ...(channel.thumbnailUrl ? { thumbnailUrl: channel.thumbnailUrl } : {}),
         },
       });
 
@@ -139,6 +141,77 @@ class IntegrationsService {
       connectedAccount,
       syncedChannelsCount: syncedSources.length,
       syncedSources,
+    };
+  }
+
+  /**
+   * Re-syncs the user's YouTube subscriptions (names + profile thumbnails)
+   * using their stored encrypted OAuth tokens, refreshing if expired.
+   * @param {string} userId
+   */
+  async syncYouTubeSubscriptions(userId) {
+    const account = await prisma.connectedAccount.findUnique({
+      where: { userId_platform: { userId, platform: 'youtube' } },
+      include: { token: true },
+    });
+
+    if (!account || !account.token) {
+      const error = new Error('YouTube account is not connected');
+      error.status = 404;
+      throw error;
+    }
+
+    let accessToken = decrypt(account.token.encryptedAccessToken);
+    const isExpired =
+      account.token.expiresAt && new Date(account.token.expiresAt).getTime() <= Date.now() + 60000;
+
+    if (isExpired && account.token.encryptedRefreshToken) {
+      const refreshed = await youTubeService.refreshAccessToken(account.token.encryptedRefreshToken);
+      accessToken = refreshed.accessToken;
+      await prisma.platformToken.update({
+        where: { id: account.token.id },
+        data: {
+          encryptedAccessToken: encrypt(refreshed.accessToken),
+          expiresAt: refreshed.expiresIn
+            ? new Date(Date.now() + refreshed.expiresIn * 1000)
+            : null,
+        },
+      });
+    }
+
+    const subscribedChannels = await youTubeService.getSubscribedChannels(accessToken);
+
+    for (const channel of subscribedChannels) {
+      await prisma.trackedSource.upsert({
+        where: {
+          userId_platform_sourceId: {
+            userId,
+            platform: 'youtube',
+            sourceId: channel.sourceId,
+          },
+        },
+        create: {
+          userId,
+          platform: 'youtube',
+          sourceId: channel.sourceId,
+          sourceName: channel.sourceName,
+          thumbnailUrl: channel.thumbnailUrl || null,
+        },
+        update: {
+          sourceName: channel.sourceName,
+          ...(channel.thumbnailUrl ? { thumbnailUrl: channel.thumbnailUrl } : {}),
+        },
+      });
+    }
+
+    const sources = await prisma.trackedSource.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      syncedChannelsCount: subscribedChannels.length,
+      sources,
     };
   }
 

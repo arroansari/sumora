@@ -78,17 +78,31 @@ cp backend/.env.example backend/.env
    - **YouTube Data API v3**
 4. Under **OAuth consent screen**:
    - Set User Type to **External**.
+   - Fill in App Name (e.g. `Sumora`) and support emails.
    - Add scopes:
      - `https://www.googleapis.com/auth/youtube.readonly`
      - `openid`
      - `https://www.googleapis.com/auth/userinfo.email`
      - `https://www.googleapis.com/auth/userinfo.profile`
+   - Under **Test users**, add the email addresses that will test the app during development.
 5. Under **Credentials > Create Credentials > OAuth client ID**:
-   - Application Type: **Web Application**.
-   - Authorized redirect URIs:
-     - `http://localhost:5000/api/integrations/youtube/callback` (development)
-     - `https://your-domain.com/api/integrations/youtube/callback` (production)
-   - Save the Client ID and Client Secret in `backend/.env`.
+   - Application Type: **Web application** *(Note: Even for cross-platform mobile apps, our Node.js backend performs the server-side OAuth exchange and deep-links back to the app via `sumora://oauth/callback`).*
+   - Name: `Sumora Backend`
+   - **Authorized redirect URIs**:
+     - Local Development:
+       ```
+       http://localhost:5001/api/integrations/youtube/callback
+       ```
+     - Production:
+       ```
+       https://api.yourdomain.com/api/integrations/youtube/callback
+       ```
+
+> **Why is the redirect URI required and how does it transition to Production?**
+> - **Strict Security Validation:** Google OAuth strictly validates that the `redirect_uri` sent in the authorization request matches an Authorized Redirect URI registered in the Google Cloud Console character-for-character. If there is any discrepancy, Google prevents login with a `redirect_uri_mismatch` error.
+> - **Zero Codebase Changes for Production:** Google allows you to register multiple redirect URIs under the same OAuth Client ID (or configure distinct clients for dev and prod). The backend reads this value dynamically from the `GOOGLE_REDIRECT_URI` environment variable in `backend/.env`. In production, you simply add your production URL to Google Console and change the environment variable on your server—no application code needs to be modified.
+
+6. Save the **Client ID** and **Client Secret** in `backend/.env`.
 
 ### B. YouTube WebSub (PubSubHubbub) Real-Time Video Alerts
 - YouTube WebSub automatically delivers real-time Atom XML notifications when subscribed channels upload new videos.

@@ -61,6 +61,7 @@ export interface TrackedSource {
   platform: string;
   sourceId: string;
   sourceName: string;
+  thumbnailUrl?: string | null;
   createdAt: string;
 }
 
