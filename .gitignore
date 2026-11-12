@@ -1,0 +1,54 @@
+# Dependencies
+node_modules
+node_modules/
+.pnp
+.pnp.js
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+backend/.env.local
+mobile/ios/.xcode.env.local
+!mobile/ios/.xcode.env
+!backend/.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# macOS
+.DS_Store
+*.swp
+*.swo
+
+# Mobile - React Native
+mobile/node_modules/
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/.idea/
+mobile/android/*.iml
+mobile/ios/Pods/
+mobile/ios/build/
+mobile/ios/*.xcworkspace/xcuserdata/
+mobile/ios/*.xcodeproj/xcuserdata/
+mobile/ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+mobile/.bundle/
+mobile/vendor/
+
+# Backend
+backend/node_modules/
+backend/dist/
+backend/coverage/
+
+# IDE
+.idea/
+.vscode/
+

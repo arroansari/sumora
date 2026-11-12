@@ -1,0 +1,24 @@
+{
+  "name": "sumora",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sumora - AI-Powered Social Media Content Aggregator",
+  "scripts": {
+    "mobile:start": "npm --prefix mobile start",
+    "mobile:android": "npm --prefix mobile run android",
+    "mobile:ios": "npm --prefix mobile run ios",
+    "backend:start": "npm --prefix backend start",
+    "backend:dev": "npm --prefix backend run dev",
+    "backend:test": "npm --prefix backend test"
+  },
+  "keywords": [
+    "sumora",
+    "react-native",
+    "node",
+    "express",
+    "ai",
+    "aggregator"
+  ],
+  "author": "Arman",
+  "license": "UNLICENSED"
+}

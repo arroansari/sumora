@@ -1,0 +1,156 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                      String                   @id @default(uuid())
+  email                   String                   @unique
+  passwordHash            String
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+
+  connectedAccounts       ConnectedAccount[]
+  trackedSources          TrackedSource[]
+  notificationPreferences NotificationPreference[]
+  deviceTokens            DeviceToken[]
+
+  @@map("users")
+}
+
+model ConnectedAccount {
+  id             String         @id @default(uuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform       String         // e.g. "youtube", "reddit"
+  platformUserId String?
+  connectedAt    DateTime       @default(now())
+  status         String         @default("active") // "active", "expired", "revoked"
+
+  token          PlatformToken?
+
+  @@unique([userId, platform])
+  @@map("connected_accounts")
+}
+
+model PlatformToken {
+  id                    String           @id @default(uuid())
+  connectedAccountId    String           @unique
+  connectedAccount      ConnectedAccount @relation(fields: [connectedAccountId], references: [id], onDelete: Cascade)
+  encryptedAccessToken  String           @db.Text
+  encryptedRefreshToken String?          @db.Text
+  expiresAt             DateTime?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  @@map("platform_tokens")
+}
+
+model TrackedSource {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform   String   // e.g. "youtube"
+  sourceId   String   // e.g. YouTube channel ID
+  sourceName String
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, platform, sourceId])
+  @@index([platform, sourceId])
+  @@map("tracked_sources")
+}
+
+model Video {
+  id               String           @id @default(uuid())
+  videoId          String           @unique // Unique external video ID (e.g. YouTube video ID)
+  channelId        String           // External channel ID
+  title            String
+  description      String?          @db.Text
+  thumbnailUrl     String?
+  videoUrl         String
+  publishedAt      DateTime
+  transcriptStatus String           @default("pending") // "pending", "fetching_transcript", "processing", "completed", "transcript_unavailable", "failed"
+  summaryStatus    String           @default("pending") // "pending", "fetching_transcript", "processing", "completed", "transcript_unavailable", "failed"
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  transcript       VideoTranscript?
+  summary          VideoSummary?
+
+  @@index([channelId])
+  @@index([publishedAt])
+  @@map("videos")
+}
+
+model VideoTranscript {
+  id        String   @id @default(uuid())
+  videoId   String   @unique
+  video     Video    @relation(fields: [videoId], references: [videoId], onDelete: Cascade)
+  language  String   @default("en")
+  source    String   // e.g. "youtube_captions", "user_provided", "authorized_provider"
+  fullText  String   @db.Text
+  segments  Json     // Array of { start: number, duration: number, text: string }
+  status    String   @default("completed") // "completed", "unavailable", "failed"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("video_transcripts")
+}
+
+model VideoSummary {
+  id                String   @id @default(uuid())
+  videoId           String   @unique
+  video             Video    @relation(fields: [videoId], references: [videoId], onDelete: Cascade)
+  overview          String   @db.Text
+  keyPoints         Json     // Array of key points
+  importantConcepts Json     // Array of { concept: string, explanation: string } or list of concepts
+  detailedSummary   String   @db.Text
+  conclusion        String   @db.Text
+  topicsCovered     Json     // Array of topic strings
+  aiProvider        String   // e.g. "gemini", "openai"
+  modelName         String   // e.g. "gemini-1.5-flash", "gpt-4o-mini"
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("video_summaries")
+}
+
+model NotificationPreference {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform  String   // e.g. "youtube"
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, platform])
+  @@map("notification_preferences")
+}
+
+model DeviceToken {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceToken String
+  platform    String   // "ios", "android"
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, deviceToken])
+  @@map("device_tokens")
+}
+
+model SyncJob {
+  id           String    @id @default(uuid())
+  platform     String    // e.g. "youtube"
+  status       String    @default("pending") // "pending", "in_progress", "completed", "failed"
+  lastSyncedAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("sync_jobs")
+}
