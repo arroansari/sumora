@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   ListRenderItemInfo,
+  Modal,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
@@ -146,6 +147,7 @@ export const NotificationsScreen: React.FC = () => {
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [muteFilter, setMuteFilter] = useState<MuteFilter>('all');
   const [sortFilter, setSortFilter] = useState<SortFilter>('newest');
+  const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
 
   const fetchNotificationData = useCallback(async () => {
     const [prefs, channels, accounts] = await Promise.all([
@@ -309,6 +311,8 @@ export const NotificationsScreen: React.FC = () => {
 
   const allMuted = mutedCount === sources.length && sources.length > 0;
   const anyMuted = mutedCount > 0;
+  const activeCount = sources.length - mutedCount;
+  const hasActiveFilter = muteFilter !== 'all' || sortFilter !== 'newest';
 
   // ── Render helpers ─────────────────────────────────────────────────────────
 
@@ -366,43 +370,42 @@ export const NotificationsScreen: React.FC = () => {
 
         {sources.length > 0 && (
           <>
-            {/* Search bar */}
-            <View style={styles.searchContainer}>
-              <SearchBar
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Search channels to mute or unmute..."
-              />
+            {/* Search bar + Filters modal button */}
+            <View style={styles.searchRow}>
+              <View style={styles.searchBarWrapper}>
+                <SearchBar
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Search channels to mute or unmute..."
+                />
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.filterBtn,
+                  hasActiveFilter && styles.filterBtnActive,
+                ]}
+                onPress={() => setShowFilterModal(true)}
+                activeOpacity={0.8}>
+                <Text
+                  style={[
+                    styles.filterBtnText,
+                    hasActiveFilter && styles.filterBtnTextActive,
+                  ]}>
+                  ⚡ Filters{muteFilter !== 'all' ? ` (${muteFilter === 'active' ? 'Active' : 'Muted'})` : ''}
+                </Text>
+                {hasActiveFilter && <View style={styles.activeFilterIndicator} />}
+              </TouchableOpacity>
             </View>
 
-            {/* Mute/active filter pills */}
-            <FilterPills<MuteFilter>
-              options={MUTE_FILTER_OPTIONS}
-              selectedValue={muteFilter}
-              onSelect={setMuteFilter}
-              style={styles.filterPillsRow}
-            />
-
-            {/* Sort pills */}
-            <FilterPills<SortFilter>
-              options={SORT_OPTIONS}
-              selectedValue={sortFilter}
-              onSelect={setSortFilter}
-              style={styles.filterPillsRowSecond}
-            />
-
-            {/* Bulk action row */}
+            {/* Filter status & Bulk action row */}
             <View style={styles.bulkActionRow}>
-              {searchQuery.trim().length > 0 && (
-                <Text style={styles.searchMetaText}>
-                  {filteredSources.length} of {sources.length} channels
-                </Text>
-              )}
-              {mutedCount > 0 && searchQuery.trim().length === 0 && (
-                <Text style={styles.searchMetaText}>
-                  {mutedCount} muted
-                </Text>
-              )}
+              <Text style={styles.searchMetaText}>
+                {searchQuery.trim().length > 0
+                  ? `${filteredSources.length} of ${sources.length} channels`
+                  : muteFilter !== 'all'
+                  ? `${filteredSources.length} ${muteFilter} channels • ${SORT_OPTIONS.find((s) => s.value === sortFilter)?.label || 'Sorted'}`
+                  : `${sources.length} channels (${activeCount} active)`}
+              </Text>
               <View style={{ flex: 1 }} />
               {anyMuted ? (
                 <TouchableOpacity
@@ -435,8 +438,10 @@ export const NotificationsScreen: React.FC = () => {
       sources.length,
       searchQuery,
       filteredSources.length,
+      hasActiveFilter,
       muteFilter,
       sortFilter,
+      activeCount,
       mutedCount,
       anyMuted,
       handleMuteAll,
@@ -530,6 +535,121 @@ export const NotificationsScreen: React.FC = () => {
           />
         }
       />
+
+      {/* ── Filter & Sort Modal ────────────────────────────────────────── */}
+      <Modal
+        visible={showFilterModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFilterModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>⚡ Filter & Sort Alerts</Text>
+              <TouchableOpacity
+                onPress={() => setShowFilterModal(false)}
+                style={styles.modalCloseBtn}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Section 1: Alert Status */}
+            <Text style={styles.modalSectionTitle}>Alert Status</Text>
+            <View style={styles.modalGrid}>
+              <TouchableOpacity
+                style={[
+                  styles.modalChip,
+                  muteFilter === 'all' && styles.modalChipActive,
+                ]}
+                onPress={() => setMuteFilter('all')}
+                activeOpacity={0.75}>
+                <Text
+                  style={[
+                    styles.modalChipText,
+                    muteFilter === 'all' && styles.modalChipTextActive,
+                  ]}>
+                  🔔 All Channels ({sources.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalChip,
+                  muteFilter === 'active' && styles.modalChipActive,
+                ]}
+                onPress={() => setMuteFilter('active')}
+                activeOpacity={0.75}>
+                <Text
+                  style={[
+                    styles.modalChipText,
+                    muteFilter === 'active' && styles.modalChipTextActive,
+                  ]}>
+                  ✅ Active Alerts ({activeCount})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalChip,
+                  muteFilter === 'muted' && styles.modalChipActive,
+                ]}
+                onPress={() => setMuteFilter('muted')}
+                activeOpacity={0.75}>
+                <Text
+                  style={[
+                    styles.modalChipText,
+                    muteFilter === 'muted' && styles.modalChipTextActive,
+                  ]}>
+                  🔕 Muted Channels ({mutedCount})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Section 2: Sort Order */}
+            <Text style={styles.modalSectionTitle}>Sort Order</Text>
+            <View style={styles.modalGrid}>
+              {SORT_OPTIONS.map((opt) => {
+                const isActive = sortFilter === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[styles.modalChip, isActive && styles.modalChipActive]}
+                    onPress={() => setSortFilter(opt.value)}
+                    activeOpacity={0.75}>
+                    <Text
+                      style={[
+                        styles.modalChipText,
+                        isActive && styles.modalChipTextActive,
+                      ]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Footer Buttons */}
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalSecondaryBtn}
+                onPress={() => {
+                  setMuteFilter('all');
+                  setSortFilter('newest');
+                }}
+                activeOpacity={0.75}>
+                <Text style={styles.modalSecondaryBtnText}>Reset</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalPrimaryBtn}
+                onPress={() => setShowFilterModal(false)}
+                activeOpacity={0.8}>
+                <Text style={styles.modalPrimaryBtnText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
