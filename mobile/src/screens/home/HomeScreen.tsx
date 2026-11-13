@@ -10,6 +10,7 @@ import {
   ListRenderItemInfo,
   TextInput,
   Alert,
+  Modal,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -130,6 +131,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [urlInput, setUrlInput] = useState<string>('');
   const [importing, setImporting] = useState<boolean>(false);
+  const [showImportModal, setShowImportModal] = useState<boolean>(false);
 
   const handleGlobalImport = useCallback(async () => {
     if (!urlInput.trim()) {
@@ -140,6 +142,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     setImporting(true);
     try {
       const imported = await videosApi.importByUrl(urlInput.trim());
+      setShowImportModal(false);
       setUrlInput('');
 
       // Prepend to feed immediately so it appears at top of Activity Feed
@@ -238,40 +241,19 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Video Activity Feed</Text>
-        <Text style={styles.headerSubtitle}>AI-distilled summaries from your followed channels</Text>
-      </View>
-
-      {/* ── Global "Summarize Any Video" Action Card ── */}
-      <View style={styles.globalImportCard}>
-        <View style={styles.globalImportHeader}>
-          <Text style={styles.globalImportTitle}>✨ Summarize Any Video</Text>
-          <View style={styles.globalImportBadge}>
-            <Text style={styles.globalImportBadgeText}>PASTE LINK</Text>
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerTitles}>
+            <Text style={styles.headerTitle}>Video Activity Feed</Text>
+            <Text style={styles.headerSubtitle}>
+              AI-distilled summaries from your followed channels
+            </Text>
           </View>
-        </View>
 
-        <View style={styles.globalImportInputRow}>
-          <TextInput
-            style={styles.globalImportInput}
-            placeholder="Paste any YouTube URL or Shorts link…"
-            placeholderTextColor={colors.textMuted}
-            value={urlInput}
-            onChangeText={setUrlInput}
-            autoCapitalize="none"
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-          />
           <TouchableOpacity
-            style={styles.globalImportBtn}
-            onPress={handleGlobalImport}
-            activeOpacity={0.8}
-            disabled={importing}>
-            {importing ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.globalImportBtnText}>Distill ✨</Text>
-            )}
+            style={styles.addLinkBtn}
+            onPress={() => setShowImportModal(true)}
+            activeOpacity={0.8}>
+            <Text style={styles.addLinkBtnText}>+ Summarize</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -309,6 +291,62 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
           }
         />
       )}
+
+      {/* ── Modal: Paste YouTube Link to Summarize ── */}
+      <Modal
+        visible={showImportModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowImportModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>✨ Summarize Any Video</Text>
+              <TouchableOpacity
+                onPress={() => setShowImportModal(false)}
+                style={styles.modalCloseBtn}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSub}>
+              Paste any YouTube video link or Shorts URL to generate an AI summary instantly:
+            </Text>
+
+            <TextInput
+              style={styles.modalInput}
+              placeholder="https://www.youtube.com/watch?v=..."
+              placeholderTextColor={colors.textMuted}
+              value={urlInput}
+              onChangeText={setUrlInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+            />
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalSecondaryBtn}
+                onPress={() => setShowImportModal(false)}
+                activeOpacity={0.75}
+                disabled={importing}>
+                <Text style={styles.modalSecondaryBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalPrimaryBtn}
+                onPress={handleGlobalImport}
+                activeOpacity={0.8}
+                disabled={importing}>
+                {importing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalPrimaryBtnText}>Distill Video ✨</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
