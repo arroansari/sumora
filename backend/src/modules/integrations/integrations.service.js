@@ -269,9 +269,29 @@ class IntegrationsService {
 
     let totalUpserted = 0;
     for (const id of channelIds) {
-      // Pre-distill the newest uploads in the background so summaries are ready instantly when opened
+      // 1. Pre-distill the newest uploads in the background via RSS
       const result = await webSubService.backfillChannelFeed(id, { triggerPipeline: true });
       totalUpserted += result.upserted;
+
+      // 2. Priority Summaries: Also trigger any existing uploads for this channel that are pending or failed
+      const pendingVideos = await prisma.video.findMany({
+        where: {
+          channelId: id,
+          summaryStatus: { in: ['pending', 'failed'] },
+        },
+        orderBy: { publishedAt: 'desc' },
+        take: 3,
+      });
+
+      const inlinePipeline = require('../pipeline/inline-pipeline.service');
+      for (const vid of pendingVideos) {
+        inlinePipeline.fireAndForget({
+          videoId: vid.videoId,
+          channelId: vid.channelId,
+          title: vid.title,
+          videoUrl: vid.videoUrl,
+        });
+      }
     }
 
     return { success: true, channelsProcessed: channelIds.length, videosUpserted: totalUpserted };
