@@ -24,6 +24,12 @@ router.post('/youtube/sync', authenticate, (req, res, next) =>
   integrationsController.syncYouTube(req, res, next)
 );
 
+// Backfill recent videos from YouTube public RSS feed (no API key needed)
+// ?channelId=UC... to backfill a single channel; omit to backfill all tracked channels
+router.post('/youtube/backfill', authenticate, (req, res, next) =>
+  integrationsController.backfillChannel(req, res, next)
+);
+
 // Disconnect integration
 router.delete('/:id', authenticate, (req, res, next) =>
   integrationsController.disconnect(req, res, next)

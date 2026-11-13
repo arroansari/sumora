@@ -114,6 +114,16 @@ export const integrationsApi = {
       method: 'DELETE',
     });
   },
+
+  backfillChannel: async (channelId?: string): Promise<{ channelsProcessed: number; videosUpserted: number }> => {
+    const url = channelId
+      ? `/integrations/youtube/backfill?channelId=${encodeURIComponent(channelId)}`
+      : '/integrations/youtube/backfill';
+    const res = await request<{ data: { channelsProcessed: number; videosUpserted: number } }>(url, {
+      method: 'POST',
+    });
+    return res.data;
+  },
 };
 
 // Tracked Sources API

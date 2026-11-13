@@ -13,7 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
-import { videosApi } from '../../services/api';
+import { videosApi, integrationsApi } from '../../services/api';
 import { VideoItem } from '../../types/models.types';
 import { RootStackParamList } from '../../types/navigation.types';
 import { FilterPills, FilterPillOption } from '../../components/atoms/FilterPills';
@@ -198,6 +198,7 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>('week');
+  const [backfilling, setBackfilling] = useState(false);
 
   // ── Data fetching ─────────────────────────────────────────────────────────
 
@@ -213,26 +214,55 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     [channelId]
   );
 
+  /**
+   * Backfill recent uploads from YouTube's public RSS feed.
+   * Called automatically on first load when the DB has no videos for this channel.
+   */
+  const backfillAndRefetch = useCallback(
+    async (isMountedRef: { current: boolean }) => {
+      setBackfilling(true);
+      try {
+        await integrationsApi.backfillChannel(channelId);
+      } catch (err: any) {
+        console.warn('[ChannelDetail] Backfill error:', err.message);
+      } finally {
+        if (isMountedRef.current) setBackfilling(false);
+      }
+      // Re-fetch with "All Time" after backfill so we always show something
+      const all = await fetchVideos('custom').catch(() => []);
+      if (isMountedRef.current && all.length > 0) {
+        setVideos(all);
+        setDateRange('custom');
+      }
+    },
+    [channelId, fetchVideos]
+  );
+
   useFocusEffect(
     useCallback(() => {
-      let isMounted = true;
+      let isMountedRef = { current: true };
       setLoading(true);
 
       fetchVideos(dateRange)
-        .then((vids) => {
-          if (isMounted) setVideos(vids);
+        .then(async (vids) => {
+          if (!isMountedRef.current) return;
+          setVideos(vids);
+          // If no videos at all in DB for this channel, do a one-time RSS backfill
+          if (vids.length === 0 && dateRange === 'week') {
+            await backfillAndRefetch(isMountedRef);
+          }
         })
         .catch((err) =>
           console.warn('[ChannelDetail] Load error:', err.message)
         )
         .finally(() => {
-          if (isMounted) setLoading(false);
+          if (isMountedRef.current) setLoading(false);
         });
 
       return () => {
-        isMounted = false;
+        isMountedRef.current = false;
       };
-    }, [fetchVideos, dateRange])
+    }, [fetchVideos, dateRange, backfillAndRefetch])
   );
 
   const handleDateRangeChange = useCallback(
@@ -379,7 +409,9 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           {ListHeader}
           <View style={styles.loadingBox}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading videos…</Text>
+            <Text style={styles.loadingText}>
+              {backfilling ? 'Fetching recent videos…' : 'Loading videos…'}
+            </Text>
           </View>
         </>
       ) : (

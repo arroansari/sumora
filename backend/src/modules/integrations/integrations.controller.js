@@ -96,6 +96,16 @@ class IntegrationsController {
       next(error);
     }
   }
+
+  async backfillChannel(req, res, next) {
+    try {
+      const channelId = req.query.channelId || null;
+      const result = await integrationsService.backfillChannelVideos(req.user.id, channelId);
+      res.status(200).json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new IntegrationsController();

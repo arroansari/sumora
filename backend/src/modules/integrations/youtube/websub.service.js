@@ -248,6 +248,65 @@ class WebSubService {
       entries,
     };
   }
+  /**
+   * Fetches recent uploads for a single YouTube channel using the public RSS feed
+   * (no API key required) and upserts them into the videos table.
+   * YouTube's public feed returns up to the last 15 uploads.
+   *
+   * @param {string} channelId
+   * @param {Object} [opts]
+   * @param {boolean} [opts.triggerPipeline=false] - whether to fire transcript/summary pipeline
+   * @returns {Promise<{upserted: number, entries: Array}>}
+   */
+  async backfillChannelFeed(channelId, { triggerPipeline = false } = {}) {
+    const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+
+    let xmlText;
+    try {
+      const response = await axios.get(feedUrl, { timeout: 10000 });
+      xmlText = response.data;
+    } catch (err) {
+      console.warn(`[WebSub] Failed to fetch RSS feed for channel ${channelId}:`, err.message);
+      return { upserted: 0, entries: [] };
+    }
+
+    const entries = this.parseAtomFeed(xmlText);
+    if (!entries.length) return { upserted: 0, entries: [] };
+
+    let upserted = 0;
+    for (const entry of entries) {
+      await prisma.video.upsert({
+        where: { videoId: entry.videoId },
+        create: {
+          videoId: entry.videoId,
+          channelId: entry.channelId,
+          title: entry.title,
+          videoUrl: entry.videoUrl,
+          publishedAt: new Date(entry.publishedAt),
+          transcriptStatus: 'pending',
+          summaryStatus: 'pending',
+        },
+        update: {
+          title: entry.title,
+          videoUrl: entry.videoUrl,
+          publishedAt: new Date(entry.publishedAt),
+        },
+      });
+      upserted++;
+
+      if (triggerPipeline) {
+        inlinePipeline.fireAndForget({
+          videoId: entry.videoId,
+          channelId: entry.channelId,
+          title: entry.title,
+          videoUrl: entry.videoUrl,
+        });
+      }
+    }
+
+    console.log(`[WebSub] Backfill: upserted ${upserted} videos for channel ${channelId}`);
+    return { upserted, entries };
+  }
 }
 
 module.exports = new WebSubService();

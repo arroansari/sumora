@@ -237,6 +237,44 @@ class IntegrationsService {
 
     return { success: true, message: `Successfully disconnected ${account.platform}` };
   }
+
+  /**
+   * Backfills recent videos for a specific tracked channel (or all tracked channels)
+   * by fetching YouTube's public RSS feed. No API key required.
+   * @param {string} userId
+   * @param {string|null} channelId - if provided, only backfill this channel
+   */
+  async backfillChannelVideos(userId, channelId = null) {
+    // Get channels to backfill — single or all tracked
+    let channelIds;
+    if (channelId) {
+      // Verify user tracks this channel
+      const source = await prisma.trackedSource.findFirst({
+        where: { userId, sourceId: channelId, platform: 'youtube' },
+        select: { sourceId: true },
+      });
+      if (!source) {
+        const error = new Error('Channel not tracked by user');
+        error.status = 403;
+        throw error;
+      }
+      channelIds = [channelId];
+    } else {
+      const sources = await prisma.trackedSource.findMany({
+        where: { userId, platform: 'youtube' },
+        select: { sourceId: true },
+      });
+      channelIds = sources.map((s) => s.sourceId);
+    }
+
+    let totalUpserted = 0;
+    for (const id of channelIds) {
+      const result = await webSubService.backfillChannelFeed(id, { triggerPipeline: false });
+      totalUpserted += result.upserted;
+    }
+
+    return { success: true, channelsProcessed: channelIds.length, videosUpserted: totalUpserted };
+  }
 }
 
 module.exports = new IntegrationsService();
