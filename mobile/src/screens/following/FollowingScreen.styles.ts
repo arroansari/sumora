@@ -259,4 +259,119 @@ export const createFollowingStyles = (colors: ThemeColors) =>
       marginTop: 8,
       marginBottom: 2,
     },
+
+    // ── Priority Summaries Banner ───────────────────────────────────────────
+    priorityBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 14,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: '#F59E0B40',
+      backgroundColor: '#FEF3C7',
+      marginBottom: 12,
+      gap: 12,
+    },
+    priorityBannerIcon: {
+      fontSize: 22,
+    },
+    priorityBannerTextWrap: {
+      flex: 1,
+    },
+    priorityBannerTitle: {
+      fontSize: 13.5,
+      fontWeight: '800',
+      color: '#92400E',
+      marginBottom: 2,
+    },
+    priorityBannerSub: {
+      fontSize: 12,
+      lineHeight: 16,
+      color: '#B45309',
+    },
+
+    // ── Category Pills Row ──────────────────────────────────────────────────
+    categoryPillsRow: {
+      marginHorizontal: -16,
+      paddingHorizontal: 16,
+      marginTop: 10,
+      marginBottom: 6,
+    },
+    categoryChip: {
+      paddingHorizontal: 13,
+      paddingVertical: 8,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceSubtle,
+    },
+    categoryChipActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary + '18',
+    },
+    categoryChipText: {
+      fontSize: 12.5,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    categoryChipTextActive: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+
+    // ── Section Headers ─────────────────────────────────────────────────────
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+      paddingHorizontal: 4,
+      marginTop: 8,
+      marginBottom: 6,
+      backgroundColor: colors.background,
+    },
+    sectionTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    sectionTitle: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      letterSpacing: -0.2,
+    },
+    sectionBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 10,
+      backgroundColor: colors.surfaceHighlight,
+    },
+    sectionBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.textSecondary,
+    },
+
+    // ── Star / Favorite Button ──────────────────────────────────────────────
+    sourceActionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    starBtn: {
+      padding: 6,
+      borderRadius: 8,
+      backgroundColor: colors.surfaceSubtle,
+    },
+    starBtnActive: {
+      backgroundColor: '#FEF3C7',
+    },
+    starIcon: {
+      fontSize: 17,
+      color: colors.textMuted,
+    },
+    starIconActive: {
+      color: '#F59E0B',
+    },
   });

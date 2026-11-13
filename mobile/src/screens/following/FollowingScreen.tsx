@@ -3,17 +3,18 @@ import React, {
   useMemo,
   useCallback,
   useDeferredValue,
+  useEffect,
 } from 'react';
 import {
   View,
   Text,
-  FlatList,
+  SectionList,
   TouchableOpacity,
   Alert,
   TextInput,
   ActivityIndicator,
   RefreshControl,
-  ListRenderItemInfo,
+  ScrollView,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -29,7 +30,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation.types';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types & Categories ───────────────────────────────────────────────────────
 
 type SortFilter = 'newest' | 'oldest' | 'a_z' | 'z_a';
 
@@ -40,7 +41,111 @@ const SORT_OPTIONS: FilterPillOption<SortFilter>[] = [
   { label: 'Z → A', value: 'z_a' },
 ];
 
-/** AsyncStorage key to track whether the YouTube thumbnail sync has already run. */
+export type CategoryId =
+  | 'all'
+  | 'favorites'
+  | 'tech'
+  | 'business'
+  | 'news'
+  | 'design'
+  | 'food'
+  | 'entertainment'
+  | 'education'
+  | 'other';
+
+interface CategoryConfig {
+  id: CategoryId;
+  label: string;
+  icon: string;
+  keywords: string[];
+}
+
+export const CATEGORIES: CategoryConfig[] = [
+  {
+    id: 'favorites',
+    label: 'Favorites (Priority)',
+    icon: '⭐',
+    keywords: [],
+  },
+  {
+    id: 'tech',
+    label: 'Tech & Dev',
+    icon: '💻',
+    keywords: [
+      'tech', 'code', 'dev', 'programming', 'software', 'python', 'javascript',
+      'react', 'flutter', 'engineer', 'ai', 'cloud', 'cyber', 'gadget', 'computer',
+      'linux', 'data', 'terminal', 'algo', 'stack', 'web', 'geek',
+    ],
+  },
+  {
+    id: 'business',
+    label: 'Business & Finance',
+    icon: '💼',
+    keywords: [
+      'business', 'finance', 'money', 'invest', 'crypto', 'stock', 'market',
+      'startup', 'wealth', 'economy', 'trade', 'real estate', 'bank', 'capital',
+      'venture', 'fund', 'sales',
+    ],
+  },
+  {
+    id: 'news',
+    label: 'News & Politics',
+    icon: '📰',
+    keywords: [
+      'news', 'aaj tak', 'ndtv', 'bbc', 'cnn', 'politics', 'live', 'report',
+      'press', 'times', 'wire', 'daily', 'abp', 'zee', 'bharat', 'current',
+      'affairs', 'media', 'bulletin',
+    ],
+  },
+  {
+    id: 'design',
+    label: 'Design & Creative',
+    icon: '🎨',
+    keywords: [
+      'design', 'photoshop', 'figma', 'art', 'animation', 'creative', 'ui', 'ux',
+      'illustrator', '3d', 'blender', 'drawing', 'vfx', 'graphics', 'photo',
+      'camera', 'editing',
+    ],
+  },
+  {
+    id: 'food',
+    label: 'Food & Cooking',
+    icon: '🍔',
+    keywords: [
+      'food', 'recipe', 'cook', 'kitchen', 'chef', 'taste', 'meal', 'baking',
+      'street food', 'eating', 'diet', 'delicious', 'spicy', 'restaurant',
+      'dish', 'culinary',
+    ],
+  },
+  {
+    id: 'entertainment',
+    label: 'Entertainment & Media',
+    icon: '🎬',
+    keywords: [
+      'drama', 'movie', 'cinema', 'music', 'song', 'comedy', 'gaming', 'games',
+      'entertainment', 'series', 'tv', 'show', 'clip', 'roast', 'vlog', 'fun',
+      'trailer', 'standup',
+    ],
+  },
+  {
+    id: 'education',
+    label: 'Education & Knowledge',
+    icon: '📚',
+    keywords: [
+      'study', 'learn', 'science', 'history', 'academy', 'course', 'physics',
+      'math', 'facts', 'documentary', 'space', 'geography', 'philosophy',
+      'mirza', 'islam', 'scholar', 'lecture', 'tutorial', 'insight',
+    ],
+  },
+  {
+    id: 'other',
+    label: 'Other Channels',
+    icon: '📺',
+    keywords: [],
+  },
+];
+
+const FAVORITES_STORAGE_KEY = 'sumora:favorite_channel_ids';
 const SYNC_DONE_KEY = 'sumora:yt_thumb_sync_done';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -52,6 +157,18 @@ const getInitials = (name: string): string => {
   }
   return name.slice(0, 2).toUpperCase();
 };
+
+function classifyChannel(sourceName: string, isFav: boolean): CategoryId {
+  if (isFav) return 'favorites';
+  const name = sourceName.toLowerCase();
+  for (const cat of CATEGORIES) {
+    if (cat.id === 'favorites' || cat.id === 'other') continue;
+    if (cat.keywords.some((k) => name.includes(k))) {
+      return cat.id;
+    }
+  }
+  return 'other';
+}
 
 const sortSources = (arr: TrackedSource[], filter: SortFilter): TrackedSource[] => {
   const copy = [...arr];
@@ -77,58 +194,81 @@ const sortSources = (arr: TrackedSource[], filter: SortFilter): TrackedSource[] 
   }
 };
 
-// ─── ChannelRow ──────────────────────────────────────────────────────────────
+// ─── ChannelRow Component ────────────────────────────────────────────────────
 
 interface ChannelRowProps {
   item: TrackedSource;
+  isFavorite: boolean;
   styles: ReturnType<typeof createFollowingStyles>;
   onToggle: (source: TrackedSource) => void;
+  onToggleFavorite: (source: TrackedSource) => void;
   onPress: (source: TrackedSource) => void;
 }
 
-const ChannelRow = React.memo<ChannelRowProps>(({ item, styles, onToggle, onPress }) => (
-  <TouchableOpacity style={styles.sourceCard} onPress={() => onPress(item)} activeOpacity={0.75}>
-    <View style={styles.sourceAvatar}>
-      {item.thumbnailUrl ? (
-        <FastImage
-          source={{
-            uri: item.thumbnailUrl,
-            priority: FastImage.priority.normal,
-            cache: FastImage.cacheControl.immutable,
-          }}
-          style={styles.sourceAvatarImage}
-          resizeMode={FastImage.resizeMode.cover}
-        />
-      ) : (
-        <Text style={styles.sourceAvatarText}>{getInitials(item.sourceName)}</Text>
-      )}
-    </View>
+const ChannelRow = React.memo<ChannelRowProps>(
+  ({ item, isFavorite, styles, onToggle, onToggleFavorite, onPress }) => (
+    <TouchableOpacity
+      style={styles.sourceCard}
+      onPress={() => onPress(item)}
+      activeOpacity={0.75}>
+      <View style={styles.sourceAvatar}>
+        {item.thumbnailUrl ? (
+          <FastImage
+            source={{
+              uri: item.thumbnailUrl,
+              priority: FastImage.priority.normal,
+              cache: FastImage.cacheControl.immutable,
+            }}
+            style={styles.sourceAvatarImage}
+            resizeMode={FastImage.resizeMode.cover}
+          />
+        ) : (
+          <Text style={styles.sourceAvatarText}>{getInitials(item.sourceName)}</Text>
+        )}
+      </View>
 
-    <View style={styles.sourceInfo}>
-      <Text style={styles.sourceName} numberOfLines={1}>
-        {item.sourceName}
-      </Text>
-      <Text style={styles.sourceIdText} numberOfLines={1}>
-        ID: {item.sourceId.slice(0, 18)}...
-      </Text>
-      <Text style={styles.sourceHint} numberOfLines={1}>
-        Tap to view summaries ›
-      </Text>
-    </View>
+      <View style={styles.sourceInfo}>
+        <Text style={styles.sourceName} numberOfLines={1}>
+          {item.sourceName}
+        </Text>
+        <Text style={styles.sourceIdText} numberOfLines={1}>
+          ID: {item.sourceId.slice(0, 18)}…
+        </Text>
+        <Text style={styles.sourceHint} numberOfLines={1}>
+          Tap to view summaries ›
+        </Text>
+      </View>
 
-    <TouchableOpacity style={styles.trackingButton} onPress={() => onToggle(item)}>
-      <Text style={styles.trackingButtonText}>Tracking ✓</Text>
+      <View style={styles.sourceActionRow}>
+        {/* Star / Favorite Priority Button */}
+        <TouchableOpacity
+          style={[styles.starBtn, isFavorite && styles.starBtnActive]}
+          onPress={() => onToggleFavorite(item)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}>
+          <Text style={[styles.starIcon, isFavorite && styles.starIconActive]}>
+            {isFavorite ? '⭐' : '☆'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Tracking Pill Button */}
+        <TouchableOpacity style={styles.trackingButton} onPress={() => onToggle(item)}>
+          <Text style={styles.trackingButtonText}>Tracking ✓</Text>
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
-  </TouchableOpacity>
-));
+  )
+);
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
+// ─── Main Following Screen ───────────────────────────────────────────────────
 
 export const FollowingScreen: React.FC = () => {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createFollowingStyles(colors), [colors]);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [sources, setSources] = useState<TrackedSource[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [isYouTubeConnected, setIsYouTubeConnected] = useState<boolean>(false);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
@@ -136,10 +276,25 @@ export const FollowingScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [sortFilter, setSortFilter] = useState<SortFilter>('newest');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId>('all');
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
   const [newChannelId, setNewChannelId] = useState<string>('');
   const [newChannelName, setNewChannelName] = useState<string>('');
   const [adding, setAdding] = useState<boolean>(false);
+
+  // Load persistent favorites from AsyncStorage
+  useEffect(() => {
+    AsyncStorage.getItem(FAVORITES_STORAGE_KEY).then((json) => {
+      if (json) {
+        try {
+          const ids = JSON.parse(json);
+          if (Array.isArray(ids)) setFavoriteIds(ids);
+        } catch {
+          // ignore parsing error
+        }
+      }
+    });
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -158,8 +313,6 @@ export const FollowingScreen: React.FC = () => {
             );
           }
 
-          // Backfill channel thumbnails only ONCE (first time channels have no thumbnails).
-          // We persist a flag so this never runs again on subsequent tab visits.
           if (data.length > 0 && !data.some((s) => Boolean(s.thumbnailUrl))) {
             const alreadySynced = await AsyncStorage.getItem(SYNC_DONE_KEY);
             if (!alreadySynced) {
@@ -168,19 +321,16 @@ export const FollowingScreen: React.FC = () => {
                 if (isMounted && synced.sources) {
                   setSources(synced.sources);
                 }
-                // Mark as done so we never call this endpoint again automatically
                 await AsyncStorage.setItem(SYNC_DONE_KEY, 'true');
               } catch {
-                // Ignore if YouTube account isn't connected or rate-limited
+                // ignore
               }
             }
           }
         } catch (err: any) {
           console.warn('[FollowingScreen] Failed to load sources:', err.message);
         } finally {
-          if (isMounted) {
-            setLoading(false);
-          }
+          if (isMounted) setLoading(false);
         }
       }
 
@@ -190,6 +340,28 @@ export const FollowingScreen: React.FC = () => {
         isMounted = false;
       };
     }, [])
+  );
+
+  // Toggle favorite / priority summarization
+  const handleToggleFavorite = useCallback(
+    async (source: TrackedSource) => {
+      const isFav = favoriteIds.includes(source.sourceId);
+      let updated: string[];
+
+      if (isFav) {
+        updated = favoriteIds.filter((id) => id !== source.sourceId);
+      } else {
+        updated = [...favoriteIds, source.sourceId];
+        // Priority auto-summarization trigger: when marked favorite, immediately backfill & pre-summarize in background
+        integrationsApi.backfillChannel(source.sourceId).catch((err) => {
+          console.warn('[FollowingScreen] Favorite backfill note:', err.message);
+        });
+      }
+
+      setFavoriteIds(updated);
+      await AsyncStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(updated));
+    },
+    [favoriteIds]
   );
 
   const handleSyncYouTube = useCallback(async () => {
@@ -208,18 +380,6 @@ export const FollowingScreen: React.FC = () => {
       setSyncing(false);
     }
   }, []);
-
-  const filteredSources = useMemo(() => {
-    const query = deferredSearchQuery.trim().toLowerCase();
-    const searched = query
-      ? sources.filter(
-          (s) =>
-            s.sourceName.toLowerCase().includes(query) ||
-            s.sourceId.toLowerCase().includes(query)
-        )
-      : sources;
-    return sortSources(searched, sortFilter);
-  }, [sources, deferredSearchQuery, sortFilter]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -280,10 +440,6 @@ export const FollowingScreen: React.FC = () => {
     }
   }, [newChannelId, newChannelName]);
 
-  // ── Render helpers ─────────────────────────────────────────────────────────
-
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-
   const handleChannelPress = useCallback(
     (source: TrackedSource) => {
       navigation.navigate('ChannelDetail', {
@@ -296,23 +452,187 @@ export const FollowingScreen: React.FC = () => {
     [navigation]
   );
 
+  // ── SectionList Categorization ─────────────────────────────────────────────
+
+  const sections = useMemo(() => {
+    const query = deferredSearchQuery.trim().toLowerCase();
+
+    // 1. Filter by search query if any
+    const searched = query
+      ? sources.filter(
+          (s) =>
+            s.sourceName.toLowerCase().includes(query) ||
+            s.sourceId.toLowerCase().includes(query)
+        )
+      : sources;
+
+    // 2. Group into category buckets
+    const bucketMap = new Map<CategoryId, TrackedSource[]>();
+    for (const cat of CATEGORIES) {
+      bucketMap.set(cat.id, []);
+    }
+
+    for (const source of searched) {
+      const isFav = favoriteIds.includes(source.sourceId);
+      const catId = classifyChannel(source.sourceName, isFav);
+      bucketMap.get(catId)?.push(source);
+    }
+
+    // 3. Build SectionList sections based on selectedCategory filter
+    const result: Array<{
+      id: CategoryId;
+      title: string;
+      icon: string;
+      data: TrackedSource[];
+    }> = [];
+
+    for (const cat of CATEGORIES) {
+      if (selectedCategory !== 'all' && selectedCategory !== cat.id) {
+        continue;
+      }
+
+      const items = bucketMap.get(cat.id) || [];
+      if (items.length > 0) {
+        result.push({
+          id: cat.id,
+          title: cat.label,
+          icon: cat.icon,
+          data: sortSources(items, sortFilter),
+        });
+      }
+    }
+
+    return result;
+  }, [sources, favoriteIds, deferredSearchQuery, selectedCategory, sortFilter]);
+
+  // Category counts for pills
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: sources.length };
+    for (const cat of CATEGORIES) {
+      counts[cat.id] = 0;
+    }
+    for (const s of sources) {
+      const isFav = favoriteIds.includes(s.sourceId);
+      const catId = classifyChannel(s.sourceName, isFav);
+      counts[catId] = (counts[catId] || 0) + 1;
+    }
+    return counts;
+  }, [sources, favoriteIds]);
+
   const keyExtractor = useCallback((item: TrackedSource) => item.id, []);
 
-  // Card height (90) + marginBottom (10) = 100px for O(1) FlatList virtualization
-  const getItemLayout = useCallback(
-    (_data: ArrayLike<TrackedSource> | null | undefined, index: number) => ({
-      length: 100,
-      offset: 100 * index,
-      index,
-    }),
-    []
+  const renderItem = useCallback(
+    ({ item }: { item: TrackedSource }) => (
+      <ChannelRow
+        item={item}
+        isFavorite={favoriteIds.includes(item.sourceId)}
+        styles={styles}
+        onToggle={handleToggleTracking}
+        onToggleFavorite={handleToggleFavorite}
+        onPress={handleChannelPress}
+      />
+    ),
+    [favoriteIds, styles, handleToggleTracking, handleToggleFavorite, handleChannelPress]
   );
 
-  const renderItem = useCallback(
-    ({ item }: ListRenderItemInfo<TrackedSource>) => (
-      <ChannelRow item={item} styles={styles} onToggle={handleToggleTracking} onPress={handleChannelPress} />
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: { id: CategoryId; title: string; icon: string; data: TrackedSource[] } }) => (
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleRow}>
+          <Text style={{ fontSize: 16 }}>{section.icon}</Text>
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+        </View>
+        <View style={styles.sectionBadge}>
+          <Text style={styles.sectionBadgeText}>
+            {section.data.length} channel{section.data.length !== 1 ? 's' : ''}
+          </Text>
+        </View>
+      </View>
     ),
-    [styles, handleToggleTracking, handleChannelPress]
+    [styles]
+  );
+
+  const ListHeader = useMemo(
+    () => (
+      <View>
+        {/* Suggestion Banner for Priority Summaries */}
+        <View style={styles.priorityBanner}>
+          <Text style={styles.priorityBannerIcon}>⭐</Text>
+          <View style={styles.priorityBannerTextWrap}>
+            <Text style={styles.priorityBannerTitle}>Priority AI Summaries</Text>
+            <Text style={styles.priorityBannerSub}>
+              Star your favorite channels! Sumora automatically pre-summarizes new uploads from starred channels in the background so they are ready instantly.
+            </Text>
+          </View>
+        </View>
+
+        {/* Search */}
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search tracked channels by name or ID…"
+        />
+
+        {/* Sort Pills */}
+        <FilterPills<SortFilter>
+          options={SORT_OPTIONS}
+          selectedValue={sortFilter}
+          onSelect={setSortFilter}
+          style={styles.filterPillsRow}
+        />
+
+        {/* Horizontal Category Switcher */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryPillsRow}
+          contentContainerStyle={{ gap: 8, paddingRight: 32 }}>
+          <TouchableOpacity
+            style={[
+              styles.categoryChip,
+              selectedCategory === 'all' && styles.categoryChipActive,
+            ]}
+            onPress={() => setSelectedCategory('all')}>
+            <Text
+              style={[
+                styles.categoryChipText,
+                selectedCategory === 'all' && styles.categoryChipTextActive,
+              ]}>
+              All ({sources.length})
+            </Text>
+          </TouchableOpacity>
+
+          {CATEGORIES.map((cat) => {
+            const count = categoryCounts[cat.id] || 0;
+            if (count === 0 && cat.id !== 'favorites') return null;
+            const isActive = selectedCategory === cat.id;
+
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                style={[styles.categoryChip, isActive && styles.categoryChipActive]}
+                onPress={() => setSelectedCategory(cat.id)}>
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    isActive && styles.categoryChipTextActive,
+                  ]}>
+                  {cat.icon} {cat.label} ({count})
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+    ),
+    [
+      styles,
+      searchQuery,
+      sortFilter,
+      selectedCategory,
+      sources.length,
+      categoryCounts,
+    ]
   );
 
   return (
@@ -340,132 +660,86 @@ export const FollowingScreen: React.FC = () => {
                 styles.toggleAddButtonText,
                 showAddForm && styles.toggleAddButtonTextActive,
               ]}>
-              {showAddForm ? 'Close' : '+ Add'}
+              {showAddForm ? '✕ Close' : '+ Add'}
             </Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.headerSubtitle}>
-          Manage subscribed channels for automatic AI summarization
+          Categorized channels with priority AI summarization
         </Text>
       </View>
 
-      {/* Collapsible Manual Add Channel Box */}
+      {/* Manual Add Form */}
       {showAddForm && (
         <View style={styles.addBox}>
-          <Text style={styles.addBoxTitle}>Track a Specific Channel</Text>
+          <Text style={styles.addBoxTitle}>Track a YouTube Channel</Text>
           <TextInput
             style={styles.input}
-            placeholder="Channel Name (e.g. Veritasium)"
+            placeholder="Channel Name (e.g. Marques Brownlee)"
             placeholderTextColor={colors.textMuted}
             value={newChannelName}
             onChangeText={setNewChannelName}
           />
           <TextInput
             style={styles.input}
-            placeholder="YouTube Channel ID (e.g. UCHnyfMqiRRG1u-2MsSQLbXA)"
+            placeholder="Channel ID (e.g. UCbXXXXXXXXXXXXXX)"
             placeholderTextColor={colors.textMuted}
             value={newChannelId}
             onChangeText={setNewChannelId}
             autoCapitalize="none"
+            autoCorrect={false}
           />
           <TouchableOpacity
             style={styles.addButton}
             onPress={handleAddManualChannel}
             disabled={adding}>
             {adding ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <Text style={styles.addButtonText}>+ Track Channel</Text>
+              <Text style={styles.addButtonText}>Start Tracking</Text>
             )}
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Search + Sort Filters */}
-      {sources.length > 0 && (
-        <View style={styles.searchSection}>
-          <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search tracked channels by name or ID..."
-          />
-
-          {/* Sort filter pills */}
-          <FilterPills<SortFilter>
-            options={SORT_OPTIONS}
-            selectedValue={sortFilter}
-            onSelect={setSortFilter}
-            style={styles.filterPillsRow}
-          />
-
-          {/* Search result count */}
-          {searchQuery.trim().length > 0 && (
-            <View style={styles.searchMetaRow}>
-              <Text style={styles.searchMetaText}>
-                {filteredSources.length} of {sources.length} channels
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
-
+      {/* Body: SectionList */}
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading channels...</Text>
+          <Text style={styles.loadingText}>Loading tracked channels…</Text>
         </View>
       ) : sources.length === 0 ? (
         <View style={styles.centerContainer}>
-          <Text style={{ fontSize: 44, marginBottom: 12 }}>
-            {isYouTubeConnected ? '📺' : '⭐️'}
-          </Text>
-          <Text style={styles.emptyTitle}>
-            {isYouTubeConnected ? 'No Channels Synced Yet' : 'No Channels Tracked'}
-          </Text>
+          <Text style={{ fontSize: 44, marginBottom: 12 }}>📡</Text>
+          <Text style={styles.emptyTitle}>No Channels Tracked</Text>
           <Text style={styles.emptySubtitle}>
-            {isYouTubeConnected
-              ? 'Your YouTube account is connected! Tap below to sync your subscribed channels.'
-              : 'Connect your YouTube account or tap "+ Add" above to start summarizing uploads.'}
+            Connect your YouTube account to automatically track your subscriptions, or add a channel manually above.
           </Text>
           {isYouTubeConnected && (
             <TouchableOpacity
               style={styles.syncEmptyButton}
               onPress={handleSyncYouTube}
-              disabled={syncing}
-              activeOpacity={0.8}>
+              disabled={syncing}>
               {syncing ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.syncEmptyButtonText}>↻ Sync YouTube Subscriptions</Text>
+                <Text style={styles.syncEmptyButtonText}>Sync YouTube Subscriptions</Text>
               )}
             </TouchableOpacity>
           )}
         </View>
-      ) : filteredSources.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <Text style={{ fontSize: 38, marginBottom: 10 }}>🔎</Text>
-          <Text style={styles.emptyTitle}>No Matching Channels</Text>
-          <Text style={styles.emptySubtitle}>
-            No tracked channels matched "{searchQuery}".
-          </Text>
-          <TouchableOpacity
-            style={styles.clearSearchButton}
-            onPress={() => setSearchQuery('')}>
-            <Text style={styles.clearSearchButtonText}>Clear Search</Text>
-          </TouchableOpacity>
-        </View>
       ) : (
-        <FlatList
-          data={filteredSources}
+        <SectionList
+          sections={sections}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
-          getItemLayout={getItemLayout}
+          renderSectionHeader={renderSectionHeader}
+          ListHeaderComponent={ListHeader}
           contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
-          initialNumToRender={12}
-          maxToRenderPerBatch={8}
-          updateCellsBatchingPeriod={50}
-          windowSize={5}
+          stickySectionHeadersEnabled={false}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={7}
           removeClippedSubviews={true}
           refreshControl={
             <RefreshControl
