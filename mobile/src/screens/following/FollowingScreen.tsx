@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  Modal,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -277,6 +278,7 @@ export const FollowingScreen: React.FC = () => {
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [sortFilter, setSortFilter] = useState<SortFilter>('newest');
   const [selectedCategory, setSelectedCategory] = useState<CategoryId>('all');
+  const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
   const [newChannelId, setNewChannelId] = useState<string>('');
   const [newChannelName, setNewChannelName] = useState<string>('');
@@ -555,31 +557,31 @@ export const FollowingScreen: React.FC = () => {
   const ListHeader = useMemo(
     () => (
       <View>
-        {/* Suggestion Banner for Priority Summaries */}
-        <View style={styles.priorityBanner}>
-          <Text style={styles.priorityBannerIcon}>⭐</Text>
-          <View style={styles.priorityBannerTextWrap}>
-            <Text style={styles.priorityBannerTitle}>Priority AI Summaries</Text>
-            <Text style={styles.priorityBannerSub}>
-              Star your favorite channels! Sumora automatically pre-summarizes new uploads from starred channels in the background so they are ready instantly.
-            </Text>
+        {/* Search Bar + Filter Button Row */}
+        <View style={styles.searchBarRow}>
+          <View style={{ flex: 1 }}>
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search channels by name or ID…"
+            />
           </View>
+          <TouchableOpacity
+            style={[
+              styles.filterBtn,
+              (selectedCategory !== 'all' || sortFilter !== 'newest') && styles.filterBtnActive,
+            ]}
+            onPress={() => setShowFilterModal(true)}
+            activeOpacity={0.8}>
+            <Text
+              style={[
+                styles.filterBtnText,
+                (selectedCategory !== 'all' || sortFilter !== 'newest') && styles.filterBtnTextActive,
+              ]}>
+              ⚡ Filters{selectedCategory !== 'all' ? ` (${CATEGORIES.find((c) => c.id === selectedCategory)?.icon || '1'})` : ''}
+            </Text>
+          </TouchableOpacity>
         </View>
-
-        {/* Search */}
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search tracked channels by name or ID…"
-        />
-
-        {/* Sort Pills */}
-        <FilterPills<SortFilter>
-          options={SORT_OPTIONS}
-          selectedValue={sortFilter}
-          onSelect={setSortFilter}
-          style={styles.filterPillsRow}
-        />
 
         {/* Horizontal Category Switcher */}
         <ScrollView
@@ -665,7 +667,7 @@ export const FollowingScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
         <Text style={styles.headerSubtitle}>
-          Categorized channels with priority AI summarization
+          Manage subscribed channels for automatic AI summarization
         </Text>
       </View>
 
@@ -750,6 +752,111 @@ export const FollowingScreen: React.FC = () => {
           }
         />
       )}
+
+      {/* ── Filter & Sort Modal ────────────────────────────────────────── */}
+      <Modal
+        visible={showFilterModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFilterModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>⚡ Filter & Sort Channels</Text>
+              <TouchableOpacity
+                onPress={() => setShowFilterModal(false)}
+                style={styles.modalCloseBtn}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Section 1: Categories */}
+            <Text style={styles.modalSectionTitle}>Category Filter</Text>
+            <View style={styles.modalGrid}>
+              <TouchableOpacity
+                style={[
+                  styles.modalChip,
+                  selectedCategory === 'all' && styles.modalChipActive,
+                ]}
+                onPress={() => setSelectedCategory('all')}
+                activeOpacity={0.75}>
+                <Text
+                  style={[
+                    styles.modalChipText,
+                    selectedCategory === 'all' && styles.modalChipTextActive,
+                  ]}>
+                  All Channels ({sources.length})
+                </Text>
+              </TouchableOpacity>
+
+              {CATEGORIES.map((cat) => {
+                const count = categoryCounts[cat.id] || 0;
+                if (count === 0 && cat.id !== 'favorites') return null;
+                const isActive = selectedCategory === cat.id;
+
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[styles.modalChip, isActive && styles.modalChipActive]}
+                    onPress={() => setSelectedCategory(cat.id)}
+                    activeOpacity={0.75}>
+                    <Text
+                      style={[
+                        styles.modalChipText,
+                        isActive && styles.modalChipTextActive,
+                      ]}>
+                      {cat.icon} {cat.label} ({count})
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Section 2: Sort Order */}
+            <Text style={styles.modalSectionTitle}>Sort Order</Text>
+            <View style={styles.modalGrid}>
+              {SORT_OPTIONS.map((opt) => {
+                const isActive = sortFilter === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[styles.modalChip, isActive && styles.modalChipActive]}
+                    onPress={() => setSortFilter(opt.value)}
+                    activeOpacity={0.75}>
+                    <Text
+                      style={[
+                        styles.modalChipText,
+                        isActive && styles.modalChipTextActive,
+                      ]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Footer Buttons */}
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalSecondaryBtn}
+                onPress={() => {
+                  setSelectedCategory('all');
+                  setSortFilter('newest');
+                }}
+                activeOpacity={0.75}>
+                <Text style={styles.modalSecondaryBtnText}>Reset</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalPrimaryBtn}
+                onPress={() => setShowFilterModal(false)}
+                activeOpacity={0.8}>
+                <Text style={styles.modalPrimaryBtnText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };

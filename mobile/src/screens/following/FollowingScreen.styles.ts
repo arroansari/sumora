@@ -260,41 +260,155 @@ export const createFollowingStyles = (colors: ThemeColors) =>
       marginBottom: 2,
     },
 
-    // ── Priority Summaries Banner ───────────────────────────────────────────
-    priorityBanner: {
+    // ── Search & Filter Row ─────────────────────────────────────────────────
+    searchBarRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 14,
-      borderRadius: 14,
+      gap: 10,
+      marginTop: 6,
+      marginBottom: 6,
+    },
+    filterBtn: {
+      height: 44,
+      paddingHorizontal: 14,
+      borderRadius: 12,
       borderWidth: 1,
-      borderColor: '#F59E0B40',
-      backgroundColor: '#FEF3C7',
-      marginBottom: 12,
-      gap: 12,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
     },
-    priorityBannerIcon: {
-      fontSize: 22,
+    filterBtnActive: {
+      borderColor: colors.primary,
+      backgroundColor: `${colors.primary}15`,
     },
-    priorityBannerTextWrap: {
+    filterBtnText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    filterBtnTextActive: {
+      color: colors.primary,
+    },
+
+    // ── Filter & Sort Modal ─────────────────────────────────────────────────
+    modalBackdrop: {
       flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.45)',
+      justifyContent: 'flex-end',
     },
-    priorityBannerTitle: {
-      fontSize: 13.5,
+    modalContent: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      padding: 24,
+      paddingBottom: 36,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: -4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
+      elevation: 10,
+      maxHeight: '85%',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    modalTitle: {
+      fontSize: 18,
       fontWeight: '800',
-      color: '#92400E',
-      marginBottom: 2,
+      color: colors.textPrimary,
+      letterSpacing: -0.2,
     },
-    priorityBannerSub: {
+    modalCloseBtn: {
+      padding: 4,
+    },
+    modalCloseText: {
+      fontSize: 18,
+      color: colors.textMuted,
+      fontWeight: '700',
+    },
+    modalSectionTitle: {
       fontSize: 12,
-      lineHeight: 16,
-      color: '#B45309',
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      color: colors.textMuted,
+      marginTop: 8,
+      marginBottom: 10,
+    },
+    modalGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 16,
+    },
+    modalChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceSubtle,
+    },
+    modalChipActive: {
+      borderColor: colors.primary,
+      backgroundColor: `${colors.primary}18`,
+    },
+    modalChipText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    modalChipTextActive: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    modalBtnRow: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 10,
+    },
+    modalPrimaryBtn: {
+      flex: 1,
+      height: 48,
+      borderRadius: 12,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalPrimaryBtnText: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    modalSecondaryBtn: {
+      height: 48,
+      paddingHorizontal: 18,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+    },
+    modalSecondaryBtnText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textSecondary,
     },
 
     // ── Category Pills Row ──────────────────────────────────────────────────
     categoryPillsRow: {
       marginHorizontal: -16,
       paddingHorizontal: 16,
-      marginTop: 10,
+      marginTop: 8,
       marginBottom: 6,
     },
     categoryChip: {
