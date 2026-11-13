@@ -3,7 +3,7 @@ const { BaseAIProvider, AIProviderError } = require('../ai.provider');
 const config = require('../../../config');
 
 class GeminiProvider extends BaseAIProvider {
-  constructor(apiKey = config.ai.geminiApiKey, modelName = 'gemini-1.5-flash') {
+  constructor(apiKey = config.ai.geminiApiKey, modelName = 'gemini-3.5-flash') {
     super();
     this.apiKey = apiKey;
     this._modelName = modelName;

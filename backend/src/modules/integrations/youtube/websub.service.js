@@ -194,6 +194,7 @@ class WebSubService {
           channelId: entry.channelId,
           title: entry.title,
           videoUrl: entry.videoUrl,
+          thumbnailUrl: `https://i.ytimg.com/vi/${entry.videoId}/hqdefault.jpg`,
           publishedAt: new Date(entry.publishedAt),
           transcriptStatus: 'pending',
           summaryStatus: 'pending',
@@ -201,6 +202,7 @@ class WebSubService {
         update: {
           title: entry.title,
           videoUrl: entry.videoUrl,
+          thumbnailUrl: `https://i.ytimg.com/vi/${entry.videoId}/hqdefault.jpg`,
         },
       });
 
@@ -282,6 +284,7 @@ class WebSubService {
           channelId: entry.channelId,
           title: entry.title,
           videoUrl: entry.videoUrl,
+          thumbnailUrl: `https://i.ytimg.com/vi/${entry.videoId}/hqdefault.jpg`,
           publishedAt: new Date(entry.publishedAt),
           transcriptStatus: 'pending',
           summaryStatus: 'pending',
@@ -289,6 +292,7 @@ class WebSubService {
         update: {
           title: entry.title,
           videoUrl: entry.videoUrl,
+          thumbnailUrl: `https://i.ytimg.com/vi/${entry.videoId}/hqdefault.jpg`,
           publishedAt: new Date(entry.publishedAt),
         },
       });

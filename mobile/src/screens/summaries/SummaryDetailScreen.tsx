@@ -1,14 +1,14 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   ScrollView,
-  Image,
   TouchableOpacity,
   Linking,
   ActivityIndicator,
   Share,
 } from 'react-native';
+import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import { useAppTheme } from '../../context/ThemeContext';
 import { videosApi } from '../../services/api';
 import { VideoItem, VideoSummary, SummaryStatus } from '../../types/models.types';
@@ -26,42 +26,102 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route }) => {
   const [video, setVideo] = useState<VideoItem | null>(null);
   const [summary, setSummary] = useState<VideoSummary | null>(null);
   const [status, setStatus] = useState<SummaryStatus>('pending');
-  const [statusMessage, setStatusMessage] = useState<string>('Your video summary is being prepared.');
+  const [statusMessage, setStatusMessage] = useState<string>('Generating your video summary…');
   const [loading, setLoading] = useState<boolean>(true);
+  const [generating, setGenerating] = useState<boolean>(false);
 
-  // Performance-oriented mount effect with strictly scoped fetching and cleanup
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startPolling = useCallback(() => {
+    if (pollTimerRef.current) return;
+
+    pollTimerRef.current = setInterval(async () => {
+      try {
+        const freshVideo = await videosApi.getVideo(videoId);
+        if (freshVideo.summaryStatus === 'completed' && freshVideo.summary) {
+          setVideo(freshVideo);
+          setSummary(freshVideo.summary);
+          setStatus('completed');
+          setGenerating(false);
+          if (pollTimerRef.current) {
+            clearInterval(pollTimerRef.current);
+            pollTimerRef.current = null;
+          }
+        } else if (freshVideo.summaryStatus === 'failed') {
+          setStatus('failed');
+          setStatusMessage('Failed to generate summary. Tap below to retry.');
+          setGenerating(false);
+          if (pollTimerRef.current) {
+            clearInterval(pollTimerRef.current);
+            pollTimerRef.current = null;
+          }
+        } else {
+          setStatus(freshVideo.summaryStatus);
+        }
+      } catch (err: any) {
+        console.warn('[SummaryDetail] Polling error:', err.message);
+      }
+    }, 2500);
+  }, [videoId]);
+
+  const handleTriggerSummary = useCallback(async () => {
+    setGenerating(true);
+    setStatus('processing');
+    setStatusMessage('Distilling video with Gemini AI…');
+    try {
+      await videosApi.triggerSummarize(videoId);
+      startPolling();
+    } catch (err: any) {
+      console.warn('[SummaryDetail] Trigger error:', err.message);
+      setGenerating(false);
+    }
+  }, [videoId, startPolling]);
+
   useEffect(() => {
     let isMounted = true;
 
-    async function loadSummaryData() {
+    async function loadInitialData() {
       try {
         const videoData = await videosApi.getVideo(videoId);
-        if (isMounted) {
-          setVideo(videoData);
-          setSummary(videoData.summary || null);
-          setStatus(videoData.summaryStatus);
+        if (!isMounted) return;
+
+        setVideo(videoData);
+        setSummary(videoData.summary || null);
+        setStatus(videoData.summaryStatus);
+
+        if (videoData.summaryStatus === 'completed') {
+          // Already complete, no need to trigger or poll
+          setLoading(false);
+          return;
         }
 
-        const statusData = await videosApi.getSummaryStatus(videoId);
-        if (isMounted) {
-          setStatus(statusData.status as SummaryStatus);
-          setStatusMessage(statusData.message);
+        // Auto-trigger summarization if not completed
+        try {
+          await videosApi.triggerSummarize(videoId);
+          setGenerating(true);
+          setStatus('processing');
+          setStatusMessage('Distilling video with Gemini AI…');
+          startPolling();
+        } catch (trigErr: any) {
+          console.warn('[SummaryDetail] Auto-trigger note:', trigErr.message);
         }
       } catch (err: any) {
-        console.warn('[SummaryDetail] Failed to fetch live summary:', err.message);
+        console.warn('[SummaryDetail] Initial load error:', err.message);
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        if (isMounted) setLoading(false);
       }
     }
 
-    loadSummaryData();
+    loadInitialData();
 
     return () => {
       isMounted = false;
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
     };
-  }, [videoId]);
+  }, [videoId, startPolling]);
 
   const handleShare = useCallback(() => {
     if (summary) {
@@ -76,26 +136,31 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route }) => {
     Linking.openURL(url);
   }, [summary?.originalVideoUrl, video?.videoUrl, videoId]);
 
+  const thumbnailUri =
+    video?.thumbnailUrl || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Loading summary details...</Text>
+        <Text style={styles.loadingText}>Loading video details…</Text>
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.container}>
-      {/* 1. Video Thumbnail */}
+      {/* 1. FastImage Video Thumbnail */}
       <View style={styles.thumbnailContainer}>
-        {video?.thumbnailUrl ? (
-          <Image source={{ uri: video.thumbnailUrl }} style={styles.thumbnail} resizeMode="cover" />
-        ) : (
-          <View style={styles.thumbnailPlaceholder}>
-            <Text style={{ fontSize: 40 }}>▶</Text>
-          </View>
-        )}
+        <FastImage
+          source={{
+            uri: thumbnailUri,
+            priority: FastImage.priority.high,
+            cache: FastImage.cacheControl.immutable,
+          }}
+          style={styles.thumbnail as ImageStyle}
+          resizeMode={FastImage.resizeMode.cover}
+        />
       </View>
 
       <View style={styles.content}>
@@ -112,13 +177,24 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route }) => {
           )}
         </View>
 
-        {/* Processing State Banners */}
+        {/* Processing / Generating State Banner */}
         {status !== 'completed' && (
           <View style={styles.statusBox}>
-            {status === 'processing' || status === 'fetching_transcript' ? (
-              <ActivityIndicator color={colors.primary} style={{ marginBottom: 10 }} />
-            ) : null}
+            <ActivityIndicator color={colors.primary} style={{ marginBottom: 12 }} size="small" />
             <Text style={styles.statusBoxText}>{statusMessage}</Text>
+            {status === 'failed' && (
+              <TouchableOpacity
+                style={{
+                  marginTop: 12,
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 8,
+                  backgroundColor: colors.primary,
+                }}
+                onPress={handleTriggerSummary}>
+                <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Retry Summarization</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 

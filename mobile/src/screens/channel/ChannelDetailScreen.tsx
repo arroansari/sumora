@@ -31,11 +31,11 @@ interface DateBounds {
 }
 
 const DATE_OPTIONS: FilterPillOption<DateRange>[] = [
-  { label: 'Today', value: 'today' },
-  { label: 'Yesterday', value: 'yesterday' },
-  { label: 'This Week', value: 'week' },
-  { label: 'This Month', value: 'month' },
   { label: 'All Time', value: 'custom' },
+  { label: 'This Month', value: 'month' },
+  { label: 'This Week', value: 'week' },
+  { label: 'Yesterday', value: 'yesterday' },
+  { label: 'Today', value: 'today' },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -118,32 +118,29 @@ interface VideoCardProps {
 const VideoCard = React.memo<VideoCardProps>(({ item, styles, colors, onPress }) => {
   const hasOverview = Boolean(item.summary?.overview);
 
+  const thumbnailUri =
+    item.thumbnailUrl || `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`;
+
   return (
     <TouchableOpacity
       style={styles.videoCard}
       onPress={() => onPress(item)}
       activeOpacity={0.75}>
       <View style={styles.videoCardInner}>
-        {/* Thumbnail */}
+        {/* FastImage Thumbnail */}
         <View style={styles.thumbnailBox}>
-          {item.thumbnailUrl ? (
-            <FastImage
-              source={{
-                uri: item.thumbnailUrl,
-                priority: FastImage.priority.normal,
-                cache: FastImage.cacheControl.immutable,
-              }}
-              style={styles.thumbnail as ImageStyle}
-              resizeMode={FastImage.resizeMode.cover}
-            />
-          ) : (
-            <View style={styles.thumbnailPlaceholder}>
-              <Text style={styles.thumbnailPlay}>▶</Text>
-            </View>
-          )}
+          <FastImage
+            source={{
+              uri: thumbnailUri,
+              priority: FastImage.priority.high,
+              cache: FastImage.cacheControl.immutable,
+            }}
+            style={styles.thumbnail as ImageStyle}
+            resizeMode={FastImage.resizeMode.cover}
+          />
           {item.summaryStatus === 'completed' && (
             <View style={styles.summaryBadge}>
-              <Text style={styles.summaryBadgeText}>AI</Text>
+              <Text style={styles.summaryBadgeText}>AI ✓</Text>
             </View>
           )}
         </View>
@@ -173,14 +170,17 @@ const VideoCard = React.memo<VideoCardProps>(({ item, styles, colors, onPress })
               color:
                 item.summaryStatus === 'completed'
                   ? colors.primary
-                  : colors.textMuted,
+                  : item.summaryStatus === 'processing'
+                  ? '#EAB308'
+                  : colors.primary,
+              fontWeight: item.summaryStatus === 'completed' ? '700' : '600',
             },
           ]}>
           {item.summaryStatus === 'completed'
-            ? 'Read Summary →'
+            ? '✨ Read AI Summary →'
             : item.summaryStatus === 'processing' || item.summaryStatus === 'fetching_transcript'
-            ? 'Generating summary…'
-            : 'No summary yet'}
+            ? '⚡ Generating AI summary…'
+            : '✨ Tap to view & generate summary →'}
         </Text>
       </View>
     </TouchableOpacity>
@@ -197,7 +197,7 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange>('week');
+  const [dateRange, setDateRange] = useState<DateRange>('custom');
   const [backfilling, setBackfilling] = useState(false);
 
   // ── Data fetching ─────────────────────────────────────────────────────────
@@ -248,7 +248,7 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           if (!isMountedRef.current) return;
           setVideos(vids);
           // If no videos at all in DB for this channel, do a one-time RSS backfill
-          if (vids.length === 0 && dateRange === 'week') {
+          if (vids.length === 0) {
             await backfillAndRefetch(isMountedRef);
           }
         })

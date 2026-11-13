@@ -115,10 +115,49 @@ Respond with a JSON object adhering to this exact structure:
 }`;
 }
 
+/**
+ * Builds a prompt for generating a summary from video metadata when captions are disabled or unavailable.
+ */
+function buildMetadataPrompt({ title, channelName, description, videoUrl }) {
+  return `Please generate a comprehensive, structured video summary based on the following verified video metadata.
+
+VIDEO METADATA:
+- Title: ${title || 'Unknown Title'}
+- Channel: ${channelName || 'YouTube Creator'}
+- Original Video URL: ${videoUrl || 'N/A'}
+${description ? `- Creator Description: ${description.slice(0, 800)}` : ''}
+
+OUTPUT FORMAT:
+Respond with a JSON object adhering to this exact structure:
+{
+  "overview": "A concise 1-2 paragraph overview summarizing the primary purpose, storyline or subject, and core message of the video.",
+  "keyPoints": [
+    "Key takeaway or central point 1",
+    "Key takeaway or central point 2",
+    "Key takeaway or central point 3"
+  ],
+  "importantConcepts": [
+    {
+      "concept": "Name of concept, trope, or central theme",
+      "explanation": "Clear explanation of what it means and how it applies to this video"
+    }
+  ],
+  "detailedSummary": "A multi-paragraph, in-depth breakdown covering the premise, core progression, major highlights, and key moments.",
+  "conclusion": "The concluding thoughts, final takeaways, or emotional/thematic payoff.",
+  "topicsCovered": [
+    "Topic 1",
+    "Topic 2",
+    "Topic 3"
+  ],
+  "originalVideoUrl": "${videoUrl || ''}"
+}`;
+}
+
 module.exports = {
   SYSTEM_INSTRUCTION,
   buildSinglePassPrompt,
   buildChunkPrompt,
   buildConsolidationPrompt,
+  buildMetadataPrompt,
 };
 

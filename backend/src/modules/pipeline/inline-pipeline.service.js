@@ -33,20 +33,33 @@ class InlinePipelineService {
       // ── Step 1: Fetch & normalize transcript ─────────────────────────
       const transcriptResult = await transcriptService.getOrFetchTranscript(videoId);
 
-      if (transcriptResult.status === 'transcript_unavailable' || !transcriptResult.transcript) {
-        console.log(
-          `[InlinePipeline] Transcript unavailable for ${videoId}. Pipeline halted — no summary generated.`
-        );
-        // Status already updated inside transcriptService
-        return { videoId, status: 'transcript_unavailable', message: transcriptResult.message };
-      }
-
-      // ── Step 2: Generate AI summary grounded in transcript ───────────
       const channelSource = await prisma.trackedSource.findFirst({
         where: { sourceId: channelId, platform: 'youtube' },
         select: { sourceName: true },
       });
 
+      if (transcriptResult.status === 'transcript_unavailable' || !transcriptResult.transcript) {
+        console.log(
+          `[InlinePipeline] Transcript unavailable for ${videoId}. Generating grounded metadata-based summary with Gemini...`
+        );
+        const existingVideo = await prisma.video.findUnique({
+          where: { videoId },
+          select: { description: true },
+        });
+
+        await summarizationService.generateSummaryFromMetadata({
+          videoId,
+          title,
+          channelName: channelSource?.sourceName || undefined,
+          description: existingVideo?.description || undefined,
+          videoUrl,
+        });
+
+        console.log(`[InlinePipeline] Metadata summary complete for video: ${videoId}`);
+        return { videoId, status: 'completed' };
+      }
+
+      // ── Step 2: Generate AI summary grounded in transcript ───────────
       await summarizationService.generateSummary({
         videoId,
         title,
