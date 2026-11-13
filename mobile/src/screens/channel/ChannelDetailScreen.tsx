@@ -208,12 +208,9 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [selectedPresetDays, setSelectedPresetDays] = useState<number | null>(null);
   const [backfilling, setBackfilling] = useState(false);
 
-  // Search & Modals state
+  // Search & Date Modal state
   const [searchQuery, setSearchQuery] = useState('');
   const [showDateModal, setShowDateModal] = useState(false);
-  const [showLinkModal, setShowLinkModal] = useState(false);
-  const [linkInput, setLinkInput] = useState('');
-  const [importing, setImporting] = useState(false);
 
   // Guard: only run RSS backfill once per screen mount, not on every filter change
   const hasBackfilled = useRef(false);
@@ -345,38 +342,6 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     [navigation]
   );
 
-  // ── Import Video by Link ───────────────────────────────────────────────────
-
-  const handleImportVideo = useCallback(async () => {
-    if (!linkInput.trim()) {
-      Alert.alert('Link Required', 'Please enter or paste a valid YouTube video URL or ID.');
-      return;
-    }
-
-    setImporting(true);
-    try {
-      const imported = await videosApi.importByUrl(linkInput.trim(), channelId);
-      setShowLinkModal(false);
-      setLinkInput('');
-
-      // Add to list immediately if not already present
-      setVideos((prev) => {
-        if (prev.some((v) => v.videoId === imported.videoId)) return prev;
-        return [imported, ...prev];
-      });
-
-      // Directly navigate to summary
-      navigation.navigate('SummaryDetail', {
-        videoId: imported.videoId,
-        videoTitle: imported.title,
-      });
-    } catch (err: any) {
-      Alert.alert('Import Failed', err.message || 'Could not import video. Check the URL and try again.');
-    } finally {
-      setImporting(false);
-    }
-  }, [linkInput, channelId, navigation]);
-
   // ── Client-side Live Search ────────────────────────────────────────────────
 
   const filteredVideos = useMemo(() => {
@@ -454,7 +419,7 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </Text>
         </View>
 
-        {/* 1. Control Bar: Search Input + "+ Link" Action Button */}
+        {/* 1. Control Bar: Full-width Live Search */}
         <View style={styles.controlBar}>
           <View style={styles.searchWrap}>
             <Text style={styles.searchIcon}>🔍</Text>
@@ -476,13 +441,6 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               </TouchableOpacity>
             )}
           </View>
-
-          <TouchableOpacity
-            style={styles.linkActionBtn}
-            onPress={() => setShowLinkModal(true)}
-            activeOpacity={0.8}>
-            <Text style={styles.linkActionBtnText}>🔗 + Link</Text>
-          </TouchableOpacity>
         </View>
 
         {/* 2. Date Filter Pills with Custom Date Option */}
@@ -646,62 +604,6 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 onPress={() => setShowDateModal(false)}
                 activeOpacity={0.75}>
                 <Text style={styles.modalPrimaryBtnText}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── Modal 2: Paste YouTube Link to Summarize ──────────────────────── */}
-      <Modal
-        visible={showLinkModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowLinkModal(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>🔗 Summarize Any Video</Text>
-              <TouchableOpacity
-                onPress={() => setShowLinkModal(false)}
-                style={styles.modalCloseBtn}>
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.modalSub}>
-              Paste any YouTube video link or Shorts URL to generate an AI summary immediately:
-            </Text>
-
-            <TextInput
-              style={styles.modalInput}
-              placeholder="https://www.youtube.com/watch?v=..."
-              placeholderTextColor={colors.textMuted}
-              value={linkInput}
-              onChangeText={setLinkInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-              clearButtonMode="while-editing"
-            />
-
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity
-                style={styles.modalSecondaryBtn}
-                onPress={() => setShowLinkModal(false)}
-                activeOpacity={0.75}
-                disabled={importing}>
-                <Text style={styles.modalSecondaryBtnText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.modalPrimaryBtn}
-                onPress={handleImportVideo}
-                activeOpacity={0.8}
-                disabled={importing}>
-                {importing ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.modalPrimaryBtnText}>Distill Video ✨</Text>
-                )}
               </TouchableOpacity>
             </View>
           </View>

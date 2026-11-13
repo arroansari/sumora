@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   ListRenderItemInfo,
+  TextInput,
+  Alert,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -126,6 +128,40 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [urlInput, setUrlInput] = useState<string>('');
+  const [importing, setImporting] = useState<boolean>(false);
+
+  const handleGlobalImport = useCallback(async () => {
+    if (!urlInput.trim()) {
+      Alert.alert('Link Required', 'Please paste a valid YouTube video or Shorts link.');
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const imported = await videosApi.importByUrl(urlInput.trim());
+      setUrlInput('');
+
+      // Prepend to feed immediately so it appears at top of Activity Feed
+      setVideos((prev) => {
+        if (prev.some((v) => v.videoId === imported.videoId)) return prev;
+        return [imported, ...prev];
+      });
+
+      // Navigate straight to the summary
+      navigation.navigate('SummaryDetail', {
+        videoId: imported.videoId,
+        videoTitle: imported.title,
+      });
+    } catch (err: any) {
+      Alert.alert(
+        'Summarization Failed',
+        err.message || 'Could not fetch this YouTube video. Please check the URL and try again.'
+      );
+    } finally {
+      setImporting(false);
+    }
+  }, [urlInput, navigation]);
 
   // Performance-optimized mount effect: fetching logic declared inside useEffect with cleanup
   useEffect(() => {
@@ -204,6 +240,40 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Video Activity Feed</Text>
         <Text style={styles.headerSubtitle}>AI-distilled summaries from your followed channels</Text>
+      </View>
+
+      {/* ── Global "Summarize Any Video" Action Card ── */}
+      <View style={styles.globalImportCard}>
+        <View style={styles.globalImportHeader}>
+          <Text style={styles.globalImportTitle}>✨ Summarize Any Video</Text>
+          <View style={styles.globalImportBadge}>
+            <Text style={styles.globalImportBadgeText}>PASTE LINK</Text>
+          </View>
+        </View>
+
+        <View style={styles.globalImportInputRow}>
+          <TextInput
+            style={styles.globalImportInput}
+            placeholder="Paste any YouTube URL or Shorts link…"
+            placeholderTextColor={colors.textMuted}
+            value={urlInput}
+            onChangeText={setUrlInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+          />
+          <TouchableOpacity
+            style={styles.globalImportBtn}
+            onPress={handleGlobalImport}
+            activeOpacity={0.8}
+            disabled={importing}>
+            {importing ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.globalImportBtnText}>Distill ✨</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading ? (
