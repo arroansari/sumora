@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -199,6 +199,8 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>('custom');
   const [backfilling, setBackfilling] = useState(false);
+  // Guard: only run RSS backfill once per screen mount, not on every filter change
+  const hasBackfilled = useRef(false);
 
   // ── Data fetching ─────────────────────────────────────────────────────────
 
@@ -228,11 +230,12 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       } finally {
         if (isMountedRef.current) setBackfilling(false);
       }
-      // Re-fetch with "All Time" after backfill so we always show something
+      // Re-fetch All Time after backfill so we show results, but DON'T change
+      // the selected filter pill — that caused the "Yesterday jumps to All Time" bug
       const all = await fetchVideos('custom').catch(() => []);
       if (isMountedRef.current && all.length > 0) {
         setVideos(all);
-        setDateRange('custom');
+        // ⚠️  Do NOT call setDateRange here — the user's filter stays intact
       }
     },
     [channelId, fetchVideos]
@@ -247,8 +250,11 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         .then(async (vids) => {
           if (!isMountedRef.current) return;
           setVideos(vids);
-          // If no videos at all in DB for this channel, do a one-time RSS backfill
-          if (vids.length === 0) {
+          // Only backfill on first open AND only when All Time is selected with 0 results.
+          // Guarding on dateRange === 'custom' prevents any other filter pill from
+          // triggering a backfill + setDateRange reset (the "Yesterday jumps back" bug).
+          if (vids.length === 0 && !hasBackfilled.current && dateRange === 'custom') {
+            hasBackfilled.current = true;
             await backfillAndRefetch(isMountedRef);
           }
         })
