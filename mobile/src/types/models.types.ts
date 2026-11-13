@@ -40,6 +40,7 @@ export interface VideoItem {
   transcriptStatus: SummaryStatus;
   summaryStatus: SummaryStatus;
   summary?: VideoSummary | null;
+  isCustomImport?: boolean;
 }
 
 export interface User {

@@ -36,8 +36,16 @@ class VideosService {
     // Build a quick lookup map: channelId → channelName
     const channelNameMap = new Map(tracked.map((t) => [t.sourceId, t.sourceName]));
 
-    // If user has not tracked any channels yet and didn't specify a channel, return empty feed
-    if (channelIds.length === 0 && !channelId) {
+    // Also get list of custom imported videos for this user
+    const customImports = await prisma.trackedSource.findMany({
+      where: { userId, platform: 'custom_import' },
+      select: { sourceId: true, sourceName: true },
+    });
+    const customVideoIds = customImports.map((c) => c.sourceId);
+    const customNameMap = new Map(customImports.map((c) => [c.sourceId, c.sourceName]));
+
+    // If user has not tracked any channels, has no custom imports, and didn't specify a channel, return empty feed
+    if (channelIds.length === 0 && customVideoIds.length === 0 && !channelId) {
       return {
         videos: [],
         pagination: { page, limit, total: 0, totalPages: 0 },
@@ -45,11 +53,27 @@ class VideosService {
     }
 
     // Build where clause — optionally filter to a single channel and/or date range
-    const whereClause = {
-      channelId: channelId
-        ? channelId  // single-channel view
-        : { in: channelIds },
-    };
+    let whereClause = {};
+
+    if (channelId) {
+      whereClause.channelId = channelId;
+    } else {
+      const orConditions = [];
+      if (channelIds.length > 0) {
+        orConditions.push({ channelId: { in: channelIds } });
+      }
+      if (customVideoIds.length > 0) {
+        orConditions.push({ videoId: { in: customVideoIds } });
+      }
+      // Also include any video marked as 'imported'
+      orConditions.push({ channelId: 'imported' });
+
+      if (orConditions.length === 1) {
+        whereClause = orConditions[0];
+      } else if (orConditions.length > 1) {
+        whereClause.OR = orConditions;
+      }
+    }
 
     if (search && search.trim()) {
       whereClause.title = {
@@ -86,11 +110,20 @@ class VideosService {
       prisma.video.count({ where: whereClause }),
     ]);
 
-    // Enrich each video with its channelName from the tracked sources map
-    const enrichedVideos = videos.map((v) => ({
-      ...v,
-      channelName: channelNameMap.get(v.channelId) || null,
-    }));
+    // Enrich each video with its channelName and custom import flag
+    const enrichedVideos = videos.map((v) => {
+      const isCustom = v.channelId === 'imported' || customNameMap.has(v.videoId);
+      const resolvedChannelName =
+        customNameMap.get(v.videoId) ||
+        channelNameMap.get(v.channelId) ||
+        (isCustom ? (v.description || 'Custom Link') : null);
+
+      return {
+        ...v,
+        isCustomImport: isCustom,
+        channelName: resolvedChannelName || (isCustom ? 'Custom Link' : 'YouTube Creator'),
+      };
+    });
 
     return {
       videos: enrichedVideos,
@@ -269,6 +302,31 @@ class VideosService {
     });
 
     if (video) {
+      // Ensure custom import is tracked for this user so it appears in their feed
+      if (userId) {
+        try {
+          await prisma.trackedSource.upsert({
+            where: {
+              userId_platform_sourceId: {
+                userId,
+                platform: 'custom_import',
+                sourceId: videoId,
+              },
+            },
+            create: {
+              userId,
+              platform: 'custom_import',
+              sourceId: videoId,
+              sourceName: video.description || 'Custom Link',
+              thumbnailUrl: video.thumbnailUrl,
+            },
+            update: {},
+          });
+        } catch (err) {
+          console.warn(`[VideosService] Could not track existing custom import for user ${userId}:`, err.message);
+        }
+      }
+
       // If not yet summarized, trigger summarization in background
       if (video.summaryStatus !== 'completed') {
         inlinePipeline.fireAndForget({
@@ -278,7 +336,11 @@ class VideosService {
           videoUrl: video.videoUrl,
         });
       }
-      return video;
+      return {
+        ...video,
+        isCustomImport: true,
+        channelName: video.description || 'Custom Link',
+      };
     }
 
     // 2. Fetch public YouTube oEmbed metadata (No API key needed!)
@@ -307,6 +369,7 @@ class VideosService {
         videoId,
         channelId: channelId || 'imported',
         title,
+        description: authorName || 'Custom Link',
         videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
         thumbnailUrl,
         publishedAt: new Date(),
@@ -316,11 +379,40 @@ class VideosService {
       update: {
         title,
         thumbnailUrl,
+        description: authorName || 'Custom Link',
       },
       include: { summary: true },
     });
 
-    // 4. Trigger inline AI distillation pipeline
+    // 4. Save to user's tracked custom imports so it permanently stays in their activity feed
+    if (userId) {
+      try {
+        await prisma.trackedSource.upsert({
+          where: {
+            userId_platform_sourceId: {
+              userId,
+              platform: 'custom_import',
+              sourceId: videoId,
+            },
+          },
+          create: {
+            userId,
+            platform: 'custom_import',
+            sourceId: videoId,
+            sourceName: authorName || 'Custom Link',
+            thumbnailUrl,
+          },
+          update: {
+            sourceName: authorName || 'Custom Link',
+            thumbnailUrl,
+          },
+        });
+      } catch (err) {
+        console.warn(`[VideosService] Could not track custom import for user ${userId}:`, err.message);
+      }
+    }
+
+    // 5. Trigger inline AI distillation pipeline
     inlinePipeline.fireAndForget({
       videoId: video.videoId,
       channelId: video.channelId,
@@ -330,6 +422,7 @@ class VideosService {
 
     return {
       ...video,
+      isCustomImport: true,
       channelName: authorName,
     };
   }

@@ -13,15 +13,22 @@ import {
   Modal,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { videosApi } from '../../services/api';
 import { VideoItem, SummaryStatus } from '../../types/models.types';
 import { createHomeStyles } from './HomeScreen.styles';
 
+const FAVORITES_STORAGE_KEY = 'sumora:favorite_channel_ids';
+
+type FeedTab = 'all' | 'custom' | 'favorites';
+
 interface FeedCardProps {
   item: VideoItem;
   styles: ReturnType<typeof createHomeStyles>;
+  isFavoriteChannel?: boolean;
   onReadSummary: (videoId: string, title: string) => void;
   onWatchVideo: (videoUrl: string) => void;
 }
@@ -43,84 +50,96 @@ const getStatusConfig = (status: SummaryStatus) => {
   }
 };
 
-const FeedItemCard = React.memo<FeedCardProps>(({ item, styles, onReadSummary, onWatchVideo }) => {
-  const publishedFormatted = item.publishedAt
-    ? new Date(item.publishedAt).toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })
-    : 'Recently';
+const FeedItemCard = React.memo<FeedCardProps>(
+  ({ item, styles, isFavoriteChannel, onReadSummary, onWatchVideo }) => {
+    const publishedFormatted = item.publishedAt
+      ? new Date(item.publishedAt).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })
+      : 'Recently';
 
-  const shortOverview =
-    item.summary?.overview ||
-    (item.summaryStatus === 'completed'
-      ? 'AI summary generated.'
-      : item.summaryStatus === 'transcript_unavailable'
-      ? 'An accessible transcript could not be retrieved, so a summary cannot be generated yet.'
-      : item.summaryStatus === 'failed'
-      ? 'Unable to generate summary. We will retry where appropriate.'
-      : 'Your video summary is being prepared.');
+    const shortOverview =
+      item.summary?.overview ||
+      (item.summaryStatus === 'completed'
+        ? 'AI summary generated.'
+        : item.summaryStatus === 'transcript_unavailable'
+        ? 'An accessible transcript could not be retrieved, so a summary cannot be generated yet.'
+        : item.summaryStatus === 'failed'
+        ? 'Unable to generate summary. We will retry where appropriate.'
+        : 'Your video summary is being prepared.');
 
-  const statusConfig = getStatusConfig(item.summaryStatus);
+    const statusConfig = getStatusConfig(item.summaryStatus);
+    const isCustom = item.isCustomImport || item.channelId === 'imported';
 
-  return (
-    <View style={styles.card}>
-      <View style={styles.thumbnailContainer}>
-        {item.thumbnailUrl ? (
-          <FastImage
-            source={{
-              uri: item.thumbnailUrl,
-              priority: FastImage.priority.high,
-              cache: FastImage.cacheControl.immutable,
-            }}
-            style={styles.thumbnail as ImageStyle}
-            resizeMode={FastImage.resizeMode.cover}
-          />
-        ) : (
-          <View style={styles.thumbnailPlaceholder}>
-            <Text style={{ fontSize: 32 }}>▶</Text>
+    return (
+      <View style={styles.card}>
+        <View style={styles.thumbnailContainer}>
+          {item.thumbnailUrl ? (
+            <FastImage
+              source={{
+                uri: item.thumbnailUrl,
+                priority: FastImage.priority.high,
+                cache: FastImage.cacheControl.immutable,
+              }}
+              style={styles.thumbnail as ImageStyle}
+              resizeMode={FastImage.resizeMode.cover}
+            />
+          ) : (
+            <View style={styles.thumbnailPlaceholder}>
+              <Text style={{ fontSize: 32 }}>▶</Text>
+            </View>
+          )}
+          <View style={styles.badgeOverlay}>
+            <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
+              <Text style={[styles.statusBadgeText, { color: statusConfig.text }]}>
+                {statusConfig.label}
+              </Text>
+            </View>
+            {isCustom ? (
+              <View style={styles.customBadge}>
+                <Text style={styles.customBadgeText}>🔗 Custom Link</Text>
+              </View>
+            ) : isFavoriteChannel ? (
+              <View style={styles.favoriteBadge}>
+                <Text style={styles.favoriteBadgeText}>⭐ Priority</Text>
+              </View>
+            ) : null}
           </View>
-        )}
-        <View style={styles.badgeOverlay}>
-          <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
-            <Text style={[styles.statusBadgeText, { color: statusConfig.text }]}>
-              {statusConfig.label}
-            </Text>
+        </View>
+
+        <View style={styles.cardContent}>
+          <Text style={styles.videoTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+
+          <View style={styles.channelRow}>
+            <Text style={styles.channelName}>{item.channelName || (isCustom ? 'Custom Link' : 'YouTube Creator')}</Text>
+            <Text style={styles.dot}>•</Text>
+            <Text style={styles.dateText}>{publishedFormatted}</Text>
+          </View>
+
+          <Text style={styles.overviewText} numberOfLines={3}>
+            {shortOverview}
+          </Text>
+
+          <View style={styles.actionsRow}>
+            <TouchableOpacity
+              style={styles.readButton}
+              onPress={() => onReadSummary(item.videoId, item.title)}>
+              <Text style={styles.readButtonText}>Read Summary</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.watchButton} onPress={() => onWatchVideo(item.videoUrl)}>
+              <Text style={styles.watchButtonText}>Watch Video ↗</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
-
-      <View style={styles.cardContent}>
-        <Text style={styles.videoTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-
-        <View style={styles.channelRow}>
-          <Text style={styles.channelName}>{item.channelName || 'YouTube Creator'}</Text>
-          <Text style={styles.dot}>•</Text>
-          <Text style={styles.dateText}>{publishedFormatted}</Text>
-        </View>
-
-        <Text style={styles.overviewText} numberOfLines={3}>
-          {shortOverview}
-        </Text>
-
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.readButton}
-            onPress={() => onReadSummary(item.videoId, item.title)}>
-            <Text style={styles.readButtonText}>Read Summary</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.watchButton} onPress={() => onWatchVideo(item.videoUrl)}>
-            <Text style={styles.watchButtonText}>Watch Video ↗</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-});
+    );
+  }
+);
 
 export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const { colors } = useAppTheme();
@@ -132,6 +151,26 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const [urlInput, setUrlInput] = useState<string>('');
   const [importing, setImporting] = useState<boolean>(false);
   const [showImportModal, setShowImportModal] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<FeedTab>('all');
+  const [favoriteChannelIds, setFavoriteChannelIds] = useState<Set<string>>(new Set());
+
+  // Load user's starred favorite channels
+  const loadFavorites = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem(FAVORITES_STORAGE_KEY);
+      if (stored) {
+        setFavoriteChannelIds(new Set(JSON.parse(stored)));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadFavorites();
+    }, [loadFavorites])
+  );
 
   const handleGlobalImport = useCallback(async () => {
     if (!urlInput.trim()) {
@@ -147,9 +186,14 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
 
       // Prepend to feed immediately so it appears at top of Activity Feed
       setVideos((prev) => {
-        if (prev.some((v) => v.videoId === imported.videoId)) return prev;
-        return [imported, ...prev];
+        const filtered = prev.filter((v) => v.videoId !== imported.videoId);
+        return [{ ...imported, isCustomImport: true }, ...filtered];
       });
+
+      // Switch to custom links or all feed so user sees it right away
+      if (activeTab === 'favorites') {
+        setActiveTab('custom');
+      }
 
       // Navigate straight to the summary
       navigation.navigate('SummaryDetail', {
@@ -164,7 +208,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     } finally {
       setImporting(false);
     }
-  }, [urlInput, navigation]);
+  }, [urlInput, navigation, activeTab]);
 
   // Performance-optimized mount effect: fetching logic declared inside useEffect with cleanup
   useEffect(() => {
@@ -172,7 +216,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
 
     async function loadInitialFeed() {
       try {
-        const res = await videosApi.getFeed(1, 20);
+        const res = await videosApi.getFeed(1, 40);
         if (isMounted) {
           setVideos(res?.videos || []);
         }
@@ -199,14 +243,15 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const res = await videosApi.getFeed(1, 20);
+      const res = await videosApi.getFeed(1, 40);
       setVideos(res.videos);
+      await loadFavorites();
     } catch (err) {
       console.warn('[HomeScreen] Feed refresh failed');
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [loadFavorites]);
 
   const handleReadSummary = useCallback(
     (videoId: string, title: string) => {
@@ -226,16 +271,32 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
 
   const keyExtractor = useCallback((item: VideoItem) => item.id || item.videoId, []);
 
+  // Filter videos based on active filter tab
+  const customCount = useMemo(() => {
+    return videos.filter((v) => v.isCustomImport || v.channelId === 'imported').length;
+  }, [videos]);
+
+  const displayedVideos = useMemo(() => {
+    if (activeTab === 'custom') {
+      return videos.filter((v) => v.isCustomImport || v.channelId === 'imported');
+    }
+    if (activeTab === 'favorites') {
+      return videos.filter((v) => favoriteChannelIds.has(v.channelId));
+    }
+    return videos;
+  }, [videos, activeTab, favoriteChannelIds]);
+
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<VideoItem>) => (
       <FeedItemCard
         item={item}
         styles={styles}
+        isFavoriteChannel={favoriteChannelIds.has(item.channelId)}
         onReadSummary={handleReadSummary}
         onWatchVideo={handleWatchVideo}
       />
     ),
-    [styles, handleReadSummary, handleWatchVideo]
+    [styles, favoriteChannelIds, handleReadSummary, handleWatchVideo]
   );
 
   return (
@@ -245,7 +306,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
           <View style={styles.headerTitles}>
             <Text style={styles.headerTitle}>Video Activity Feed</Text>
             <Text style={styles.headerSubtitle}>
-              AI-distilled summaries from your followed channels
+              AI-distilled summaries from your followed channels & custom links
             </Text>
           </View>
 
@@ -258,27 +319,102 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         </View>
       </View>
 
+      {/* ── Quick Feed Filter Bar ── */}
+      <View style={styles.filterBar}>
+        <TouchableOpacity
+          style={[styles.filterTab, activeTab === 'all' && styles.filterTabActive]}
+          onPress={() => setActiveTab('all')}
+          activeOpacity={0.75}>
+          <Text style={[styles.filterTabText, activeTab === 'all' && styles.filterTabTextActive]}>
+            📡 All Activity
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterTab, activeTab === 'custom' && styles.filterTabActive]}
+          onPress={() => setActiveTab('custom')}
+          activeOpacity={0.75}>
+          <Text style={[styles.filterTabText, activeTab === 'custom' && styles.filterTabTextActive]}>
+            🔗 Custom Links
+          </Text>
+          {customCount > 0 && (
+            <View
+              style={[
+                styles.filterTabCount,
+                activeTab === 'custom' && styles.filterTabCountActive,
+              ]}>
+              <Text
+                style={[
+                  styles.filterTabCountText,
+                  activeTab === 'custom' && styles.filterTabCountTextActive,
+                ]}>
+                {customCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterTab, activeTab === 'favorites' && styles.filterTabActive]}
+          onPress={() => setActiveTab('favorites')}
+          activeOpacity={0.75}>
+          <Text style={[styles.filterTabText, activeTab === 'favorites' && styles.filterTabTextActive]}>
+            ⭐ Priority
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading your feed...</Text>
         </View>
-      ) : videos.length === 0 ? (
+      ) : displayedVideos.length === 0 ? (
         <View style={styles.centerContainer}>
-          <Text style={{ fontSize: 48, marginBottom: 12 }}>📺</Text>
-          <Text style={styles.emptyTitle}>No Videos Yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Connect your YouTube account to automatically track your subscriptions and receive AI summaries for new video uploads.
-          </Text>
-          <TouchableOpacity
-            style={styles.connectButton}
-            onPress={() => navigation.navigate('ConnectedAccounts')}>
-            <Text style={styles.connectButtonText}>Connect YouTube</Text>
-          </TouchableOpacity>
+          {activeTab === 'custom' ? (
+            <>
+              <Text style={{ fontSize: 44, marginBottom: 12 }}>🔗</Text>
+              <Text style={styles.emptyTitle}>No Custom Links Yet</Text>
+              <Text style={styles.emptySubtitle}>
+                Paste any YouTube video or Shorts link using '+ Summarize' to get instant AI summaries kept right here in your feed.
+              </Text>
+              <TouchableOpacity
+                style={styles.connectButton}
+                onPress={() => setShowImportModal(true)}>
+                <Text style={styles.connectButtonText}>+ Paste YouTube Link</Text>
+              </TouchableOpacity>
+            </>
+          ) : activeTab === 'favorites' ? (
+            <>
+              <Text style={{ fontSize: 44, marginBottom: 12 }}>⭐</Text>
+              <Text style={styles.emptyTitle}>No Priority Channels Starred</Text>
+              <Text style={styles.emptySubtitle}>
+                Head to the Following tab and star your favorite channels so their summaries are highlighted here.
+              </Text>
+              <TouchableOpacity
+                style={styles.connectButton}
+                onPress={() => navigation.navigate('Following')}>
+                <Text style={styles.connectButtonText}>Explore Followed Channels</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={{ fontSize: 48, marginBottom: 12 }}>📺</Text>
+              <Text style={styles.emptyTitle}>No Videos Yet</Text>
+              <Text style={styles.emptySubtitle}>
+                Connect your YouTube account or paste any video link to start receiving AI summaries.
+              </Text>
+              <TouchableOpacity
+                style={styles.connectButton}
+                onPress={() => navigation.navigate('ConnectedAccounts')}>
+                <Text style={styles.connectButtonText}>Connect YouTube</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       ) : (
         <FlatList
-          data={videos}
+          data={displayedVideos}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}

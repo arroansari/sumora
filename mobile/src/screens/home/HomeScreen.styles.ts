@@ -55,6 +55,58 @@ export const createHomeStyles = (colors: ThemeColors) =>
       fontWeight: '700',
     },
 
+    // ── Feed Quick Filter Bar ───────────────────────────────────────────────
+    filterBar: {
+      flexDirection: 'row',
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      gap: 8,
+    },
+    filterTab: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 13,
+      paddingVertical: 6,
+      borderRadius: 18,
+      backgroundColor: colors.surfaceSubtle,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    filterTabActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    filterTabText: {
+      fontSize: 12.5,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    filterTabTextActive: {
+      color: '#FFFFFF',
+      fontWeight: '700',
+    },
+    filterTabCount: {
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      borderRadius: 10,
+      backgroundColor: colors.surfaceHighlight,
+    },
+    filterTabCountActive: {
+      backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    },
+    filterTabCountText: {
+      fontSize: 10.5,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    filterTabCountTextActive: {
+      color: '#FFFFFF',
+    },
+
     // ── Paste YouTube Link Modal ────────────────────────────────────────────
     modalBackdrop: {
       flex: 1,
@@ -178,6 +230,9 @@ export const createHomeStyles = (colors: ThemeColors) =>
       position: 'absolute',
       top: 10,
       left: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
     },
     statusBadge: {
       paddingHorizontal: 10,
@@ -187,6 +242,28 @@ export const createHomeStyles = (colors: ThemeColors) =>
     statusBadgeText: {
       fontSize: 12,
       fontWeight: '700',
+    },
+    customBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      backgroundColor: '#6366F1',
+    },
+    customBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    favoriteBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      backgroundColor: '#F59E0B',
+    },
+    favoriteBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#FFFFFF',
     },
     cardContent: {
       padding: 16,
