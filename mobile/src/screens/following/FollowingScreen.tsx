@@ -49,16 +49,19 @@ export type CategoryId =
   | 'business'
   | 'news'
   | 'design'
+  | 'games'
   | 'food'
-  | 'entertainment'
+  | 'faith'
   | 'education'
+  | 'lifestyle'
+  | 'entertainment'
   | 'other';
 
 interface CategoryConfig {
   id: CategoryId;
   label: string;
   icon: string;
-  keywords: string[];
+  matcher: RegExp;
 }
 
 export const CATEGORIES: CategoryConfig[] = [
@@ -66,83 +69,83 @@ export const CATEGORIES: CategoryConfig[] = [
     id: 'favorites',
     label: 'Favorites (Priority)',
     icon: '⭐',
-    keywords: [],
+    matcher: /(?:)/,
+  },
+  {
+    id: 'faith',
+    label: 'Faith & Spirituality',
+    icon: '🕌',
+    matcher:
+      /\b(quran|islam|islamic|hadees|hadith|sunnat|zakir naik|muhammad ali mirza|prophet|ahle|azhari|masjid|deen|bayan|molana|maulana|shia|sunni|sufi|jashn|rekhta|surah|dua|allah|namaz|dargah|alra tv|mehrban ali|hanfi|madani|naat|islamic hub|sabeel|mufti|peer|peerzada|qadri|ilyas qadri|tariq jameel|saqib raza|attari)\b/i,
   },
   {
     id: 'tech',
     label: 'Tech & Dev',
     icon: '💻',
-    keywords: [
-      'tech', 'code', 'dev', 'programming', 'software', 'python', 'javascript',
-      'react', 'flutter', 'engineer', 'ai', 'cloud', 'cyber', 'gadget', 'computer',
-      'linux', 'data', 'terminal', 'algo', 'stack', 'web', 'geek',
-    ],
-  },
-  {
-    id: 'business',
-    label: 'Business & Finance',
-    icon: '💼',
-    keywords: [
-      'business', 'finance', 'money', 'invest', 'crypto', 'stock', 'market',
-      'startup', 'wealth', 'economy', 'trade', 'real estate', 'bank', 'capital',
-      'venture', 'fund', 'sales',
-    ],
-  },
-  {
-    id: 'news',
-    label: 'News & Politics',
-    icon: '📰',
-    keywords: [
-      'news', 'aaj tak', 'ndtv', 'bbc', 'cnn', 'politics', 'live', 'report',
-      'press', 'times', 'wire', 'daily', 'abp', 'zee', 'bharat', 'current',
-      'affairs', 'media', 'bulletin',
-    ],
+    matcher:
+      /\b(flutter|python|javascript|typescript|react|angular|vue|golang|rust|cpp|coding|codebasics|programmer|programming|software|developer|devops|cloud|aws|docker|kubernetes|linux|terminal|backend|frontend|cyber|beebom|techie|technical sagar|google cloud|gyrus sulcus|dcod style|hacker|hacking|web dev|web development|app dev|computer science)\b/i,
   },
   {
     id: 'design',
-    label: 'Design & Creative',
+    label: 'Design & 3D Creative',
     icon: '🎨',
-    keywords: [
-      'design', 'photoshop', 'figma', 'art', 'animation', 'creative', 'ui', 'ux',
-      'illustrator', '3d', 'blender', 'drawing', 'vfx', 'graphics', 'photo',
-      'camera', 'editing',
-    ],
+    matcher:
+      /\b(blender|photoshop|figma|animschool|phlearn|polygon runway|schaeferart|cg cookie|cg opinions|3d|vfx|cgi|drawing|illustration|illustrator|after effects|premiere pro|graphic design|typography|render|corridor crew|kk create|nafay 3d|black beard projects|diy|woodworking|craft|crafts|animation)\b/i,
+  },
+  {
+    id: 'games',
+    label: 'Gaming & Chess',
+    icon: '🎮',
+    matcher:
+      /\b(chess|chessnetwork|thechesswebsite|game|games|gaming|gameplay|esports|gamer|minecraft|gta|pubg|freefire|walkthrough|games4two|strike & pocket)\b/i,
   },
   {
     id: 'food',
     label: 'Food & Cooking',
     icon: '🍔',
-    keywords: [
-      'food', 'recipe', 'cook', 'kitchen', 'chef', 'taste', 'meal', 'baking',
-      'street food', 'eating', 'diet', 'delicious', 'spicy', 'restaurant',
-      'dish', 'culinary',
-    ],
+    matcher:
+      /\b(recipe|recipes|cooking|kitchen|chef|street food|culinary|food pharmer|village food|food secrets|foodie|swad|zaika|baking|meal prep|rasoi|khana|tasty|taste|delicious)\b/i,
+  },
+  {
+    id: 'news',
+    label: 'News & Politics',
+    icon: '📰',
+    matcher:
+      /\b(news|aaj tak|ndtv|bbc|cnn|hindustan times|the wire|the deshbhakt|inqalaab|theredmike|samachar|khabar|press|bulletin|times of india|lallantop|abp|republic|firstpost|middle east eye|knockingnews|politics|political|media|lok sabha|rajya sabha|parliament)\b/i,
+  },
+  {
+    id: 'business',
+    label: 'Business & Finance',
+    icon: '💼',
+    matcher:
+      /\b(business|finance|crypto|bitcoin|stock|stocks|invest|investing|investor|startup|wealth|economy|economic|money|alex hormozi|garyvee|simon sinek|rahul malodia|entrepreneur|ecommerce|trading|market|sales|real estate|financial|venture|capital|sahil khanna)\b/i,
+  },
+  {
+    id: 'education',
+    label: 'Education & Learning',
+    icon: '📚',
+    matcher:
+      /\b(study|study iq|studyiq|ias|upsc|ted-ed|tedx|crashcourse|academy|class101|arabicpod|learn english|english with|physics|chemistry|mathematics|history|science|scientist|facts|roshan facts|getsetflyscience|english addict|impressive english|lisan ul quran|thinktrek|tsmadaan|duncan|education|course|tutorial|lecture|professor|qasim ali shah|ali abdaal|learn|learning|ielts|toefl|knowledge|exam|how to|law advice|advocate|dr ram puniyani|dr sultan sikandar)\b/i,
+  },
+  {
+    id: 'lifestyle',
+    label: 'Health & Lifestyle',
+    icon: '🏃',
+    matcher:
+      /\b(thenx|workout|fitness|gym|calisthenics|yoga|diet|health|fashion|teachingmensfashion|mensfashion|style|bikedekho|motovlog|vlog|vlogs|shridesh vlogs|travel|lifestyle|grooming|biker|automobile|car dekho|cars)\b/i,
   },
   {
     id: 'entertainment',
     label: 'Entertainment & Media',
     icon: '🎬',
-    keywords: [
-      'drama', 'movie', 'cinema', 'music', 'song', 'comedy', 'gaming', 'games',
-      'entertainment', 'series', 'tv', 'show', 'clip', 'roast', 'vlog', 'fun',
-      'trailer', 'standup',
-    ],
-  },
-  {
-    id: 'education',
-    label: 'Education & Knowledge',
-    icon: '📚',
-    keywords: [
-      'study', 'learn', 'science', 'history', 'academy', 'course', 'physics',
-      'math', 'facts', 'documentary', 'space', 'geography', 'philosophy',
-      'mirza', 'islam', 'scholar', 'lecture', 'tutorial', 'insight',
-    ],
+    matcher:
+      /\b(drama|turkish drama|movie|movies|cinema|films|film|bollywood|hollywood|music|songs|song|t-series|speed records|goldmines|comedy|timeliners|roast|funny|hilarious|sab tv|sony sab|colors gujarati|ultra bollywood|sonic enterprise|neeraj beniwal|cut|entertainment|series|clip|talent|drm drama|tlc uk|the social house)\b/i,
   },
   {
     id: 'other',
     label: 'Other Channels',
     icon: '📺',
-    keywords: [],
+    matcher: /(?:)/,
   },
 ];
 
@@ -161,10 +164,9 @@ const getInitials = (name: string): string => {
 
 function classifyChannel(sourceName: string, isFav: boolean): CategoryId {
   if (isFav) return 'favorites';
-  const name = sourceName.toLowerCase();
   for (const cat of CATEGORIES) {
     if (cat.id === 'favorites' || cat.id === 'other') continue;
-    if (cat.keywords.some((k) => name.includes(k))) {
+    if (cat.matcher.test(sourceName)) {
       return cat.id;
     }
   }
