@@ -279,6 +279,7 @@ export const FollowingScreen: React.FC = () => {
   const [sortFilter, setSortFilter] = useState<SortFilter>('newest');
   const [selectedCategory, setSelectedCategory] = useState<CategoryId>('all');
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
   const [newChannelId, setNewChannelId] = useState<string>('');
   const [newChannelName, setNewChannelName] = useState<string>('');
@@ -485,6 +486,8 @@ export const FollowingScreen: React.FC = () => {
       id: CategoryId;
       title: string;
       icon: string;
+      totalCount: number;
+      isCollapsed: boolean;
       data: TrackedSource[];
     }> = [];
 
@@ -495,17 +498,27 @@ export const FollowingScreen: React.FC = () => {
 
       const items = bucketMap.get(cat.id) || [];
       if (items.length > 0) {
+        const isCollapsed = Boolean(collapsedSections[cat.id]);
         result.push({
           id: cat.id,
           title: cat.label,
           icon: cat.icon,
-          data: sortSources(items, sortFilter),
+          totalCount: items.length,
+          isCollapsed,
+          data: isCollapsed ? [] : sortSources(items, sortFilter),
         });
       }
     }
 
     return result;
-  }, [sources, favoriteIds, deferredSearchQuery, selectedCategory, sortFilter]);
+  }, [sources, favoriteIds, deferredSearchQuery, selectedCategory, sortFilter, collapsedSections]);
+
+  const toggleCollapse = useCallback((catId: CategoryId) => {
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [catId]: !prev[catId],
+    }));
+  }, []);
 
   // Category counts for pills
   const categoryCounts = useMemo(() => {
@@ -538,20 +551,37 @@ export const FollowingScreen: React.FC = () => {
   );
 
   const renderSectionHeader = useCallback(
-    ({ section }: { section: { id: CategoryId; title: string; icon: string; data: TrackedSource[] } }) => (
-      <View style={styles.sectionHeader}>
+    ({
+      section,
+    }: {
+      section: {
+        id: CategoryId;
+        title: string;
+        icon: string;
+        totalCount: number;
+        isCollapsed: boolean;
+        data: TrackedSource[];
+      };
+    }) => (
+      <TouchableOpacity
+        style={styles.sectionHeader}
+        onPress={() => toggleCollapse(section.id)}
+        activeOpacity={0.75}>
         <View style={styles.sectionTitleRow}>
           <Text style={{ fontSize: 16 }}>{section.icon}</Text>
           <Text style={styles.sectionTitle}>{section.title}</Text>
         </View>
         <View style={styles.sectionBadge}>
           <Text style={styles.sectionBadgeText}>
-            {section.data.length} channel{section.data.length !== 1 ? 's' : ''}
+            {section.totalCount} {section.totalCount === 1 ? 'channel' : 'channels'}
+          </Text>
+          <Text style={styles.sectionChevron}>
+            {section.isCollapsed ? '▶' : '▼'}
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
     ),
-    [styles]
+    [styles, toggleCollapse]
   );
 
   const ListHeader = useMemo(
