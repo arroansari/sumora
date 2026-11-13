@@ -298,13 +298,20 @@ class WebSubService {
       });
       upserted++;
 
-      if (triggerPipeline) {
-        inlinePipeline.fireAndForget({
-          videoId: entry.videoId,
-          channelId: entry.channelId,
-          title: entry.title,
-          videoUrl: entry.videoUrl,
+      if (triggerPipeline && upserted <= 3) {
+        // Pre-distill the 3 newest uploads in the background if not already completed
+        const existing = await prisma.video.findUnique({
+          where: { videoId: entry.videoId },
+          select: { summaryStatus: true },
         });
+        if (existing?.summaryStatus !== 'completed') {
+          inlinePipeline.fireAndForget({
+            videoId: entry.videoId,
+            channelId: entry.channelId,
+            title: entry.title,
+            videoUrl: entry.videoUrl,
+          });
+        }
       }
     }
 

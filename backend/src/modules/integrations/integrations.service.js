@@ -269,7 +269,8 @@ class IntegrationsService {
 
     let totalUpserted = 0;
     for (const id of channelIds) {
-      const result = await webSubService.backfillChannelFeed(id, { triggerPipeline: false });
+      // Pre-distill the newest uploads in the background so summaries are ready instantly when opened
+      const result = await webSubService.backfillChannelFeed(id, { triggerPipeline: true });
       totalUpserted += result.upserted;
     }
 

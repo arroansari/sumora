@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import { ThemeColors } from '../../theme/colors';
 
 export const createSummaryDetailStyles = (colors: ThemeColors) =>
@@ -10,43 +10,67 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     thumbnailContainer: {
       width: '100%',
       height: 220,
+      backgroundColor: colors.surfaceHighlight,
+      position: 'relative',
     },
     thumbnail: {
       width: '100%',
       height: '100%',
     },
-    thumbnailPlaceholder: {
-      width: '100%',
-      height: '100%',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.surfaceHighlight,
+    thumbnailOverlay: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: 'rgba(0, 0, 0, 0.15)',
     },
     content: {
-      padding: 20,
-      paddingBottom: 40,
+      padding: 18,
+      paddingBottom: 48,
     },
+
+    // Title & Channel Header
     title: {
-      fontSize: 22,
+      fontSize: 21,
       fontWeight: '800',
       lineHeight: 28,
+      letterSpacing: -0.4,
       color: colors.textPrimary,
+      fontFamily: Platform.select({ ios: 'System', android: 'sans-serif-medium' }),
     },
     metaRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 8,
-      marginBottom: 20,
+      marginTop: 10,
+      marginBottom: 16,
+    },
+    channelBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
     },
     channelName: {
       fontSize: 14,
       fontWeight: '700',
       color: colors.primary,
     },
+    metaPills: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    readTimePill: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+      backgroundColor: colors.surfaceHighlight,
+    },
+    readTimeText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
     aiPill: {
       paddingHorizontal: 8,
-      paddingVertical: 3,
+      paddingVertical: 4,
       borderRadius: 6,
       backgroundColor: colors.surfaceHighlight,
     },
@@ -55,73 +79,202 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
       fontWeight: '600',
       color: colors.textMuted,
     },
-    statusBox: {
-      padding: 16,
+
+    // Segment Tab Switcher (Quick Highlights vs Deep Dive)
+    segmentContainer: {
+      flexDirection: 'row',
+      backgroundColor: colors.surfaceSubtle,
       borderRadius: 12,
+      padding: 4,
+      marginBottom: 18,
+    },
+    segmentTab: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 9,
+    },
+    segmentTabActive: {
+      backgroundColor: colors.surface,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    segmentText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textMuted,
+    },
+    segmentTextActive: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+
+    // Status / Generating State Box
+    statusBox: {
+      padding: 20,
+      borderRadius: 16,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
       alignItems: 'center',
       marginBottom: 20,
     },
-    statusBoxText: {
-      fontSize: 14,
-      fontWeight: '600',
-      textAlign: 'center',
+    statusBoxTitle: {
+      fontSize: 15,
+      fontWeight: '700',
       color: colors.textPrimary,
+      marginTop: 10,
+      marginBottom: 4,
     },
+    statusBoxSub: {
+      fontSize: 13,
+      lineHeight: 18,
+      textAlign: 'center',
+      color: colors.textSecondary,
+    },
+
+    // Hero TL;DR Card
+    heroCard: {
+      padding: 20,
+      borderRadius: 18,
+      borderWidth: 1.5,
+      borderColor: colors.primary + '30',
+      backgroundColor: colors.surface,
+      marginBottom: 16,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    heroHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    heroTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    heroTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      letterSpacing: -0.2,
+      color: colors.primary,
+    },
+    heroBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+      backgroundColor: colors.primary + '15',
+    },
+    heroBadgeText: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: colors.primary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    heroBodyText: {
+      fontSize: 15.5,
+      lineHeight: 25,
+      letterSpacing: 0.2,
+      color: colors.textPrimary,
+      fontFamily: Platform.select({ ios: 'System', android: 'sans-serif' }),
+    },
+
+    // Standard Section Card
     sectionCard: {
-      padding: 18,
-      borderRadius: 14,
+      padding: 20,
+      borderRadius: 18,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
       marginBottom: 16,
     },
+    sectionHeadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 14,
+    },
     sectionHeading: {
       fontSize: 16,
       fontWeight: '800',
-      letterSpacing: 0.5,
-      marginBottom: 10,
-      textTransform: 'uppercase',
-      color: colors.primary,
+      letterSpacing: -0.2,
+      color: colors.textPrimary,
     },
     bodyText: {
       fontSize: 15,
-      lineHeight: 23,
+      lineHeight: 24,
+      letterSpacing: 0.15,
       color: colors.textPrimary,
+      fontFamily: Platform.select({ ios: 'System', android: 'sans-serif' }),
     },
-    bulletRow: {
+
+    // Bite-sized Key Takeaways
+    takeawaysList: {
+      gap: 12,
+    },
+    takeawayItem: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      marginBottom: 8,
+      padding: 12,
+      borderRadius: 12,
+      backgroundColor: colors.surfaceSubtle,
+      gap: 12,
     },
-    bulletPoint: {
-      fontSize: 18,
-      lineHeight: 22,
-      marginRight: 8,
-      color: colors.primary,
+    takeawayNumberBox: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 2,
     },
-    bulletText: {
-      fontSize: 14,
-      lineHeight: 21,
+    takeawayNumberText: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: '#FFFFFF',
+    },
+    takeawayText: {
       flex: 1,
+      fontSize: 14.5,
+      lineHeight: 22,
+      letterSpacing: 0.1,
       color: colors.textPrimary,
     },
+
+    // Important Concepts
     conceptItem: {
-      marginBottom: 12,
+      padding: 14,
+      borderRadius: 12,
+      borderLeftWidth: 3.5,
+      borderLeftColor: colors.primary,
+      backgroundColor: colors.surfaceSubtle,
+      marginBottom: 10,
     },
     conceptTitle: {
-      fontSize: 15,
+      fontSize: 14.5,
       fontWeight: '700',
       color: colors.primary,
     },
     conceptExplanation: {
-      fontSize: 14,
+      fontSize: 13.5,
       lineHeight: 20,
-      marginTop: 2,
+      marginTop: 4,
       color: colors.textSecondary,
     },
+
+    // Topics & Tags
     topicsRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -129,44 +282,57 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     topicBadge: {
       paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 8,
+      paddingVertical: 7,
+      borderRadius: 20,
       backgroundColor: colors.surfaceHighlight,
     },
     topicBadgeText: {
-      fontSize: 13,
+      fontSize: 12.5,
       fontWeight: '600',
       color: colors.textPrimary,
     },
+
+    // Action Buttons
     actionsContainer: {
-      marginTop: 10,
-      gap: 12,
+      marginTop: 12,
+      gap: 10,
     },
     watchOriginalButton: {
-      height: 50,
-      borderRadius: 12,
+      height: 52,
+      borderRadius: 14,
+      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: colors.primary,
+      backgroundColor: '#E60000', // YouTube Red accent for instant recognition
+      gap: 8,
     },
     watchOriginalText: {
       color: '#FFFFFF',
       fontSize: 15,
       fontWeight: '700',
     },
-    shareButton: {
+    shareRow: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    secondaryButton: {
+      flex: 1,
       height: 48,
-      borderRadius: 12,
+      borderRadius: 14,
       borderWidth: 1,
       borderColor: colors.border,
+      backgroundColor: colors.surface,
+      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
+      gap: 6,
     },
-    shareText: {
-      fontSize: 15,
+    secondaryButtonText: {
+      fontSize: 14,
       fontWeight: '600',
       color: colors.textPrimary,
     },
+
     centerContainer: {
       flex: 1,
       alignItems: 'center',
@@ -177,7 +343,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     loadingText: {
       marginTop: 12,
       fontSize: 14,
+      fontWeight: '500',
       color: colors.textMuted,
     },
   });
-
