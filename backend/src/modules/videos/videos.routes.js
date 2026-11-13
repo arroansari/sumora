@@ -9,6 +9,11 @@ router.use(authenticate);
 // Video feed
 router.get('/', (req, res, next) => videosController.getFeed(req, res, next));
 
+// Import any YouTube video by URL or ID on-demand
+router.post('/import', (req, res, next) =>
+  videosController.importVideo(req, res, next)
+);
+
 // Single video
 router.get('/:videoId', (req, res, next) => videosController.getVideo(req, res, next));
 

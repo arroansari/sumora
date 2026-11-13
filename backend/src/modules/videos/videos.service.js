@@ -1,6 +1,19 @@
 const prisma = require('../../config/db');
+const axios = require('axios');
 const { getQueue, QUEUE_NAMES } = require('../../jobs');
 const inlinePipeline = require('../pipeline/inline-pipeline.service');
+
+function extractYouTubeVideoId(input) {
+  if (!input) return null;
+  const str = input.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(str)) {
+    return str;
+  }
+  const match = str.match(
+    /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([a-zA-Z0-9_-]{11})/
+  );
+  return match ? match[1] : null;
+}
 
 class VideosService {
   /**
@@ -9,7 +22,7 @@ class VideosService {
    * @param {string} userId
    * @param {object} [pagination]
    */
-  async getFeed(userId, { page = 1, limit = 20, channelId = null, from = null, to = null } = {}) {
+  async getFeed(userId, { page = 1, limit = 20, channelId = null, from = null, to = null, search = null } = {}) {
     const skip = (page - 1) * limit;
 
     // Get list of channel IDs tracked by user (with their display names)
@@ -23,8 +36,8 @@ class VideosService {
     // Build a quick lookup map: channelId → channelName
     const channelNameMap = new Map(tracked.map((t) => [t.sourceId, t.sourceName]));
 
-    // If user has not tracked any channels yet, return empty feed
-    if (channelIds.length === 0) {
+    // If user has not tracked any channels yet and didn't specify a channel, return empty feed
+    if (channelIds.length === 0 && !channelId) {
       return {
         videos: [],
         pagination: { page, limit, total: 0, totalPages: 0 },
@@ -38,11 +51,10 @@ class VideosService {
         : { in: channelIds },
     };
 
-    // Guard: if filtering to a specific channel, ensure user actually tracks it
-    if (channelId && !channelIds.includes(channelId)) {
-      return {
-        videos: [],
-        pagination: { page, limit, total: 0, totalPages: 0 },
+    if (search && search.trim()) {
+      whereClause.title = {
+        contains: search.trim(),
+        mode: 'insensitive',
       };
     }
 
@@ -231,6 +243,95 @@ class VideosService {
       });
       return { message: 'Summarization started (inline)', status: 'processing' };
     }
+  }
+
+  /**
+   * Imports any YouTube video by URL or ID on-demand, fetches its metadata via oEmbed,
+   * stores it in the database, and automatically triggers AI summarization.
+   *
+   * @param {string} userId
+   * @param {object} params
+   * @param {string} params.url - YouTube video URL or ID
+   * @param {string} [params.channelId] - Optional associated channel ID
+   */
+  async importVideoByUrl(userId, { url, channelId = null }) {
+    const videoId = extractYouTubeVideoId(url);
+    if (!videoId) {
+      const error = new Error('Invalid YouTube URL or Video ID');
+      error.status = 400;
+      throw error;
+    }
+
+    // 1. Check if video already exists
+    let video = await prisma.video.findUnique({
+      where: { videoId },
+      include: { summary: true },
+    });
+
+    if (video) {
+      // If not yet summarized, trigger summarization in background
+      if (video.summaryStatus !== 'completed') {
+        inlinePipeline.fireAndForget({
+          videoId: video.videoId,
+          channelId: video.channelId,
+          title: video.title,
+          videoUrl: video.videoUrl,
+        });
+      }
+      return video;
+    }
+
+    // 2. Fetch public YouTube oEmbed metadata (No API key needed!)
+    let title = 'YouTube Video';
+    let authorName = 'YouTube Creator';
+    let thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+    try {
+      const oembedRes = await axios.get(
+        `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+        { timeout: 7000 }
+      );
+      if (oembedRes.data) {
+        title = oembedRes.data.title || title;
+        authorName = oembedRes.data.author_name || authorName;
+        thumbnailUrl = oembedRes.data.thumbnail_url || thumbnailUrl;
+      }
+    } catch (err) {
+      console.warn(`[VideosService] oEmbed lookup note for ${videoId}:`, err.message);
+    }
+
+    // 3. Upsert video in database
+    video = await prisma.video.upsert({
+      where: { videoId },
+      create: {
+        videoId,
+        channelId: channelId || 'imported',
+        title,
+        videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+        thumbnailUrl,
+        publishedAt: new Date(),
+        transcriptStatus: 'pending',
+        summaryStatus: 'processing',
+      },
+      update: {
+        title,
+        thumbnailUrl,
+      },
+      include: { summary: true },
+    });
+
+    // 4. Trigger inline AI distillation pipeline
+    inlinePipeline.fireAndForget({
+      videoId: video.videoId,
+      channelId: video.channelId,
+      title: video.title,
+      videoUrl: video.videoUrl,
+    });
+
+    return {
+      ...video,
+      channelName: authorName,
+    };
   }
 }
 

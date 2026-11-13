@@ -7,6 +7,9 @@ import {
   ActivityIndicator,
   ListRenderItemInfo,
   RefreshControl,
+  TextInput,
+  Modal,
+  Alert,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
@@ -23,19 +26,21 @@ import { createChannelDetailStyles } from './ChannelDetailScreen.styles';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChannelDetail'>;
 
-type DateRange = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
+type DateRange = 'today' | 'yesterday' | 'week' | 'month' | 'custom' | 'custom_range';
 
 interface DateBounds {
   from: string;
   to: string;
 }
 
-const DATE_OPTIONS: FilterPillOption<DateRange>[] = [
-  { label: 'All Time', value: 'custom' },
-  { label: 'This Month', value: 'month' },
-  { label: 'This Week', value: 'week' },
-  { label: 'Yesterday', value: 'yesterday' },
-  { label: 'Today', value: 'today' },
+const DATE_PRESETS = [
+  { label: 'Past 7 Days', days: 7 },
+  { label: 'Past 14 Days', days: 14 },
+  { label: 'Past 30 Days', days: 30 },
+  { label: 'Past 60 Days', days: 60 },
+  { label: 'Past 90 Days', days: 90 },
+  { label: 'Past 6 Months', days: 180 },
+  { label: 'Past 1 Year', days: 365 },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -47,9 +52,7 @@ function getInitials(name: string): string {
     : name.slice(0, 2).toUpperCase();
 }
 
-function getDateBounds(range: DateRange): DateBounds | null {
-  const now = new Date();
-
+function getDateBounds(range: DateRange, customBounds: DateBounds | null): DateBounds | null {
   const startOfDay = (d: Date) => {
     d.setHours(0, 0, 0, 0);
     return d;
@@ -89,8 +92,10 @@ function getDateBounds(range: DateRange): DateBounds | null {
         to: endOfDay(new Date()).toISOString(),
       };
     }
+    case 'custom_range':
+      return customBounds;
     case 'custom':
-      return null; // All time — no date filter
+      return null; // All time
   }
 }
 
@@ -198,28 +203,35 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>('custom');
+  const [customBounds, setCustomBounds] = useState<DateBounds | null>(null);
+  const [customLabel, setCustomLabel] = useState<string>('📅 Custom');
+  const [selectedPresetDays, setSelectedPresetDays] = useState<number | null>(null);
   const [backfilling, setBackfilling] = useState(false);
+
+  // Search & Modals state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkInput, setLinkInput] = useState('');
+  const [importing, setImporting] = useState(false);
+
   // Guard: only run RSS backfill once per screen mount, not on every filter change
   const hasBackfilled = useRef(false);
 
   // ── Data fetching ─────────────────────────────────────────────────────────
 
   const fetchVideos = useCallback(
-    async (range: DateRange) => {
-      const bounds = getDateBounds(range);
+    async (range: DateRange, boundsOverride?: DateBounds | null) => {
+      const bounds = boundsOverride !== undefined ? boundsOverride : getDateBounds(range, customBounds);
       const data = await videosApi.getFeed(1, 50, {
         channelId,
         ...(bounds ? { from: bounds.from, to: bounds.to } : {}),
       });
       return data.videos;
     },
-    [channelId]
+    [channelId, customBounds]
   );
 
-  /**
-   * Backfill recent uploads from YouTube's public RSS feed.
-   * Called automatically on first load when the DB has no videos for this channel.
-   */
   const backfillAndRefetch = useCallback(
     async (isMountedRef: { current: boolean }) => {
       setBackfilling(true);
@@ -230,12 +242,9 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       } finally {
         if (isMountedRef.current) setBackfilling(false);
       }
-      // Re-fetch All Time after backfill so we show results, but DON'T change
-      // the selected filter pill — that caused the "Yesterday jumps to All Time" bug
-      const all = await fetchVideos('custom').catch(() => []);
+      const all = await fetchVideos('custom', null).catch(() => []);
       if (isMountedRef.current && all.length > 0) {
         setVideos(all);
-        // ⚠️  Do NOT call setDateRange here — the user's filter stays intact
       }
     },
     [channelId, fetchVideos]
@@ -250,9 +259,6 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         .then(async (vids) => {
           if (!isMountedRef.current) return;
           setVideos(vids);
-          // Only backfill on first open AND only when All Time is selected with 0 results.
-          // Guarding on dateRange === 'custom' prevents any other filter pill from
-          // triggering a backfill + setDateRange reset (the "Yesterday jumps back" bug).
           if (vids.length === 0 && !hasBackfilled.current && dateRange === 'custom') {
             hasBackfilled.current = true;
             await backfillAndRefetch(isMountedRef);
@@ -273,11 +279,51 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const handleDateRangeChange = useCallback(
     (range: DateRange) => {
+      if (range === 'custom_range') {
+        setShowDateModal(true);
+        return;
+      }
       setDateRange(range);
-      // loading state will be re-triggered by useFocusEffect deps change
     },
     []
   );
+
+  const handleApplyPreset = useCallback(
+    async (preset: { label: string; days: number }) => {
+      setSelectedPresetDays(preset.days);
+      const now = new Date();
+      const past = new Date();
+      past.setDate(past.getDate() - preset.days);
+      past.setHours(0, 0, 0, 0);
+
+      const bounds: DateBounds = {
+        from: past.toISOString(),
+        to: now.toISOString(),
+      };
+
+      setCustomBounds(bounds);
+      setCustomLabel(`📅 ${preset.label}`);
+      setDateRange('custom_range');
+      setShowDateModal(false);
+
+      setLoading(true);
+      try {
+        const vids = await fetchVideos('custom_range', bounds);
+        setVideos(vids);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchVideos]
+  );
+
+  const handleResetToAllTime = useCallback(() => {
+    setSelectedPresetDays(null);
+    setCustomBounds(null);
+    setCustomLabel('📅 Custom');
+    setDateRange('custom');
+    setShowDateModal(false);
+  }, []);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -299,7 +345,66 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     [navigation]
   );
 
-  // ── Render helpers ─────────────────────────────────────────────────────────
+  // ── Import Video by Link ───────────────────────────────────────────────────
+
+  const handleImportVideo = useCallback(async () => {
+    if (!linkInput.trim()) {
+      Alert.alert('Link Required', 'Please enter or paste a valid YouTube video URL or ID.');
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const imported = await videosApi.importByUrl(linkInput.trim(), channelId);
+      setShowLinkModal(false);
+      setLinkInput('');
+
+      // Add to list immediately if not already present
+      setVideos((prev) => {
+        if (prev.some((v) => v.videoId === imported.videoId)) return prev;
+        return [imported, ...prev];
+      });
+
+      // Directly navigate to summary
+      navigation.navigate('SummaryDetail', {
+        videoId: imported.videoId,
+        videoTitle: imported.title,
+      });
+    } catch (err: any) {
+      Alert.alert('Import Failed', err.message || 'Could not import video. Check the URL and try again.');
+    } finally {
+      setImporting(false);
+    }
+  }, [linkInput, channelId, navigation]);
+
+  // ── Client-side Live Search ────────────────────────────────────────────────
+
+  const filteredVideos = useMemo(() => {
+    if (!searchQuery.trim()) return videos;
+    const q = searchQuery.toLowerCase().trim();
+    return videos.filter(
+      (v) =>
+        v.title.toLowerCase().includes(q) ||
+        (v.summary?.overview && v.summary.overview.toLowerCase().includes(q))
+    );
+  }, [videos, searchQuery]);
+
+  // ── Filter Options with Dynamic Custom Date Label ─────────────────────────
+
+  const dateOptions = useMemo<FilterPillOption<DateRange>[]>(
+    () => [
+      { label: 'All Time', value: 'custom' },
+      {
+        label: dateRange === 'custom_range' ? customLabel : '📅 Custom',
+        value: 'custom_range',
+      },
+      { label: 'This Month', value: 'month' },
+      { label: 'This Week', value: 'week' },
+      { label: 'Yesterday', value: 'yesterday' },
+      { label: 'Today', value: 'today' },
+    ],
+    [dateRange, customLabel]
+  );
 
   const keyExtractor = useCallback((item: VideoItem) => item.id, []);
 
@@ -326,7 +431,7 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const ListHeader = useMemo(
     () => (
       <View>
-        {/* Channel Header */}
+        {/* Channel Profile Header */}
         <View style={styles.channelHeader}>
           <View style={styles.avatarWrap}>
             {thumbnailUrl ? (
@@ -349,20 +454,51 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </Text>
         </View>
 
-        {/* Date Filter Pills */}
+        {/* 1. Control Bar: Search Input + "+ Link" Action Button */}
+        <View style={styles.controlBar}>
+          <View style={styles.searchWrap}>
+            <Text style={styles.searchIcon}>🔍</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search videos in channel…"
+              placeholderTextColor={colors.textMuted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+            />
+            {Boolean(searchQuery) && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                style={styles.clearSearchBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={styles.clearSearchText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.linkActionBtn}
+            onPress={() => setShowLinkModal(true)}
+            activeOpacity={0.8}>
+            <Text style={styles.linkActionBtnText}>🔗 + Link</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 2. Date Filter Pills with Custom Date Option */}
         <FilterPills<DateRange>
-          options={DATE_OPTIONS}
+          options={dateOptions}
           selectedValue={dateRange}
           onSelect={handleDateRangeChange}
           style={styles.filterRow}
         />
 
-        {/* Result count */}
+        {/* 3. Result Count & Feedback */}
         {!loading && (
           <Text style={styles.resultCount}>
-            {videos.length > 0
-              ? `${videos.length} video${videos.length !== 1 ? 's' : ''}`
-              : ''}
+            {searchQuery
+              ? `${filteredVideos.length} matching "${searchQuery}"`
+              : `${videos.length} video${videos.length !== 1 ? 's' : ''}`}
           </Text>
         )}
       </View>
@@ -372,9 +508,13 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       thumbnailUrl,
       channelName,
       trackedDate,
+      colors.textMuted,
+      searchQuery,
+      dateOptions,
       dateRange,
       handleDateRangeChange,
       loading,
+      filteredVideos.length,
       videos.length,
     ]
   );
@@ -385,7 +525,9 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={styles.emptyBox}>
         <Text style={styles.emptyEmoji}>😔</Text>
         <Text style={styles.emptyTitle}>
-          {dateRange === 'today'
+          {searchQuery
+            ? 'No Matching Videos'
+            : dateRange === 'today'
             ? 'No Videos Today'
             : dateRange === 'yesterday'
             ? 'No Videos Yesterday'
@@ -393,20 +535,27 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             ? 'No Videos This Week'
             : dateRange === 'month'
             ? 'No Videos This Month'
+            : dateRange === 'custom_range'
+            ? `No Videos in ${customLabel}`
             : 'No Videos Yet'}
         </Text>
         <Text style={styles.emptySubtitle}>
-          {channelName} hasn't uploaded anything in this time range.
+          {searchQuery
+            ? `No videos matched "${searchQuery}". Try a different title or keyword.`
+            : `${channelName} hasn't uploaded anything in this time range.`}
         </Text>
         <TouchableOpacity
           style={styles.emptyAction}
-          onPress={() => handleDateRangeChange('custom')}
+          onPress={() => {
+            setSearchQuery('');
+            handleResetToAllTime();
+          }}
           activeOpacity={0.8}>
           <Text style={styles.emptyActionText}>View All Time</Text>
         </TouchableOpacity>
       </View>
     );
-  }, [loading, dateRange, channelName, handleDateRangeChange, styles]);
+  }, [loading, searchQuery, dateRange, customLabel, channelName, handleResetToAllTime, styles]);
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -422,7 +571,7 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </>
       ) : (
         <FlatList
-          data={videos}
+          data={filteredVideos}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           ListHeaderComponent={ListHeader}
@@ -442,7 +591,122 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           }
         />
       )}
+
+      {/* ── Modal 1: Custom Date Presets Picker ───────────────────────────── */}
+      <Modal
+        visible={showDateModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDateModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>📅 Filter by Date Range</Text>
+              <TouchableOpacity
+                onPress={() => setShowDateModal(false)}
+                style={styles.modalCloseBtn}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSub}>
+              Select a time window to filter uploads from {channelName}:
+            </Text>
+
+            <View style={styles.presetGrid}>
+              {DATE_PRESETS.map((p) => {
+                const isActive = selectedPresetDays === p.days;
+                return (
+                  <TouchableOpacity
+                    key={p.days}
+                    style={[styles.presetChip, isActive && styles.presetChipActive]}
+                    onPress={() => handleApplyPreset(p)}
+                    activeOpacity={0.75}>
+                    <Text
+                      style={[
+                        styles.presetChipText,
+                        isActive && styles.presetChipTextActive,
+                      ]}>
+                      {p.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalSecondaryBtn}
+                onPress={handleResetToAllTime}
+                activeOpacity={0.75}>
+                <Text style={styles.modalSecondaryBtnText}>Reset (All Time)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalPrimaryBtn}
+                onPress={() => setShowDateModal(false)}
+                activeOpacity={0.75}>
+                <Text style={styles.modalPrimaryBtnText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Modal 2: Paste YouTube Link to Summarize ──────────────────────── */}
+      <Modal
+        visible={showLinkModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowLinkModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🔗 Summarize Any Video</Text>
+              <TouchableOpacity
+                onPress={() => setShowLinkModal(false)}
+                style={styles.modalCloseBtn}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSub}>
+              Paste any YouTube video link or Shorts URL to generate an AI summary immediately:
+            </Text>
+
+            <TextInput
+              style={styles.modalInput}
+              placeholder="https://www.youtube.com/watch?v=..."
+              placeholderTextColor={colors.textMuted}
+              value={linkInput}
+              onChangeText={setLinkInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+            />
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalSecondaryBtn}
+                onPress={() => setShowLinkModal(false)}
+                activeOpacity={0.75}
+                disabled={importing}>
+                <Text style={styles.modalSecondaryBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalPrimaryBtn}
+                onPress={handleImportVideo}
+                activeOpacity={0.8}
+                disabled={importing}>
+                {importing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalPrimaryBtnText}>Distill Video ✨</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
-

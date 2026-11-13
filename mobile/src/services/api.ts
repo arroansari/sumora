@@ -153,7 +153,7 @@ export const videosApi = {
   getFeed: async (
     page = 1,
     limit = 20,
-    opts: { channelId?: string; from?: string; to?: string } = {}
+    opts: { channelId?: string; from?: string; to?: string; search?: string } = {}
   ): Promise<{ videos: VideoItem[]; totalPages: number }> => {
     const params = new URLSearchParams({
       page: String(page),
@@ -162,6 +162,7 @@ export const videosApi = {
     if (opts.channelId) params.set('channelId', opts.channelId);
     if (opts.from)      params.set('from', opts.from);
     if (opts.to)        params.set('to', opts.to);
+    if (opts.search)    params.set('search', opts.search);
 
     const res = await request<{ data: VideoItem[]; pagination: { totalPages: number } }>(
       `/videos?${params.toString()}`
@@ -195,6 +196,14 @@ export const videosApi = {
     return request<{ status: string; message: string }>(`/videos/${videoId}/summarize`, {
       method: 'POST',
     });
+  },
+
+  importByUrl: async (url: string, channelId?: string): Promise<VideoItem> => {
+    const res = await request<{ data: VideoItem }>('/videos/import', {
+      method: 'POST',
+      body: JSON.stringify({ url, channelId }),
+    });
+    return res.data;
   },
 };
 

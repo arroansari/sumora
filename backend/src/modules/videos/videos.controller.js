@@ -8,7 +8,8 @@ class VideosController {
       const channelId = req.query.channelId || null;
       const from = req.query.from || null;
       const to = req.query.to || null;
-      const result = await videosService.getFeed(req.user.id, { page, limit, channelId, from, to });
+      const search = req.query.search || null;
+      const result = await videosService.getFeed(req.user.id, { page, limit, channelId, from, to, search });
       res.status(200).json({
         success: true,
         data: result.videos,
@@ -65,6 +66,19 @@ class VideosController {
       res.status(202).json({
         success: true,
         ...result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async importVideo(req, res, next) {
+    try {
+      const { url, channelId } = req.body;
+      const video = await videosService.importVideoByUrl(req.user.id, { url, channelId });
+      res.status(201).json({
+        success: true,
+        data: video,
       });
     } catch (error) {
       next(error);
