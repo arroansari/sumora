@@ -331,31 +331,32 @@ export const NotificationsScreen: React.FC = () => {
   const listHeader = useMemo(
     () => (
       <View>
-        {/* Global Platform Toggles */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Platform Push Notifications</Text>
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.toggleRow}>
-            <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={styles.toggleLabel}>YouTube Summaries</Text>
-              <Text style={styles.toggleDesc}>
-                Receive a push notification when newly published YouTube videos are summarized.
+        {/* Compact Master Global Toggle */}
+        <View style={styles.masterCard}>
+          <View style={styles.masterLeft}>
+            <View style={styles.masterIconBadge}>
+              <Text style={styles.masterIconText}>▶</Text>
+            </View>
+            <View style={styles.masterTextGroup}>
+              <Text style={styles.masterTitle}>YouTube Summaries</Text>
+              <Text style={styles.masterSubtitle} numberOfLines={1}>
+                {isYouTubeEnabled
+                  ? 'Push notifications enabled for new uploads'
+                  : 'All notifications paused'}
               </Text>
             </View>
-            <Switch
-              value={isYouTubeEnabled}
-              onValueChange={handleToggleGlobalYouTube}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor="#FFFFFF"
-            />
           </View>
+          <Switch
+            value={isYouTubeEnabled}
+            onValueChange={handleToggleGlobalYouTube}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor="#FFFFFF"
+          />
         </View>
 
-        {/* Channel-Specific Section Header */}
-        <View style={[styles.sectionHeaderRow, { marginTop: 24 }]}>
-          <Text style={styles.sectionTitle}>Channel-Specific Notifications</Text>
+        {/* Channel Section Header */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Channel Notifications</Text>
           {sources.length > 0 && (
             <View style={styles.countBadge}>
               <Text style={styles.countBadgeText}>{sources.length}</Text>

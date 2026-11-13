@@ -25,6 +25,9 @@ import { TrackedSource } from '../../types/models.types';
 import { SearchBar } from '../../components/atoms/SearchBar';
 import { FilterPills, FilterPillOption } from '../../components/atoms/FilterPills';
 import { createFollowingStyles } from './FollowingScreen.styles';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../types/navigation.types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -80,10 +83,11 @@ interface ChannelRowProps {
   item: TrackedSource;
   styles: ReturnType<typeof createFollowingStyles>;
   onToggle: (source: TrackedSource) => void;
+  onPress: (source: TrackedSource) => void;
 }
 
-const ChannelRow = React.memo<ChannelRowProps>(({ item, styles, onToggle }) => (
-  <View style={styles.sourceCard}>
+const ChannelRow = React.memo<ChannelRowProps>(({ item, styles, onToggle, onPress }) => (
+  <TouchableOpacity style={styles.sourceCard} onPress={() => onPress(item)} activeOpacity={0.75}>
     <View style={styles.sourceAvatar}>
       {item.thumbnailUrl ? (
         <FastImage
@@ -107,12 +111,15 @@ const ChannelRow = React.memo<ChannelRowProps>(({ item, styles, onToggle }) => (
       <Text style={styles.sourceIdText} numberOfLines={1}>
         ID: {item.sourceId.slice(0, 18)}...
       </Text>
+      <Text style={styles.sourceHint} numberOfLines={1}>
+        Tap to view summaries ›
+      </Text>
     </View>
 
     <TouchableOpacity style={styles.trackingButton} onPress={() => onToggle(item)}>
       <Text style={styles.trackingButtonText}>Tracking ✓</Text>
     </TouchableOpacity>
-  </View>
+  </TouchableOpacity>
 ));
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
@@ -275,13 +282,27 @@ export const FollowingScreen: React.FC = () => {
 
   // ── Render helpers ─────────────────────────────────────────────────────────
 
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  const handleChannelPress = useCallback(
+    (source: TrackedSource) => {
+      navigation.navigate('ChannelDetail', {
+        channelId: source.sourceId,
+        channelName: source.sourceName,
+        thumbnailUrl: source.thumbnailUrl,
+        trackedSince: source.createdAt,
+      });
+    },
+    [navigation]
+  );
+
   const keyExtractor = useCallback((item: TrackedSource) => item.id, []);
 
-  // Fixed card height (74) + marginBottom (10) = 84px for O(1) FlatList virtualization
+  // Card height (90) + marginBottom (10) = 100px for O(1) FlatList virtualization
   const getItemLayout = useCallback(
     (_data: ArrayLike<TrackedSource> | null | undefined, index: number) => ({
-      length: 84,
-      offset: 84 * index,
+      length: 100,
+      offset: 100 * index,
       index,
     }),
     []
@@ -289,9 +310,9 @@ export const FollowingScreen: React.FC = () => {
 
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<TrackedSource>) => (
-      <ChannelRow item={item} styles={styles} onToggle={handleToggleTracking} />
+      <ChannelRow item={item} styles={styles} onToggle={handleToggleTracking} onPress={handleChannelPress} />
     ),
-    [styles, handleToggleTracking]
+    [styles, handleToggleTracking, handleChannelPress]
   );
 
   return (

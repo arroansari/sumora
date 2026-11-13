@@ -5,7 +5,10 @@ class VideosController {
     try {
       const page = parseInt(req.query.page, 10) || 1;
       const limit = parseInt(req.query.limit, 10) || 20;
-      const result = await videosService.getFeed(req.user.id, { page, limit });
+      const channelId = req.query.channelId || null;
+      const from = req.query.from || null;
+      const to = req.query.to || null;
+      const result = await videosService.getFeed(req.user.id, { page, limit, channelId, from, to });
       res.status(200).json({
         success: true,
         data: result.videos,

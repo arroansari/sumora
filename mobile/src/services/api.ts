@@ -140,9 +140,21 @@ export const sourcesApi = {
 
 // Videos & Summaries API
 export const videosApi = {
-  getFeed: async (page = 1, limit = 20): Promise<{ videos: VideoItem[]; totalPages: number }> => {
+  getFeed: async (
+    page = 1,
+    limit = 20,
+    opts: { channelId?: string; from?: string; to?: string } = {}
+  ): Promise<{ videos: VideoItem[]; totalPages: number }> => {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    if (opts.channelId) params.set('channelId', opts.channelId);
+    if (opts.from)      params.set('from', opts.from);
+    if (opts.to)        params.set('to', opts.to);
+
     const res = await request<{ data: VideoItem[]; pagination: { totalPages: number } }>(
-      `/videos?page=${page}&limit=${limit}`
+      `/videos?${params.toString()}`
     );
     return {
       videos: res.data,

@@ -34,8 +34,8 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 10,
-      marginTop: 4,
+      marginBottom: 8,
+      marginTop: 2,
     },
     sectionTitle: {
       fontSize: 16,
@@ -52,6 +52,57 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
       fontSize: 12,
       fontWeight: '700',
       color: colors.primary,
+    },
+    masterCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      marginBottom: 10,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.03,
+      shadowRadius: 3,
+      elevation: 1,
+    },
+    masterLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      marginRight: 10,
+    },
+    masterIconBadge: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: '#FF000015',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 10,
+    },
+    masterIconText: {
+      fontSize: 13,
+      color: '#FF0000',
+      fontWeight: '900',
+      marginLeft: 2,
+    },
+    masterTextGroup: {
+      flex: 1,
+    },
+    masterTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    masterSubtitle: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginTop: 1,
     },
     card: {
       borderRadius: 14,
@@ -97,13 +148,13 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
       color: colors.textSecondary,
     },
     searchContainer: {
-      marginBottom: 12,
+      marginBottom: 6,
     },
     searchMetaText: {
       fontSize: 12,
       fontWeight: '600',
       color: colors.textMuted,
-      marginTop: 8,
+      marginTop: 6,
       paddingHorizontal: 4,
     },
     channelLeft: {
@@ -210,12 +261,12 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     // ── Filter pills ──────────────────────────────────────────────────────────
     filterPillsRow: {
       marginHorizontal: -16, // bleed out of listContent padding
-      marginTop: 4,
+      marginTop: 2,
       marginBottom: 2,
     },
     filterPillsRowSecond: {
       marginHorizontal: -16,
-      marginTop: 4,
+      marginTop: 2,
       marginBottom: 2,
     },
 
@@ -223,8 +274,8 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     bulkActionRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 10,
-      marginBottom: 10,
+      marginTop: 6,
+      marginBottom: 8,
       paddingHorizontal: 4,
     },
     bulkButton: {

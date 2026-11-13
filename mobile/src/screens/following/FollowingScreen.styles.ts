@@ -135,8 +135,9 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     sourceCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      height: 74,
+      height: 90,
       paddingHorizontal: 14,
+      paddingVertical: 10,
       borderRadius: 14,
       borderWidth: 1,
       borderColor: colors.border,
@@ -181,6 +182,12 @@ export const createFollowingStyles = (colors: ThemeColors) =>
       fontSize: 12,
       marginTop: 3,
       color: colors.textMuted,
+    },
+    sourceHint: {
+      fontSize: 11,
+      marginTop: 2,
+      fontWeight: '600',
+      color: colors.primary,
     },
     trackingButton: {
       paddingHorizontal: 11,

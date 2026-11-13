@@ -9,7 +9,7 @@ class VideosService {
    * @param {string} userId
    * @param {object} [pagination]
    */
-  async getFeed(userId, { page = 1, limit = 20 } = {}) {
+  async getFeed(userId, { page = 1, limit = 20, channelId = null, from = null, to = null } = {}) {
     const skip = (page - 1) * limit;
 
     // Get list of channel IDs tracked by user (with their display names)
@@ -31,7 +31,26 @@ class VideosService {
       };
     }
 
-    const whereClause = { channelId: { in: channelIds } };
+    // Build where clause — optionally filter to a single channel and/or date range
+    const whereClause = {
+      channelId: channelId
+        ? channelId  // single-channel view
+        : { in: channelIds },
+    };
+
+    // Guard: if filtering to a specific channel, ensure user actually tracks it
+    if (channelId && !channelIds.includes(channelId)) {
+      return {
+        videos: [],
+        pagination: { page, limit, total: 0, totalPages: 0 },
+      };
+    }
+
+    if (from || to) {
+      whereClause.publishedAt = {};
+      if (from) whereClause.publishedAt.gte = new Date(from);
+      if (to)   whereClause.publishedAt.lte = new Date(to);
+    }
 
     const [videos, total] = await Promise.all([
       prisma.video.findMany({

@@ -6,6 +6,7 @@ import { RootStackParamList } from '../types/navigation.types';
 import { TabNavigator } from './TabNavigator';
 import { AuthNavigator } from './AuthNavigator';
 import { SummaryDetailScreen } from '../screens/summaries/SummaryDetailScreen';
+import { ChannelDetailScreen } from '../screens/channel/ChannelDetailScreen';
 import { useAppTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -113,6 +114,14 @@ export const RootNavigator: React.FC = () => {
               name="SummaryDetail"
               component={SummaryDetailScreen}
               options={{ title: 'AI Summary Details', headerBackTitle: 'Feed' }}
+            />
+            <Stack.Screen
+              name="ChannelDetail"
+              component={ChannelDetailScreen}
+              options={({ route }) => ({
+                title: route.params.channelName,
+                headerBackTitle: 'Following',
+              })}
             />
           </>
         )}
