@@ -11,6 +11,7 @@ import {
   TextInput,
   Alert,
   Modal,
+  ScrollView,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,15 +23,19 @@ import { VideoItem, SummaryStatus } from '../../types/models.types';
 import { createHomeStyles } from './HomeScreen.styles';
 
 const FAVORITES_STORAGE_KEY = 'sumora:favorite_channel_ids';
+const READ_VIDEOS_KEY = 'sumora:read_video_ids';
 
-type FeedTab = 'all' | 'custom' | 'favorites';
+type FeedTab = 'all' | 'custom' | 'favorites' | 'completed';
 
 interface FeedCardProps {
   item: VideoItem;
   styles: ReturnType<typeof createHomeStyles>;
   isFavoriteChannel?: boolean;
+  isCompletedView?: boolean;
   onReadSummary: (videoId: string, title: string) => void;
   onWatchVideo: (videoUrl: string) => void;
+  onMarkDone?: (videoId: string, title: string) => void;
+  onRestoreVideo?: (videoId: string) => void;
 }
 
 const getStatusConfig = (status: SummaryStatus) => {
@@ -51,7 +56,16 @@ const getStatusConfig = (status: SummaryStatus) => {
 };
 
 const FeedItemCard = React.memo<FeedCardProps>(
-  ({ item, styles, isFavoriteChannel, onReadSummary, onWatchVideo }) => {
+  ({
+    item,
+    styles,
+    isFavoriteChannel,
+    isCompletedView,
+    onReadSummary,
+    onWatchVideo,
+    onMarkDone,
+    onRestoreVideo,
+  }) => {
     const publishedFormatted = item.publishedAt
       ? new Date(item.publishedAt).toLocaleDateString(undefined, {
           month: 'short',
@@ -132,8 +146,24 @@ const FeedItemCard = React.memo<FeedCardProps>(
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.watchButton} onPress={() => onWatchVideo(item.videoUrl)}>
-              <Text style={styles.watchButtonText}>Watch Video ↗</Text>
+              <Text style={styles.watchButtonText}>Watch ↗</Text>
             </TouchableOpacity>
+
+            {isCompletedView ? (
+              <TouchableOpacity
+                style={styles.restoreButton}
+                onPress={() => onRestoreVideo?.(item.videoId)}
+                activeOpacity={0.75}>
+                <Text style={styles.restoreButtonText}>↺</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.doneButton}
+                onPress={() => onMarkDone?.(item.videoId, item.title)}
+                activeOpacity={0.75}>
+                <Text style={styles.doneButtonText}>✓ Done</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -153,13 +183,20 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const [showImportModal, setShowImportModal] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<FeedTab>('all');
   const [favoriteChannelIds, setFavoriteChannelIds] = useState<Set<string>>(new Set());
+  const [readVideoIds, setReadVideoIds] = useState<Set<string>>(new Set());
 
-  // Load user's starred favorite channels
-  const loadFavorites = useCallback(async () => {
+  // Load user's starred favorite channels and completed/read video IDs
+  const loadStoredData = useCallback(async () => {
     try {
-      const stored = await AsyncStorage.getItem(FAVORITES_STORAGE_KEY);
-      if (stored) {
-        setFavoriteChannelIds(new Set(JSON.parse(stored)));
+      const [favStored, readStored] = await Promise.all([
+        AsyncStorage.getItem(FAVORITES_STORAGE_KEY),
+        AsyncStorage.getItem(READ_VIDEOS_KEY),
+      ]);
+      if (favStored) {
+        setFavoriteChannelIds(new Set(JSON.parse(favStored)));
+      }
+      if (readStored) {
+        setReadVideoIds(new Set(JSON.parse(readStored)));
       }
     } catch {
       // ignore
@@ -168,8 +205,8 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      loadFavorites();
-    }, [loadFavorites])
+      loadStoredData();
+    }, [loadStoredData])
   );
 
   const handleGlobalImport = useCallback(async () => {
@@ -191,7 +228,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
       });
 
       // Switch to custom links or all feed so user sees it right away
-      if (activeTab === 'favorites') {
+      if (activeTab === 'favorites' || activeTab === 'completed') {
         setActiveTab('custom');
       }
 
@@ -245,13 +282,13 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     try {
       const res = await videosApi.getFeed(1, 40);
       setVideos(res.videos);
-      await loadFavorites();
+      await loadStoredData();
     } catch (err) {
       console.warn('[HomeScreen] Feed refresh failed');
     } finally {
       setRefreshing(false);
     }
-  }, [loadFavorites]);
+  }, [loadStoredData]);
 
   const handleReadSummary = useCallback(
     (videoId: string, title: string) => {
@@ -269,22 +306,70 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     }
   }, []);
 
+  const handleMarkDone = useCallback((videoId: string, title: string) => {
+    Alert.alert(
+      'Mark as Completed?',
+      `Did you finish reading or watching "${title}"? This will automatically remove it from your active feed.`,
+      [
+        { text: 'Keep in Feed', style: 'cancel' },
+        {
+          text: 'Remove from Feed',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const stored = await AsyncStorage.getItem(READ_VIDEOS_KEY);
+              const ids: string[] = stored ? JSON.parse(stored) : [];
+              if (!ids.includes(videoId)) {
+                ids.push(videoId);
+                await AsyncStorage.setItem(READ_VIDEOS_KEY, JSON.stringify(ids));
+                setReadVideoIds(new Set(ids));
+              }
+            } catch {}
+          },
+        },
+      ]
+    );
+  }, []);
+
+  const handleRestoreVideo = useCallback(async (videoId: string) => {
+    try {
+      const stored = await AsyncStorage.getItem(READ_VIDEOS_KEY);
+      if (stored) {
+        const ids: string[] = JSON.parse(stored);
+        const updated = ids.filter((id) => id !== videoId);
+        await AsyncStorage.setItem(READ_VIDEOS_KEY, JSON.stringify(updated));
+        setReadVideoIds(new Set(updated));
+      }
+    } catch {}
+  }, []);
+
   const keyExtractor = useCallback((item: VideoItem) => item.id || item.videoId, []);
 
-  // Filter videos based on active filter tab
+  // Split videos into unread active feed vs completed archive
+  const activeVideos = useMemo(() => {
+    return videos.filter((v) => !readVideoIds.has(v.videoId));
+  }, [videos, readVideoIds]);
+
+  const completedVideos = useMemo(() => {
+    return videos.filter((v) => readVideoIds.has(v.videoId));
+  }, [videos, readVideoIds]);
+
   const customCount = useMemo(() => {
-    return videos.filter((v) => v.isCustomImport || v.channelId === 'imported').length;
-  }, [videos]);
+    return activeVideos.filter((v) => v.isCustomImport || v.channelId === 'imported').length;
+  }, [activeVideos]);
 
   const displayedVideos = useMemo(() => {
+    if (activeTab === 'completed') {
+      return completedVideos;
+    }
     if (activeTab === 'custom') {
-      return videos.filter((v) => v.isCustomImport || v.channelId === 'imported');
+      return activeVideos.filter((v) => v.isCustomImport || v.channelId === 'imported');
     }
     if (activeTab === 'favorites') {
-      return videos.filter((v) => favoriteChannelIds.has(v.channelId));
+      return activeVideos.filter((v) => favoriteChannelIds.has(v.channelId));
     }
-    return videos;
-  }, [videos, activeTab, favoriteChannelIds]);
+    return activeVideos;
+  }, [activeVideos, completedVideos, activeTab, favoriteChannelIds]);
 
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<VideoItem>) => (
@@ -292,11 +377,22 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         item={item}
         styles={styles}
         isFavoriteChannel={favoriteChannelIds.has(item.channelId)}
+        isCompletedView={activeTab === 'completed'}
         onReadSummary={handleReadSummary}
         onWatchVideo={handleWatchVideo}
+        onMarkDone={handleMarkDone}
+        onRestoreVideo={handleRestoreVideo}
       />
     ),
-    [styles, favoriteChannelIds, handleReadSummary, handleWatchVideo]
+    [
+      styles,
+      favoriteChannelIds,
+      activeTab,
+      handleReadSummary,
+      handleWatchVideo,
+      handleMarkDone,
+      handleRestoreVideo,
+    ]
   );
 
   return (
@@ -321,47 +417,76 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
 
       {/* ── Quick Feed Filter Bar ── */}
       <View style={styles.filterBar}>
-        <TouchableOpacity
-          style={[styles.filterTab, activeTab === 'all' && styles.filterTabActive]}
-          onPress={() => setActiveTab('all')}
-          activeOpacity={0.75}>
-          <Text style={[styles.filterTabText, activeTab === 'all' && styles.filterTabTextActive]}>
-            📡 All Activity
-          </Text>
-        </TouchableOpacity>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingRight: 24 }}>
+          <TouchableOpacity
+            style={[styles.filterTab, activeTab === 'all' && styles.filterTabActive]}
+            onPress={() => setActiveTab('all')}
+            activeOpacity={0.75}>
+            <Text style={[styles.filterTabText, activeTab === 'all' && styles.filterTabTextActive]}>
+              📡 All Activity
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.filterTab, activeTab === 'custom' && styles.filterTabActive]}
-          onPress={() => setActiveTab('custom')}
-          activeOpacity={0.75}>
-          <Text style={[styles.filterTabText, activeTab === 'custom' && styles.filterTabTextActive]}>
-            🔗 Custom Links
-          </Text>
-          {customCount > 0 && (
-            <View
-              style={[
-                styles.filterTabCount,
-                activeTab === 'custom' && styles.filterTabCountActive,
-              ]}>
-              <Text
+          <TouchableOpacity
+            style={[styles.filterTab, activeTab === 'custom' && styles.filterTabActive]}
+            onPress={() => setActiveTab('custom')}
+            activeOpacity={0.75}>
+            <Text style={[styles.filterTabText, activeTab === 'custom' && styles.filterTabTextActive]}>
+              🔗 Custom Links
+            </Text>
+            {customCount > 0 && (
+              <View
                 style={[
-                  styles.filterTabCountText,
-                  activeTab === 'custom' && styles.filterTabCountTextActive,
+                  styles.filterTabCount,
+                  activeTab === 'custom' && styles.filterTabCountActive,
                 ]}>
-                {customCount}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.filterTabCountText,
+                    activeTab === 'custom' && styles.filterTabCountTextActive,
+                  ]}>
+                  {customCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.filterTab, activeTab === 'favorites' && styles.filterTabActive]}
-          onPress={() => setActiveTab('favorites')}
-          activeOpacity={0.75}>
-          <Text style={[styles.filterTabText, activeTab === 'favorites' && styles.filterTabTextActive]}>
-            ⭐ Priority
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterTab, activeTab === 'favorites' && styles.filterTabActive]}
+            onPress={() => setActiveTab('favorites')}
+            activeOpacity={0.75}>
+            <Text style={[styles.filterTabText, activeTab === 'favorites' && styles.filterTabTextActive]}>
+              ⭐ Priority
+            </Text>
+          </TouchableOpacity>
+
+          {completedVideos.length > 0 && (
+            <TouchableOpacity
+              style={[styles.filterTab, activeTab === 'completed' && styles.filterTabActive]}
+              onPress={() => setActiveTab('completed')}
+              activeOpacity={0.75}>
+              <Text style={[styles.filterTabText, activeTab === 'completed' && styles.filterTabTextActive]}>
+                ✅ Completed
+              </Text>
+              <View
+                style={[
+                  styles.filterTabCount,
+                  activeTab === 'completed' && styles.filterTabCountActive,
+                ]}>
+                <Text
+                  style={[
+                    styles.filterTabCountText,
+                    activeTab === 'completed' && styles.filterTabCountTextActive,
+                  ]}>
+                  {completedVideos.length}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
       </View>
 
       {loading ? (
@@ -371,7 +496,15 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         </View>
       ) : displayedVideos.length === 0 ? (
         <View style={styles.centerContainer}>
-          {activeTab === 'custom' ? (
+          {activeTab === 'completed' ? (
+            <>
+              <Text style={{ fontSize: 44, marginBottom: 12 }}>🎉</Text>
+              <Text style={styles.emptyTitle}>No Completed Summaries</Text>
+              <Text style={styles.emptySubtitle}>
+                When you finish reading a summary and mark it as completed, it will be automatically stored in this archive.
+              </Text>
+            </>
+          ) : activeTab === 'custom' ? (
             <>
               <Text style={{ fontSize: 44, marginBottom: 12 }}>🔗</Text>
               <Text style={styles.emptyTitle}>No Custom Links Yet</Text>
@@ -400,15 +533,17 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
           ) : (
             <>
               <Text style={{ fontSize: 48, marginBottom: 12 }}>📺</Text>
-              <Text style={styles.emptyTitle}>No Videos Yet</Text>
+              <Text style={styles.emptyTitle}>All Caught Up!</Text>
               <Text style={styles.emptySubtitle}>
-                Connect your YouTube account or paste any video link to start receiving AI summaries.
+                You have completed all video summaries in your active feed.
               </Text>
-              <TouchableOpacity
-                style={styles.connectButton}
-                onPress={() => navigation.navigate('ConnectedAccounts')}>
-                <Text style={styles.connectButtonText}>Connect YouTube</Text>
-              </TouchableOpacity>
+              {completedVideos.length > 0 && (
+                <TouchableOpacity
+                  style={styles.connectButton}
+                  onPress={() => setActiveTab('completed')}>
+                  <Text style={styles.connectButtonText}>View Completed Archive ({completedVideos.length})</Text>
+                </TouchableOpacity>
+              )}
             </>
           )}
         </View>

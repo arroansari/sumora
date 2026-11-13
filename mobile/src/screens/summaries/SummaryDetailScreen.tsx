@@ -7,8 +7,10 @@ import {
   Linking,
   ActivityIndicator,
   Share,
+  Alert,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../context/ThemeContext';
 import { videosApi } from '../../services/api';
 import { VideoItem, VideoSummary, SummaryStatus } from '../../types/models.types';
@@ -16,11 +18,13 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation.types';
 import { createSummaryDetailStyles } from './SummaryDetailScreen.styles';
 
+const READ_VIDEOS_KEY = 'sumora:read_video_ids';
+
 type Props = NativeStackScreenProps<RootStackParamList, 'SummaryDetail'>;
 
 type ViewMode = 'highlights' | 'deepdive';
 
-export const SummaryDetailScreen: React.FC<Props> = ({ route }) => {
+export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { videoId, videoTitle } = route.params;
   const { colors } = useAppTheme();
   const styles = useMemo(() => createSummaryDetailStyles(colors), [colors]);
@@ -33,6 +37,63 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route }) => {
   const [generating, setGenerating] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<ViewMode>('highlights');
   const [copied, setCopied] = useState<boolean>(false);
+  const [isCompleted, setIsCompleted] = useState<boolean>(false);
+
+  useEffect(() => {
+    async function checkCompleted() {
+      try {
+        const stored = await AsyncStorage.getItem(READ_VIDEOS_KEY);
+        if (stored) {
+          const list: string[] = JSON.parse(stored);
+          if (list.includes(videoId)) {
+            setIsCompleted(true);
+          }
+        }
+      } catch {}
+    }
+    checkCompleted();
+  }, [videoId]);
+
+  const handleConfirmComplete = useCallback(() => {
+    Alert.alert(
+      'Complete Summary?',
+      'Did you complete reading this summary? Marking it as completed will automatically remove it from your Video Activity Feed.',
+      [
+        { text: 'Keep in Feed', style: 'cancel' },
+        {
+          text: 'Yes, Remove from Feed',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const stored = await AsyncStorage.getItem(READ_VIDEOS_KEY);
+              const readIds: string[] = stored ? JSON.parse(stored) : [];
+              if (!readIds.includes(videoId)) {
+                readIds.push(videoId);
+                await AsyncStorage.setItem(READ_VIDEOS_KEY, JSON.stringify(readIds));
+              }
+              setIsCompleted(true);
+              navigation.goBack();
+            } catch (err) {
+              navigation.goBack();
+            }
+          },
+        },
+      ]
+    );
+  }, [videoId, navigation]);
+
+  const handleRestoreToFeed = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem(READ_VIDEOS_KEY);
+      if (stored) {
+        const readIds: string[] = JSON.parse(stored);
+        const updated = readIds.filter((id) => id !== videoId);
+        await AsyncStorage.setItem(READ_VIDEOS_KEY, JSON.stringify(updated));
+      }
+      setIsCompleted(false);
+      Alert.alert('Restored', 'This summary has been restored to your Activity Feed.');
+    } catch {}
+  }, [videoId]);
 
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -375,6 +436,41 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route }) => {
               </>
             )}
           </>
+        )}
+
+        {/* Completion & Auto-Archive Prompt Card */}
+        {summary && (
+          <View style={styles.completionCard}>
+            <View style={styles.completionHeaderRow}>
+              <Text style={styles.completionEmoji}>{isCompleted ? '🎉' : '🎓'}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.completionTitle}>
+                  {isCompleted ? 'Summary Completed' : 'Finished this summary?'}
+                </Text>
+                <Text style={styles.completionSubtitle}>
+                  {isCompleted
+                    ? 'This summary has been completed and removed from your active Activity Feed.'
+                    : 'Mark as completed to automatically remove it from your Activity Feed and keep your inbox clean.'}
+                </Text>
+              </View>
+            </View>
+
+            {isCompleted ? (
+              <TouchableOpacity
+                style={styles.completedBadgeBox}
+                onPress={handleRestoreToFeed}
+                activeOpacity={0.75}>
+                <Text style={styles.completedBadgeText}>↺ Restore to Activity Feed</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.completeBtn}
+                onPress={handleConfirmComplete}
+                activeOpacity={0.8}>
+                <Text style={styles.completeBtnText}>✅ Yes, Mark Completed & Archive</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
 
         {/* Action Buttons */}
