@@ -35,6 +35,7 @@ interface FeedCardProps {
   styles: ReturnType<typeof createHomeStyles>;
   isFavoriteChannel?: boolean;
   isCompletedView?: boolean;
+  cardHeight?: number;
   onReadSummary: (videoId: string, title: string) => void;
   onWatchVideo: (videoUrl: string) => void;
   onMarkDone?: (videoId: string, title: string) => void;
@@ -64,6 +65,7 @@ const FeedItemCard = React.memo<FeedCardProps>(
     styles,
     isFavoriteChannel,
     isCompletedView,
+    cardHeight,
     onReadSummary,
     onWatchVideo,
     onMarkDone,
@@ -90,8 +92,27 @@ const FeedItemCard = React.memo<FeedCardProps>(
     const statusConfig = getStatusConfig(item.summaryStatus);
     const isCustom = item.isCustomImport || item.channelId === 'imported';
 
+    const takeawayBullets = useMemo(() => {
+      if (item.summary?.keyPoints && item.summary.keyPoints.length > 0) {
+        return item.summary.keyPoints
+          .slice(0, 3)
+          .map((p) => p.replace(/^[-•*]\s*/, '').trim());
+      }
+      const text = item.summary?.overview || item.description || shortOverview;
+      if (text) {
+        const sentences = text
+          .split(/(?<=[.?!])\s+/)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 12);
+        if (sentences.length > 0) {
+          return sentences.slice(0, 3);
+        }
+      }
+      return [shortOverview];
+    }, [item.summary, item.description, shortOverview]);
+
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, cardHeight && cardHeight > 0 ? { height: cardHeight - 16, marginBottom: 16 } : null]}>
         <View style={styles.thumbnailContainer}>
           {item.thumbnailUrl ? (
             <FastImage
@@ -159,9 +180,21 @@ const FeedItemCard = React.memo<FeedCardProps>(
             <Text style={styles.dateText}>{publishedFormatted}</Text>
           </View>
 
-          <Text style={styles.overviewText} numberOfLines={3}>
-            {shortOverview}
-          </Text>
+          {/* 60-Second Inshorts Key Takeaways */}
+          <View style={styles.takeawaysContainer}>
+            <View style={styles.takeawaysHeader}>
+              <Text style={styles.takeawaysIcon}>💡</Text>
+              <Text style={styles.takeawaysTitle}>60-Second Takeaways</Text>
+            </View>
+            {takeawayBullets.map((bullet, idx) => (
+              <View key={idx} style={styles.bulletRow}>
+                <Text style={styles.bulletDot}>•</Text>
+                <Text style={styles.bulletText} numberOfLines={2}>
+                  {bullet}
+                </Text>
+              </View>
+            ))}
+          </View>
 
           <View style={styles.actionsRow}>
             <TouchableOpacity
@@ -193,6 +226,10 @@ const FeedItemCard = React.memo<FeedCardProps>(
               </TouchableOpacity>
             )}
           </View>
+
+          <View style={styles.swipePromptRow}>
+            <Text style={styles.swipePromptText}>▲ Swipe up for next video</Text>
+          </View>
         </View>
       </View>
     );
@@ -211,6 +248,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const [importing, setImporting] = useState<boolean>(false);
   const [showImportModal, setShowImportModal] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<FeedTab>('all');
+  const [cardContainerHeight, setCardContainerHeight] = useState<number>(0);
   const [favoriteChannelIds, setFavoriteChannelIds] = useState<Set<string>>(new Set());
   const [readVideoIds, setReadVideoIds] = useState<Set<string>>(new Set());
 
@@ -414,6 +452,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         styles={styles}
         isFavoriteChannel={favoriteChannelIds.has(item.channelId)}
         isCompletedView={activeTab === 'completed'}
+        cardHeight={cardContainerHeight}
         onReadSummary={handleReadSummary}
         onWatchVideo={handleWatchVideo}
         onMarkDone={handleMarkDone}
@@ -424,6 +463,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
       styles,
       favoriteChannelIds,
       activeTab,
+      cardContainerHeight,
       handleReadSummary,
       handleWatchVideo,
       handleMarkDone,
@@ -542,79 +582,97 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         </ScrollView>
       </View>
 
-      {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading your feed...</Text>
-        </View>
-      ) : displayedVideos.length === 0 ? (
-        <View style={styles.centerContainer}>
-          {activeTab === 'completed' ? (
-            <>
-              <Text style={{ fontSize: 44, marginBottom: 12 }}>🎉</Text>
-              <Text style={styles.emptyTitle}>No Completed Summaries</Text>
-              <Text style={styles.emptySubtitle}>
-                When you finish reading a summary and mark it as completed, it will be automatically stored in this archive.
-              </Text>
-            </>
-          ) : activeTab === 'custom' ? (
-            <>
-              <Text style={{ fontSize: 44, marginBottom: 12 }}>🔗</Text>
-              <Text style={styles.emptyTitle}>No Custom Links Yet</Text>
-              <Text style={styles.emptySubtitle}>
-                Paste any YouTube video or Shorts link using '✦ Summarize' to get instant video summaries kept right here in your feed.
-              </Text>
-              <TouchableOpacity
-                style={styles.connectButton}
-                onPress={() => setShowImportModal(true)}>
-                <Text style={styles.connectButtonText}>+ Paste YouTube Link</Text>
-              </TouchableOpacity>
-            </>
-          ) : activeTab === 'favorites' ? (
-            <>
-              <Text style={{ fontSize: 44, marginBottom: 12 }}>⭐</Text>
-              <Text style={styles.emptyTitle}>No Priority Channels Starred</Text>
-              <Text style={styles.emptySubtitle}>
-                Head to the Following tab and star your favorite channels so their summaries are highlighted here.
-              </Text>
-              <TouchableOpacity
-                style={styles.connectButton}
-                onPress={() => navigation.navigate('Following')}>
-                <Text style={styles.connectButtonText}>Explore Followed Channels</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <Text style={{ fontSize: 48, marginBottom: 12 }}>📺</Text>
-              <Text style={styles.emptyTitle}>All Caught Up!</Text>
-              <Text style={styles.emptySubtitle}>
-                You have completed all video summaries in your active feed.
-              </Text>
-              {completedVideos.length > 0 && (
+      {/* ── Main Feed Viewport Area (Inshorts Vertical Card Deck) ── */}
+      <View
+        style={{ flex: 1 }}
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          if (h > 0 && Math.abs(h - cardContainerHeight) > 4) {
+            setCardContainerHeight(h);
+          }
+        }}>
+        {loading ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Loading your feed...</Text>
+          </View>
+        ) : displayedVideos.length === 0 ? (
+          <View style={styles.centerContainer}>
+            {activeTab === 'completed' ? (
+              <>
+                <Text style={{ fontSize: 44, marginBottom: 12 }}>🎉</Text>
+                <Text style={styles.emptyTitle}>No Completed Summaries</Text>
+                <Text style={styles.emptySubtitle}>
+                  When you finish reading a summary and mark it as completed, it will be automatically stored in this archive.
+                </Text>
+              </>
+            ) : activeTab === 'custom' ? (
+              <>
+                <Text style={{ fontSize: 44, marginBottom: 12 }}>🔗</Text>
+                <Text style={styles.emptyTitle}>No Custom Links Yet</Text>
+                <Text style={styles.emptySubtitle}>
+                  Paste any YouTube video or Shorts link using '✦ Summarize' to get instant video summaries kept right here in your feed.
+                </Text>
                 <TouchableOpacity
                   style={styles.connectButton}
-                  onPress={() => setActiveTab('completed')}>
-                  <Text style={styles.connectButtonText}>View Completed Archive ({completedVideos.length})</Text>
+                  onPress={() => setShowImportModal(true)}>
+                  <Text style={styles.connectButtonText}>+ Paste YouTube Link</Text>
                 </TouchableOpacity>
-              )}
-            </>
-          )}
-        </View>
-      ) : (
-        <FlatList
-          data={displayedVideos}
-          keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          initialNumToRender={5}
-          maxToRenderPerBatch={8}
-          windowSize={7}
-          removeClippedSubviews={true}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
-          }
-        />
-      )}
+              </>
+            ) : activeTab === 'favorites' ? (
+              <>
+                <Text style={{ fontSize: 44, marginBottom: 12 }}>⭐</Text>
+                <Text style={styles.emptyTitle}>No Priority Channels Starred</Text>
+                <Text style={styles.emptySubtitle}>
+                  Head to the Following tab and star your favorite channels so their summaries are highlighted here.
+                </Text>
+                <TouchableOpacity
+                  style={styles.connectButton}
+                  onPress={() => navigation.navigate('Following')}>
+                  <Text style={styles.connectButtonText}>Explore Followed Channels</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={{ fontSize: 48, marginBottom: 12 }}>📺</Text>
+                <Text style={styles.emptyTitle}>All Caught Up!</Text>
+                <Text style={styles.emptySubtitle}>
+                  You have completed all video summaries in your active feed.
+                </Text>
+                {completedVideos.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.connectButton}
+                    onPress={() => setActiveTab('completed')}>
+                    <Text style={styles.connectButtonText}>View Completed Archive ({completedVideos.length})</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
+        ) : (
+          <FlatList
+            data={displayedVideos}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listContent}
+            snapToInterval={cardContainerHeight > 0 ? cardContainerHeight : undefined}
+            snapToAlignment="start"
+            decelerationRate="fast"
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={3}
+            maxToRenderPerBatch={5}
+            windowSize={5}
+            removeClippedSubviews={true}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor={colors.primary}
+              />
+            }
+          />
+        )}
+      </View>
 
       {/* ── Modal: Paste YouTube Link to Summarize ── */}
       <Modal
