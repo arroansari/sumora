@@ -112,11 +112,18 @@ const FeedItemCard = React.memo<FeedCardProps>(
             {item.summaryStatus === 'completed' ? (
               <View style={styles.statusBadgeShadowWrapper}>
                 <View style={styles.statusBadgeGradientWrapper}>
-                  <Image
-                    source={require('../../assets/images/button_gradient.png')}
-                    style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-                    resizeMode="cover"
-                  />
+                  <View
+                    style={[
+                      StyleSheet.absoluteFill,
+                      { borderRadius: 14, overflow: 'hidden' },
+                    ]}
+                    pointerEvents="none">
+                    <Image
+                      source={require('../../assets/images/button_gradient.png')}
+                      style={{ width: '100%', height: '100%' }}
+                      resizeMode="cover"
+                    />
+                  </View>
                   <Text style={styles.statusSparkle}>✦</Text>
                   <Text style={styles.statusBadgeGradientText}>Summary Ready</Text>
                 </View>
