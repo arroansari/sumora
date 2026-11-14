@@ -288,6 +288,19 @@ export const createHomeStyles = (colors: ThemeColors) =>
       paddingTop: 8,
       paddingBottom: 16,
     },
+    listContentNoPadding: {
+      paddingTop: 0,
+      paddingBottom: 0,
+    },
+    cardPageSlot: {
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+      justifyContent: 'center',
+    },
+    cardInDeck: {
+      flex: 1,
+      marginBottom: 0,
+    },
 
     // ── Feed Card ────────────────────────────────────────────────────────────
     card: {

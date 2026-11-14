@@ -148,14 +148,15 @@ const FeedItemCard = React.memo<FeedCardProps>(
     const cardDynamicHeightStyle = useMemo(
       () =>
         cardHeight && cardHeight > 0
-          ? { height: cardHeight - 16, marginBottom: 16 }
+          ? { height: cardHeight }
           : undefined,
       [cardHeight]
     );
 
     return (
-      <View style={[styles.card, cardDynamicHeightStyle]}>
-        <View style={styles.thumbnailContainer}>
+      <View style={[styles.cardPageSlot, cardDynamicHeightStyle]}>
+        <View style={[styles.card, styles.cardInDeck]}>
+          <View style={styles.thumbnailContainer}>
           {item.thumbnailUrl ? (
             <FastImage
               source={{
@@ -275,7 +276,8 @@ const FeedItemCard = React.memo<FeedCardProps>(
           </View>
         </View>
       </View>
-    );
+    </View>
+  );
   }
 );
 
@@ -696,13 +698,15 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             data={displayedVideos}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={styles.listContentNoPadding}
+            pagingEnabled={true}
             snapToInterval={cardContainerHeight > 0 ? cardContainerHeight : undefined}
             snapToAlignment="start"
             decelerationRate="fast"
+            disableIntervalMomentum={true}
             showsVerticalScrollIndicator={false}
-            initialNumToRender={3}
-            maxToRenderPerBatch={5}
+            initialNumToRender={2}
+            maxToRenderPerBatch={4}
             windowSize={5}
             removeClippedSubviews={true}
             refreshControl={
