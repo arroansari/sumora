@@ -107,10 +107,10 @@ export const darkColors = {
   surfaceSubtle: '#1E1F26',
   surfaceHighlight: '#282932',
 
-  // Text: Luminous white & crisp neutral gray
-  textPrimary: '#FFFFFF',
-  textSecondary: '#9CA3AF',
-  textMuted: '#6B7280',
+  // Text: Luminous soft off-white (toned down to eliminate eye glare in dark mode)
+  textPrimary: '#E2E4EB',
+  textSecondary: '#9496A1',
+  textMuted: '#646672',
 
   // Brand: Vibrant Radiant Purple / Violet from the screenshot (NO YELLOW CTAs!)
   primary: '#8B5CF6',       // Vibrant violet for all primary CTAs

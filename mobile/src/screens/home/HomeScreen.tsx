@@ -41,17 +41,17 @@ interface FeedCardProps {
 const getStatusConfig = (status: SummaryStatus) => {
   switch (status) {
     case 'completed':
-      return { bg: '#10B98120', label: 'Summary Ready', text: '#10B981' };
+      return { dot: '#10B981', label: 'Summary Ready' };
     case 'processing':
-      return { bg: '#3B82F620', label: 'Generating Summary...', text: '#3B82F6' };
+      return { dot: '#60A5FA', label: 'Generating Summary...' };
     case 'fetching_transcript':
-      return { bg: '#3B82F620', label: 'Fetching Transcript...', text: '#3B82F6' };
+      return { dot: '#60A5FA', label: 'Fetching Transcript...' };
     case 'transcript_unavailable':
-      return { bg: '#F59E0B20', label: 'Transcript Unavailable', text: '#F59E0B' };
+      return { dot: '#FBBF24', label: 'Transcript Unavailable' };
     case 'failed':
-      return { bg: '#EF444420', label: 'Summary Failed', text: '#EF4444' };
+      return { dot: '#F87171', label: 'Summary Failed' };
     default:
-      return { bg: '#6B728020', label: 'Pending', text: '#9CA3AF' };
+      return { dot: '#94A3B8', label: 'Pending' };
   }
 };
 
@@ -106,8 +106,9 @@ const FeedItemCard = React.memo<FeedCardProps>(
             </View>
           )}
           <View style={styles.badgeOverlay}>
-            <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
-              <Text style={[styles.statusBadgeText, { color: statusConfig.text }]}>
+            <View style={styles.statusBadge}>
+              <View style={[styles.statusDot, { backgroundColor: statusConfig.dot }]} />
+              <Text style={styles.statusBadgeText}>
                 {statusConfig.label}
               </Text>
             </View>
