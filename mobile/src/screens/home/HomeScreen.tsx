@@ -71,10 +71,10 @@ const FeedItemCard = React.memo<FeedCardProps>(
   }) => {
     const publishedFormatted = item.publishedAt
       ? new Date(item.publishedAt).toLocaleDateString(undefined, {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-        })
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
       : 'Recently';
 
     const shortOverview =
@@ -82,10 +82,10 @@ const FeedItemCard = React.memo<FeedCardProps>(
       (item.summaryStatus === 'completed'
         ? 'Summary ready to read.'
         : item.summaryStatus === 'transcript_unavailable'
-        ? 'An accessible transcript could not be retrieved, so a summary cannot be generated yet.'
-        : item.summaryStatus === 'failed'
-        ? 'Unable to generate summary. We will retry where appropriate.'
-        : 'Your video summary is being prepared.');
+          ? 'An accessible transcript could not be retrieved, so a summary cannot be generated yet.'
+          : item.summaryStatus === 'failed'
+            ? 'Unable to generate summary. We will retry where appropriate.'
+            : 'Your video summary is being prepared.');
 
     const statusConfig = getStatusConfig(item.summaryStatus);
     const isCustom = item.isCustomImport || item.channelId === 'imported';
@@ -109,12 +109,24 @@ const FeedItemCard = React.memo<FeedCardProps>(
             </View>
           )}
           <View style={styles.badgeOverlay}>
-            <View style={styles.statusBadge}>
-              <View style={[styles.statusDot, { backgroundColor: statusConfig.dot }]} />
-              <Text style={styles.statusBadgeText}>
-                {statusConfig.label}
-              </Text>
-            </View>
+            {item.summaryStatus === 'completed' ? (
+              <View style={styles.statusBadgeGradientWrapper}>
+                <Image
+                  source={require('../../assets/images/button_gradient.png')}
+                  style={StyleSheet.absoluteFill}
+                  resizeMode="cover"
+                />
+                <Text style={styles.statusSparkle}>✦</Text>
+                <Text style={styles.statusBadgeGradientText}>Summary Ready</Text>
+              </View>
+            ) : (
+              <View style={styles.statusBadge}>
+                <View style={[styles.statusDot, { backgroundColor: statusConfig.dot }]} />
+                <Text style={styles.statusBadgeText}>
+                  {statusConfig.label}
+                </Text>
+              </View>
+            )}
             {isCustom ? (
               <View style={styles.customBadge}>
                 <Text style={styles.customBadgeText}>🔗 Custom Link</Text>
@@ -336,7 +348,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
                 await AsyncStorage.setItem(READ_VIDEOS_KEY, JSON.stringify(ids));
                 setReadVideoIds(new Set(ids));
               }
-            } catch {}
+            } catch { }
           },
         },
       ]
@@ -352,7 +364,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         await AsyncStorage.setItem(READ_VIDEOS_KEY, JSON.stringify(updated));
         setReadVideoIds(new Set(updated));
       }
-    } catch {}
+    } catch { }
   }, []);
 
   const keyExtractor = useCallback((item: VideoItem) => item.id || item.videoId, []);
