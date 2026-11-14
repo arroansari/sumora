@@ -110,14 +110,16 @@ const FeedItemCard = React.memo<FeedCardProps>(
           )}
           <View style={styles.badgeOverlay}>
             {item.summaryStatus === 'completed' ? (
-              <View style={styles.statusBadgeGradientWrapper}>
-                <Image
-                  source={require('../../assets/images/button_gradient.png')}
-                  style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-                  resizeMode="stretch"
-                />
-                <Text style={styles.statusSparkle}>✦</Text>
-                <Text style={styles.statusBadgeGradientText}>Summary Ready</Text>
+              <View style={styles.statusBadgeShadowWrapper}>
+                <View style={styles.statusBadgeGradientWrapper}>
+                  <Image
+                    source={require('../../assets/images/button_gradient.png')}
+                    style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
+                    resizeMode="cover"
+                  />
+                  <Text style={styles.statusSparkle}>✦</Text>
+                  <Text style={styles.statusBadgeGradientText}>Summary Ready</Text>
+                </View>
               </View>
             ) : (
               <View style={styles.statusBadge}>
@@ -441,11 +443,18 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             style={styles.headerSummarizeBtn}
             onPress={() => setShowImportModal(true)}
             activeOpacity={0.85}>
-            <Image
-              source={require('../../assets/images/button_gradient.png')}
-              style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-              resizeMode="stretch"
-            />
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { borderRadius: 22, overflow: 'hidden' },
+              ]}
+              pointerEvents="none">
+              <Image
+                source={require('../../assets/images/button_gradient.png')}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="cover"
+              />
+            </View>
             <Text style={styles.headerSparkleIcon}>✦</Text>
             <Text style={styles.headerSummarizeBtnText}>Summarize</Text>
           </TouchableOpacity>

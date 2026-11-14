@@ -299,6 +299,13 @@ export const createHomeStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       gap: 6,
     },
+    statusBadgeShadowWrapper: {
+      shadowColor: '#6D28D9',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.45,
+      shadowRadius: 6,
+      elevation: 5,
+    },
     statusBadgeGradientWrapper: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -307,14 +314,6 @@ export const createHomeStyles = (colors: ThemeColors) =>
       paddingVertical: 5.5,
       borderRadius: 14,
       overflow: 'hidden',
-      position: 'relative',
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.28)',
-      shadowColor: '#6D28D9',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.5,
-      shadowRadius: 6,
-      elevation: 5,
     },
     statusSparkle: {
       fontSize: 12,

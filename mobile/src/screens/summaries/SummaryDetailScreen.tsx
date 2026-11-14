@@ -508,6 +508,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             title="Watch Full Video ↗"
             onPress={handleOpenOriginalVideo}
             style={styles.watchOriginalGradient}
+            textStyle={styles.watchOriginalText}
           />
 
           {summary && (

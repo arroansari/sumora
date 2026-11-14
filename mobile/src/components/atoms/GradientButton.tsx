@@ -7,6 +7,8 @@ import {
   TextStyle,
   Image,
   ActivityIndicator,
+  View,
+  StyleProp,
 } from 'react-native';
 
 const buttonGradientSource = require('../../assets/images/button_gradient.png');
@@ -14,7 +16,7 @@ const buttonGradientSource = require('../../assets/images/button_gradient.png');
 interface GradientButtonProps {
   title: string;
   onPress: () => void;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   textStyle?: TextStyle;
   loading?: boolean;
   disabled?: boolean;
@@ -32,17 +34,32 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
   icon,
   activeOpacity = 0.8,
 }) => {
+  const flattenedStyle = StyleSheet.flatten([styles.container, style]) || {};
+  const radius =
+    typeof flattenedStyle.borderRadius === 'number' ? flattenedStyle.borderRadius : 21;
+
   return (
     <TouchableOpacity
       activeOpacity={activeOpacity}
       onPress={onPress}
       disabled={disabled || loading}
       style={[styles.container, style]}>
-      <Image
-        source={buttonGradientSource}
-        style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
-        resizeMode="stretch"
-      />
+      {/* Dedicated clipping container so iOS clips the gradient to border radius without clipping outer shadows */}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            borderRadius: radius,
+            overflow: 'hidden',
+          },
+        ]}
+        pointerEvents="none">
+        <Image
+          source={buttonGradientSource}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+        />
+      </View>
       {loading ? (
         <ActivityIndicator color="#FFFFFF" size="small" />
       ) : (
@@ -59,7 +76,6 @@ const styles = StyleSheet.create({
   container: {
     height: 42,
     borderRadius: 21,
-    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
