@@ -4,6 +4,7 @@ const { XMLParser } = require('fast-xml-parser');
 const config = require('../../../config');
 const prisma = require('../../../config/db');
 const { getQueue, QUEUE_NAMES } = require('../../../jobs');
+const inlinePipeline = require('../../pipeline/inline-pipeline.service');
 
 const WEBSUB_HUB_URL = 'https://pubsubhubbub.appspot.com/subscribe';
 const YOUTUBE_FEED_TOPIC_BASE = 'https://www.youtube.com/xml/feeds/videos.xml?channel_id=';
@@ -176,17 +177,24 @@ class WebSubService {
     }
 
     const entries = this.parseAtomFeed(rawXmlBody);
-    const queue = getQueue(QUEUE_NAMES.TRANSCRIPT_INGESTION);
+    // Attempt to get BullMQ queue (requires Redis). If Redis unavailable, fall through to inline pipeline.
+    let queue = null;
+    try {
+      queue = getQueue(QUEUE_NAMES.TRANSCRIPT_INGESTION);
+    } catch (err) {
+      console.warn('[WebSub] BullMQ unavailable, using inline pipeline:', err.message);
+    }
 
     for (const entry of entries) {
       // Upsert Video in PostgreSQL (idempotent; 1 record per YouTube video)
-      const video = await prisma.video.upsert({
+      await prisma.video.upsert({
         where: { videoId: entry.videoId },
         create: {
           videoId: entry.videoId,
           channelId: entry.channelId,
           title: entry.title,
           videoUrl: entry.videoUrl,
+          thumbnailUrl: `https://i.ytimg.com/vi/${entry.videoId}/hqdefault.jpg`,
           publishedAt: new Date(entry.publishedAt),
           transcriptStatus: 'pending',
           summaryStatus: 'pending',
@@ -194,29 +202,46 @@ class WebSubService {
         update: {
           title: entry.title,
           videoUrl: entry.videoUrl,
+          thumbnailUrl: `https://i.ytimg.com/vi/${entry.videoId}/hqdefault.jpg`,
         },
       });
 
-      // Enqueue job for asynchronous processing without blocking WebSub response
       if (queue) {
-        await queue.add(
-          'fetch-transcript',
-          {
+        // ── Redis available: enqueue for background worker ───────────
+        try {
+          await queue.add(
+            'fetch-transcript',
+            {
+              videoId: entry.videoId,
+              channelId: entry.channelId,
+              title: entry.title,
+              videoUrl: entry.videoUrl,
+            },
+            {
+              jobId: `transcript-${entry.videoId}`,
+              attempts: 3,
+              backoff: { type: 'exponential', delay: 5000 },
+              removeOnComplete: true,
+            }
+          );
+        } catch (queueErr) {
+          console.warn(`[WebSub] Queue.add failed for ${entry.videoId}, falling back to inline:`, queueErr.message);
+          // Fall through to inline pipeline below
+          inlinePipeline.fireAndForget({
             videoId: entry.videoId,
             channelId: entry.channelId,
             title: entry.title,
             videoUrl: entry.videoUrl,
-          },
-          {
-            jobId: `transcript-${entry.videoId}`, // Deduplicate BullMQ jobs
-            attempts: 3,
-            backoff: {
-              type: 'exponential',
-              delay: 5000,
-            },
-            removeOnComplete: true,
-          }
-        );
+          });
+        }
+      } else {
+        // ── No Redis: run transcript + summary inline (non-blocking) ──
+        inlinePipeline.fireAndForget({
+          videoId: entry.videoId,
+          channelId: entry.channelId,
+          title: entry.title,
+          videoUrl: entry.videoUrl,
+        });
       }
     }
 
@@ -224,6 +249,74 @@ class WebSubService {
       processed: entries.length,
       entries,
     };
+  }
+  /**
+   * Fetches recent uploads for a single YouTube channel using the public RSS feed
+   * (no API key required) and upserts them into the videos table.
+   * YouTube's public feed returns up to the last 15 uploads.
+   *
+   * @param {string} channelId
+   * @param {Object} [opts]
+   * @param {boolean} [opts.triggerPipeline=false] - whether to fire transcript/summary pipeline
+   * @returns {Promise<{upserted: number, entries: Array}>}
+   */
+  async backfillChannelFeed(channelId, { triggerPipeline = false } = {}) {
+    const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+
+    let xmlText;
+    try {
+      const response = await axios.get(feedUrl, { timeout: 10000 });
+      xmlText = response.data;
+    } catch (err) {
+      console.warn(`[WebSub] Failed to fetch RSS feed for channel ${channelId}:`, err.message);
+      return { upserted: 0, entries: [] };
+    }
+
+    const entries = this.parseAtomFeed(xmlText);
+    if (!entries.length) return { upserted: 0, entries: [] };
+
+    let upserted = 0;
+    for (const entry of entries) {
+      await prisma.video.upsert({
+        where: { videoId: entry.videoId },
+        create: {
+          videoId: entry.videoId,
+          channelId: entry.channelId,
+          title: entry.title,
+          videoUrl: entry.videoUrl,
+          thumbnailUrl: `https://i.ytimg.com/vi/${entry.videoId}/hqdefault.jpg`,
+          publishedAt: new Date(entry.publishedAt),
+          transcriptStatus: 'pending',
+          summaryStatus: 'pending',
+        },
+        update: {
+          title: entry.title,
+          videoUrl: entry.videoUrl,
+          thumbnailUrl: `https://i.ytimg.com/vi/${entry.videoId}/hqdefault.jpg`,
+          publishedAt: new Date(entry.publishedAt),
+        },
+      });
+      upserted++;
+
+      if (triggerPipeline && upserted <= 3) {
+        // Pre-distill the 3 newest uploads in the background if not already completed
+        const existing = await prisma.video.findUnique({
+          where: { videoId: entry.videoId },
+          select: { summaryStatus: true },
+        });
+        if (existing?.summaryStatus !== 'completed') {
+          inlinePipeline.fireAndForget({
+            videoId: entry.videoId,
+            channelId: entry.channelId,
+            title: entry.title,
+            videoUrl: entry.videoUrl,
+          });
+        }
+      }
+    }
+
+    console.log(`[WebSub] Backfill: upserted ${upserted} videos for channel ${channelId}`);
+    return { upserted, entries };
   }
 }
 

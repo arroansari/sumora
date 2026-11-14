@@ -1,5 +1,5 @@
 const prisma = require('../../config/db');
-const { encrypt } = require('../../utils/encryption.util');
+const { encrypt, decrypt } = require('../../utils/encryption.util');
 const youTubeService = require('./youtube/youtube.service');
 const webSubService = require('./youtube/websub.service');
 
@@ -121,9 +121,11 @@ class IntegrationsService {
           platform: 'youtube',
           sourceId: channel.sourceId,
           sourceName: channel.sourceName,
+          thumbnailUrl: channel.thumbnailUrl || null,
         },
         update: {
           sourceName: channel.sourceName,
+          ...(channel.thumbnailUrl ? { thumbnailUrl: channel.thumbnailUrl } : {}),
         },
       });
 
@@ -139,6 +141,117 @@ class IntegrationsService {
       connectedAccount,
       syncedChannelsCount: syncedSources.length,
       syncedSources,
+    };
+  }
+
+  /**
+   * Retrieves a decrypted, valid OAuth access token for a user, automatically refreshing if expired.
+   * Returns null if YouTube is not connected.
+   * @param {string} userId
+   * @returns {Promise<string|null>}
+   */
+  async getValidAccessToken(userId) {
+    try {
+      const account = await prisma.connectedAccount.findUnique({
+        where: { userId_platform: { userId, platform: 'youtube' } },
+        include: { token: true },
+      });
+
+      if (!account || !account.token) return null;
+
+      let accessToken = decrypt(account.token.encryptedAccessToken);
+      const isExpired =
+        account.token.expiresAt && new Date(account.token.expiresAt).getTime() <= Date.now() + 60000;
+
+      if (isExpired && account.token.encryptedRefreshToken) {
+        const refreshed = await youTubeService.refreshAccessToken(account.token.encryptedRefreshToken);
+        accessToken = refreshed.accessToken;
+        await prisma.platformToken.update({
+          where: { id: account.token.id },
+          data: {
+            encryptedAccessToken: encrypt(refreshed.accessToken),
+            expiresAt: refreshed.expiresIn
+              ? new Date(Date.now() + refreshed.expiresIn * 1000)
+              : null,
+          },
+        });
+      }
+
+      return accessToken;
+    } catch (err) {
+      console.warn(`[IntegrationsService] Could not retrieve access token for ${userId}:`, err.message);
+      return null;
+    }
+  }
+
+  /**
+   * Re-syncs the user's YouTube subscriptions (names + profile thumbnails)
+   * using their stored encrypted OAuth tokens, refreshing if expired.
+   * @param {string} userId
+   */
+  async syncYouTubeSubscriptions(userId) {
+    const account = await prisma.connectedAccount.findUnique({
+      where: { userId_platform: { userId, platform: 'youtube' } },
+      include: { token: true },
+    });
+
+    if (!account || !account.token) {
+      const error = new Error('YouTube account is not connected');
+      error.status = 404;
+      throw error;
+    }
+
+    let accessToken = decrypt(account.token.encryptedAccessToken);
+    const isExpired =
+      account.token.expiresAt && new Date(account.token.expiresAt).getTime() <= Date.now() + 60000;
+
+    if (isExpired && account.token.encryptedRefreshToken) {
+      const refreshed = await youTubeService.refreshAccessToken(account.token.encryptedRefreshToken);
+      accessToken = refreshed.accessToken;
+      await prisma.platformToken.update({
+        where: { id: account.token.id },
+        data: {
+          encryptedAccessToken: encrypt(refreshed.accessToken),
+          expiresAt: refreshed.expiresIn
+            ? new Date(Date.now() + refreshed.expiresIn * 1000)
+            : null,
+        },
+      });
+    }
+
+    const subscribedChannels = await youTubeService.getSubscribedChannels(accessToken);
+
+    for (const channel of subscribedChannels) {
+      await prisma.trackedSource.upsert({
+        where: {
+          userId_platform_sourceId: {
+            userId,
+            platform: 'youtube',
+            sourceId: channel.sourceId,
+          },
+        },
+        create: {
+          userId,
+          platform: 'youtube',
+          sourceId: channel.sourceId,
+          sourceName: channel.sourceName,
+          thumbnailUrl: channel.thumbnailUrl || null,
+        },
+        update: {
+          sourceName: channel.sourceName,
+          ...(channel.thumbnailUrl ? { thumbnailUrl: channel.thumbnailUrl } : {}),
+        },
+      });
+    }
+
+    const sources = await prisma.trackedSource.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      syncedChannelsCount: subscribedChannels.length,
+      sources,
     };
   }
 
@@ -163,6 +276,65 @@ class IntegrationsService {
     });
 
     return { success: true, message: `Successfully disconnected ${account.platform}` };
+  }
+
+  /**
+   * Backfills recent videos for a specific tracked channel (or all tracked channels)
+   * by fetching YouTube's public RSS feed. No API key required.
+   * @param {string} userId
+   * @param {string|null} channelId - if provided, only backfill this channel
+   */
+  async backfillChannelVideos(userId, channelId = null) {
+    // Get channels to backfill — single or all tracked
+    let channelIds;
+    if (channelId) {
+      // Verify user tracks this channel
+      const source = await prisma.trackedSource.findFirst({
+        where: { userId, sourceId: channelId, platform: 'youtube' },
+        select: { sourceId: true },
+      });
+      if (!source) {
+        const error = new Error('Channel not tracked by user');
+        error.status = 403;
+        throw error;
+      }
+      channelIds = [channelId];
+    } else {
+      const sources = await prisma.trackedSource.findMany({
+        where: { userId, platform: 'youtube' },
+        select: { sourceId: true },
+      });
+      channelIds = sources.map((s) => s.sourceId);
+    }
+
+    let totalUpserted = 0;
+    for (const id of channelIds) {
+      // 1. Pre-distill the newest uploads in the background via RSS
+      const result = await webSubService.backfillChannelFeed(id, { triggerPipeline: true });
+      totalUpserted += result.upserted;
+
+      // 2. Priority Summaries: Also trigger any existing uploads for this channel that are pending or failed
+      const pendingVideos = await prisma.video.findMany({
+        where: {
+          channelId: id,
+          summaryStatus: { in: ['pending', 'failed'] },
+        },
+        orderBy: { publishedAt: 'desc' },
+        take: 3,
+      });
+
+      const inlinePipeline = require('../pipeline/inline-pipeline.service');
+      for (const vid of pendingVideos) {
+        inlinePipeline.fireAndForget({
+          videoId: vid.videoId,
+          channelId: vid.channelId,
+          title: vid.title,
+          videoUrl: vid.videoUrl,
+        });
+      }
+    }
+
+    return { success: true, channelsProcessed: channelIds.length, videosUpserted: totalUpserted };
   }
 }
 

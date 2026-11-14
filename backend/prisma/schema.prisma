@@ -51,13 +51,14 @@ model PlatformToken {
 }
 
 model TrackedSource {
-  id         String   @id @default(uuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  platform   String   // e.g. "youtube"
-  sourceId   String   // e.g. YouTube channel ID
-  sourceName String
-  createdAt  DateTime @default(now())
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform     String   // e.g. "youtube"
+  sourceId     String   // e.g. YouTube channel ID
+  sourceName   String
+  thumbnailUrl String?
+  createdAt    DateTime @default(now())
 
   @@unique([userId, platform, sourceId])
   @@index([platform, sourceId])

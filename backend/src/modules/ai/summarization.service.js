@@ -5,6 +5,7 @@ const {
   buildSinglePassPrompt,
   buildChunkPrompt,
   buildConsolidationPrompt,
+  buildMetadataPrompt,
 } = require('./prompts/video-summary.prompt');
 const { validateStructuredSummary } = require('./summarization.validator');
 
@@ -189,6 +190,81 @@ class SummarizationService {
         data: { summaryStatus: 'failed' },
       });
 
+      throw error;
+    }
+  }
+
+  /**
+   * Generates a grounded structured summary from video metadata when captions are disabled or unavailable.
+   */
+  async generateSummaryFromMetadata({ videoId, title, channelName, description, videoUrl }) {
+    const provider = aiService.getActiveProvider();
+    console.log(
+      `[SummarizationService] Generating metadata-based summary for video ${videoId} using AI provider "${provider.name}" (${provider.modelName})...`
+    );
+
+    await prisma.video.updateMany({
+      where: { videoId },
+      data: { summaryStatus: 'processing' },
+    });
+
+    try {
+      const prompt = buildMetadataPrompt({
+        title,
+        channelName,
+        description,
+        videoUrl,
+      });
+
+      const rawAiResponse = await provider.generateStructuredJson({
+        prompt,
+        systemInstruction: SYSTEM_INSTRUCTION,
+      });
+
+      if (!rawAiResponse.originalVideoUrl && videoUrl) {
+        rawAiResponse.originalVideoUrl = videoUrl;
+      }
+
+      const validatedSummary = validateStructuredSummary(rawAiResponse);
+
+      const savedSummary = await prisma.videoSummary.upsert({
+        where: { videoId },
+        create: {
+          videoId,
+          overview: validatedSummary.overview,
+          keyPoints: validatedSummary.keyPoints,
+          importantConcepts: validatedSummary.importantConcepts,
+          detailedSummary: validatedSummary.detailedSummary,
+          conclusion: validatedSummary.conclusion,
+          topicsCovered: validatedSummary.topicsCovered,
+          aiProvider: `${provider.name} (metadata grounded)`,
+          modelName: provider.modelName,
+        },
+        update: {
+          overview: validatedSummary.overview,
+          keyPoints: validatedSummary.keyPoints,
+          importantConcepts: validatedSummary.importantConcepts,
+          detailedSummary: validatedSummary.detailedSummary,
+          conclusion: validatedSummary.conclusion,
+          topicsCovered: validatedSummary.topicsCovered,
+          aiProvider: `${provider.name} (metadata grounded)`,
+          modelName: provider.modelName,
+        },
+      });
+
+      await prisma.video.updateMany({
+        where: { videoId },
+        data: { summaryStatus: 'completed' },
+      });
+
+      console.log(`[SummarizationService] Metadata summary successfully generated and saved for video ${videoId}`);
+      return savedSummary;
+    } catch (error) {
+      console.error(`[SummarizationService] Metadata summary error for video ${videoId}:`, error.message);
+      await prisma.video.updateMany({
+        where: { videoId },
+        data: { summaryStatus: 'failed' },
+      });
       throw error;
     }
   }

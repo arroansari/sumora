@@ -40,6 +40,7 @@ export interface VideoItem {
   transcriptStatus: SummaryStatus;
   summaryStatus: SummaryStatus;
   summary?: VideoSummary | null;
+  isCustomImport?: boolean;
 }
 
 export interface User {
@@ -61,6 +62,7 @@ export interface TrackedSource {
   platform: string;
   sourceId: string;
   sourceName: string;
+  thumbnailUrl?: string | null;
   createdAt: string;
 }
 

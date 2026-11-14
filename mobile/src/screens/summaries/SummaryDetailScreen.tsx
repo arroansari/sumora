@@ -1,14 +1,16 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   ScrollView,
-  Image,
   TouchableOpacity,
   Linking,
   ActivityIndicator,
   Share,
+  Alert,
 } from 'react-native';
+import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppTheme } from '../../context/ThemeContext';
 import { videosApi } from '../../services/api';
 import { VideoItem, VideoSummary, SummaryStatus } from '../../types/models.types';
@@ -16,9 +18,13 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation.types';
 import { createSummaryDetailStyles } from './SummaryDetailScreen.styles';
 
+const READ_VIDEOS_KEY = 'sumora:read_video_ids';
+
 type Props = NativeStackScreenProps<RootStackParamList, 'SummaryDetail'>;
 
-export const SummaryDetailScreen: React.FC<Props> = ({ route }) => {
+type ViewMode = 'highlights' | 'deepdive';
+
+export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { videoId, videoTitle } = route.params;
   const { colors } = useAppTheme();
   const styles = useMemo(() => createSummaryDetailStyles(colors), [colors]);
@@ -26,76 +32,221 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route }) => {
   const [video, setVideo] = useState<VideoItem | null>(null);
   const [summary, setSummary] = useState<VideoSummary | null>(null);
   const [status, setStatus] = useState<SummaryStatus>('pending');
-  const [statusMessage, setStatusMessage] = useState<string>('Your video summary is being prepared.');
+  const [statusMessage, setStatusMessage] = useState<string>('Distilling video with Gemini AI…');
   const [loading, setLoading] = useState<boolean>(true);
+  const [generating, setGenerating] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('highlights');
+  const [copied, setCopied] = useState<boolean>(false);
+  const [isCompleted, setIsCompleted] = useState<boolean>(false);
 
-  // Performance-oriented mount effect with strictly scoped fetching and cleanup
+  useEffect(() => {
+    async function checkCompleted() {
+      try {
+        const stored = await AsyncStorage.getItem(READ_VIDEOS_KEY);
+        if (stored) {
+          const list: string[] = JSON.parse(stored);
+          if (list.includes(videoId)) {
+            setIsCompleted(true);
+          }
+        }
+      } catch {}
+    }
+    checkCompleted();
+  }, [videoId]);
+
+  const handleConfirmComplete = useCallback(() => {
+    Alert.alert(
+      'Complete Summary?',
+      'Did you complete reading this summary? Marking it as completed will automatically remove it from your Video Activity Feed.',
+      [
+        { text: 'Keep in Feed', style: 'cancel' },
+        {
+          text: 'Yes, Remove from Feed',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const stored = await AsyncStorage.getItem(READ_VIDEOS_KEY);
+              const readIds: string[] = stored ? JSON.parse(stored) : [];
+              if (!readIds.includes(videoId)) {
+                readIds.push(videoId);
+                await AsyncStorage.setItem(READ_VIDEOS_KEY, JSON.stringify(readIds));
+              }
+              setIsCompleted(true);
+              navigation.goBack();
+            } catch (err) {
+              navigation.goBack();
+            }
+          },
+        },
+      ]
+    );
+  }, [videoId, navigation]);
+
+  const handleRestoreToFeed = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem(READ_VIDEOS_KEY);
+      if (stored) {
+        const readIds: string[] = JSON.parse(stored);
+        const updated = readIds.filter((id) => id !== videoId);
+        await AsyncStorage.setItem(READ_VIDEOS_KEY, JSON.stringify(updated));
+      }
+      setIsCompleted(false);
+      Alert.alert('Restored', 'This summary has been restored to your Activity Feed.');
+    } catch {}
+  }, [videoId]);
+
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startPolling = useCallback(() => {
+    if (pollTimerRef.current) return;
+
+    pollTimerRef.current = setInterval(async () => {
+      try {
+        const freshVideo = await videosApi.getVideo(videoId);
+        if (freshVideo.summaryStatus === 'completed' && freshVideo.summary) {
+          setVideo(freshVideo);
+          setSummary(freshVideo.summary);
+          setStatus('completed');
+          setGenerating(false);
+          if (pollTimerRef.current) {
+            clearInterval(pollTimerRef.current);
+            pollTimerRef.current = null;
+          }
+        } else if (freshVideo.summaryStatus === 'failed') {
+          setStatus('failed');
+          setStatusMessage('Failed to generate summary. Tap below to retry.');
+          setGenerating(false);
+          if (pollTimerRef.current) {
+            clearInterval(pollTimerRef.current);
+            pollTimerRef.current = null;
+          }
+        } else {
+          setStatus(freshVideo.summaryStatus);
+        }
+      } catch (err: any) {
+        console.warn('[SummaryDetail] Polling error:', err.message);
+      }
+    }, 2500);
+  }, [videoId]);
+
+  const handleTriggerSummary = useCallback(async () => {
+    setGenerating(true);
+    setStatus('processing');
+    setStatusMessage('Distilling video with Gemini AI…');
+    try {
+      await videosApi.triggerSummarize(videoId);
+      startPolling();
+    } catch (err: any) {
+      console.warn('[SummaryDetail] Trigger error:', err.message);
+      setGenerating(false);
+    }
+  }, [videoId, startPolling]);
+
   useEffect(() => {
     let isMounted = true;
 
-    async function loadSummaryData() {
+    async function loadInitialData() {
       try {
         const videoData = await videosApi.getVideo(videoId);
-        if (isMounted) {
-          setVideo(videoData);
-          setSummary(videoData.summary || null);
-          setStatus(videoData.summaryStatus);
+        if (!isMounted) return;
+
+        setVideo(videoData);
+        setSummary(videoData.summary || null);
+        setStatus(videoData.summaryStatus);
+
+        if (videoData.summaryStatus === 'completed') {
+          setLoading(false);
+          return;
         }
 
-        const statusData = await videosApi.getSummaryStatus(videoId);
-        if (isMounted) {
-          setStatus(statusData.status as SummaryStatus);
-          setStatusMessage(statusData.message);
+        // Auto-trigger summarization if not yet completed
+        try {
+          await videosApi.triggerSummarize(videoId);
+          setGenerating(true);
+          setStatus('processing');
+          setStatusMessage('Distilling video with Gemini AI…');
+          startPolling();
+        } catch (trigErr: any) {
+          console.warn('[SummaryDetail] Auto-trigger note:', trigErr.message);
         }
       } catch (err: any) {
-        console.warn('[SummaryDetail] Failed to fetch live summary:', err.message);
+        console.warn('[SummaryDetail] Initial load error:', err.message);
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        if (isMounted) setLoading(false);
       }
     }
 
-    loadSummaryData();
+    loadInitialData();
 
     return () => {
       isMounted = false;
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
     };
-  }, [videoId]);
+  }, [videoId, startPolling]);
 
   const handleShare = useCallback(() => {
     if (summary) {
       Share.share({
-        message: `Check out this summary of "${video?.title || videoTitle}":\n\n${summary.overview}\n\nRead more on Sumora!`,
+        message: `✨ Summary of "${video?.title || videoTitle}":\n\n${summary.overview}\n\nKey Takeaway:\n• ${summary.keyPoints?.[0] || ''}\n\nDistilled by Sumora!`,
       });
     }
   }, [summary, video?.title, videoTitle]);
 
+  const handleCopy = useCallback(() => {
+    if (!summary) return;
+    const text = [
+      `📌 ${video?.title || videoTitle}`,
+      `\n💡 At a Glance:\n${summary.overview}`,
+      summary.keyPoints?.length
+        ? `\n🎯 Key Takeaways:\n${summary.keyPoints.map((k, i) => `${i + 1}. ${k}`).join('\n')}`
+        : '',
+      summary.conclusion ? `\n🏁 Verdict:\n${summary.conclusion}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    Share.share({ message: text });
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [summary, video?.title, videoTitle]);
+
   const handleOpenOriginalVideo = useCallback(() => {
-    const url = summary?.originalVideoUrl || video?.videoUrl || `https://www.youtube.com/watch?v=${videoId}`;
+    const url =
+      summary?.originalVideoUrl ||
+      video?.videoUrl ||
+      `https://www.youtube.com/watch?v=${videoId}`;
     Linking.openURL(url);
   }, [summary?.originalVideoUrl, video?.videoUrl, videoId]);
+
+  const thumbnailUri =
+    video?.thumbnailUrl || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 
   if (loading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Loading summary details...</Text>
+        <Text style={styles.loadingText}>Fetching video details…</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      {/* 1. Video Thumbnail */}
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* 1. FastImage Video Thumbnail */}
       <View style={styles.thumbnailContainer}>
-        {video?.thumbnailUrl ? (
-          <Image source={{ uri: video.thumbnailUrl }} style={styles.thumbnail} resizeMode="cover" />
-        ) : (
-          <View style={styles.thumbnailPlaceholder}>
-            <Text style={{ fontSize: 40 }}>▶</Text>
-          </View>
-        )}
+        <FastImage
+          source={{
+            uri: thumbnailUri,
+            priority: FastImage.priority.high,
+            cache: FastImage.cacheControl.immutable,
+          }}
+          style={styles.thumbnail as ImageStyle}
+          resizeMode={FastImage.resizeMode.cover}
+        />
+        <View style={styles.thumbnailOverlay} />
       </View>
 
       <View style={styles.content}>
@@ -104,97 +255,251 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route }) => {
 
         {/* 3. Channel Name & Metadata */}
         <View style={styles.metaRow}>
-          <Text style={styles.channelName}>{video?.channelName || 'YouTube Creator'}</Text>
-          {summary?.aiProvider && (
-            <View style={styles.aiPill}>
-              <Text style={styles.aiPillText}>AI: {summary.aiProvider}</Text>
+          <View style={styles.channelBadge}>
+            <Text style={styles.channelName}>{video?.channelName || 'YouTube Creator'}</Text>
+          </View>
+
+          <View style={styles.metaPills}>
+            <View style={styles.readTimePill}>
+              <Text style={styles.readTimeText}>⏱️ 1-2 min read</Text>
             </View>
-          )}
+            {summary?.aiProvider && (
+              <View style={styles.aiPill}>
+                <Text style={styles.aiPillText}>
+                  {summary.aiProvider.includes('gemini') ? '✨ Gemini AI' : summary.aiProvider}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
 
-        {/* Processing State Banners */}
+        {/* Processing / Distilling State Banner */}
         {status !== 'completed' && (
           <View style={styles.statusBox}>
-            {status === 'processing' || status === 'fetching_transcript' ? (
-              <ActivityIndicator color={colors.primary} style={{ marginBottom: 10 }} />
-            ) : null}
-            <Text style={styles.statusBoxText}>{statusMessage}</Text>
+            <ActivityIndicator color={colors.primary} size="small" />
+            <Text style={styles.statusBoxTitle}>{statusMessage}</Text>
+            <Text style={styles.statusBoxSub}>
+              Extracting the core takeaways into easy, bite-sized points…
+            </Text>
+            {status === 'failed' && (
+              <TouchableOpacity
+                style={{
+                  marginTop: 14,
+                  paddingHorizontal: 20,
+                  paddingVertical: 10,
+                  borderRadius: 10,
+                  backgroundColor: colors.primary,
+                }}
+                onPress={handleTriggerSummary}>
+                <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Retry Distillation</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
-        {/* 7 Structured Sections (When Status is 'completed') */}
+        {/* Summary Content */}
         {summary && status === 'completed' && (
           <>
-            {/* 4. Overview */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionHeading}>1. Overview</Text>
-              <Text style={styles.bodyText}>{summary.overview}</Text>
+            {/* View Mode Segment Switcher: Highlights vs Deep Dive */}
+            <View style={styles.segmentContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.segmentTab,
+                  viewMode === 'highlights' && styles.segmentTabActive,
+                ]}
+                onPress={() => setViewMode('highlights')}
+                activeOpacity={0.8}>
+                <Text
+                  style={[
+                    styles.segmentText,
+                    viewMode === 'highlights' && styles.segmentTextActive,
+                  ]}>
+                  ⚡ Key Highlights
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.segmentTab,
+                  viewMode === 'deepdive' && styles.segmentTabActive,
+                ]}
+                onPress={() => setViewMode('deepdive')}
+                activeOpacity={0.8}>
+                <Text
+                  style={[
+                    styles.segmentText,
+                    viewMode === 'deepdive' && styles.segmentTextActive,
+                  ]}>
+                  📖 Deep Dive
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            {/* 5. Key Points */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionHeading}>2. Key Points</Text>
-              {summary.keyPoints?.map((point, index) => (
-                <View key={index} style={styles.bulletRow}>
-                  <Text style={styles.bulletPoint}>•</Text>
-                  <Text style={styles.bulletText}>{point}</Text>
-                </View>
-              ))}
-            </View>
-
-            {/* 6. Important Concepts */}
-            {summary.importantConcepts && summary.importantConcepts.length > 0 && (
-              <View style={styles.sectionCard}>
-                <Text style={styles.sectionHeading}>3. Important Concepts</Text>
-                {summary.importantConcepts.map((item, index) => (
-                  <View key={index} style={styles.conceptItem}>
-                    <Text style={styles.conceptTitle}>{item.concept || String(item)}</Text>
-                    {item.explanation && (
-                      <Text style={styles.conceptExplanation}>{item.explanation}</Text>
-                    )}
+            {/* TAB 1: Key Highlights (Bite-sized, zero overwhelm) */}
+            {viewMode === 'highlights' && (
+              <>
+                {/* 1. At a Glance (Hero TL;DR Card) */}
+                <View style={styles.heroCard}>
+                  <View style={styles.heroHeader}>
+                    <View style={styles.heroTitleRow}>
+                      <Text style={styles.heroTitle}>💡 At a Glance</Text>
+                    </View>
+                    <View style={styles.heroBadge}>
+                      <Text style={styles.heroBadgeText}>TL;DR</Text>
+                    </View>
                   </View>
-                ))}
-              </View>
+                  <Text style={styles.heroBodyText}>{summary.overview}</Text>
+                </View>
+
+                {/* 2. Key Takeaways */}
+                {summary.keyPoints && summary.keyPoints.length > 0 && (
+                  <View style={styles.sectionCard}>
+                    <View style={styles.sectionHeadingRow}>
+                      <Text style={styles.sectionHeading}>🎯 Core Takeaways</Text>
+                    </View>
+                    <View style={styles.takeawaysList}>
+                      {summary.keyPoints.map((point, index) => (
+                        <View key={index} style={styles.takeawayItem}>
+                          <View style={styles.takeawayNumberBox}>
+                            <Text style={styles.takeawayNumberText}>
+                              {index < 9 ? `0${index + 1}` : `${index + 1}`}
+                            </Text>
+                          </View>
+                          <Text style={styles.takeawayText}>{point}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* 3. Important Concepts */}
+                {summary.importantConcepts && summary.importantConcepts.length > 0 && (
+                  <View style={styles.sectionCard}>
+                    <View style={styles.sectionHeadingRow}>
+                      <Text style={styles.sectionHeading}>🧠 What You Need to Know</Text>
+                    </View>
+                    {summary.importantConcepts.map((item, index) => (
+                      <View key={index} style={styles.conceptItem}>
+                        <Text style={styles.conceptTitle}>
+                          {item.concept || String(item)}
+                        </Text>
+                        {item.explanation && (
+                          <Text style={styles.conceptExplanation}>
+                            {item.explanation}
+                          </Text>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </>
             )}
 
-            {/* 7. Detailed Summary */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionHeading}>4. Detailed Summary</Text>
-              <Text style={styles.bodyText}>{summary.detailedSummary}</Text>
-            </View>
-
-            {/* 8. Conclusion */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionHeading}>5. Conclusion</Text>
-              <Text style={styles.bodyText}>{summary.conclusion}</Text>
-            </View>
-
-            {/* 9. Topics Covered */}
-            {summary.topicsCovered && summary.topicsCovered.length > 0 && (
-              <View style={styles.sectionCard}>
-                <Text style={styles.sectionHeading}>6. Topics Covered</Text>
-                <View style={styles.topicsRow}>
-                  {summary.topicsCovered.map((topic, index) => (
-                    <View key={index} style={styles.topicBadge}>
-                      <Text style={styles.topicBadgeText}>#{topic}</Text>
+            {/* TAB 2: Deep Dive (Full Story Breakdown) */}
+            {viewMode === 'deepdive' && (
+              <>
+                {/* Detailed Breakdown */}
+                {summary.detailedSummary && (
+                  <View style={styles.sectionCard}>
+                    <View style={styles.sectionHeadingRow}>
+                      <Text style={styles.sectionHeading}>📝 Detailed Story</Text>
                     </View>
-                  ))}
-                </View>
-              </View>
+                    <Text style={styles.bodyText}>{summary.detailedSummary}</Text>
+                  </View>
+                )}
+
+                {/* Final Verdict */}
+                {summary.conclusion && (
+                  <View style={styles.sectionCard}>
+                    <View style={styles.sectionHeadingRow}>
+                      <Text style={styles.sectionHeading}>🏁 Final Verdict</Text>
+                    </View>
+                    <Text style={styles.bodyText}>{summary.conclusion}</Text>
+                  </View>
+                )}
+
+                {/* Topics Covered */}
+                {summary.topicsCovered && summary.topicsCovered.length > 0 && (
+                  <View style={styles.sectionCard}>
+                    <View style={styles.sectionHeadingRow}>
+                      <Text style={styles.sectionHeading}>🏷️ Topics Covered</Text>
+                    </View>
+                    <View style={styles.topicsRow}>
+                      {summary.topicsCovered.map((topic, index) => (
+                        <View key={index} style={styles.topicBadge}>
+                          <Text style={styles.topicBadgeText}>#{topic}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </>
             )}
           </>
         )}
 
+        {/* Completion & Auto-Archive Prompt Card */}
+        {summary && (
+          <View style={styles.completionCard}>
+            <View style={styles.completionHeaderRow}>
+              <Text style={styles.completionEmoji}>{isCompleted ? '🎉' : '🎓'}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.completionTitle}>
+                  {isCompleted ? 'Summary Completed' : 'Finished this summary?'}
+                </Text>
+                <Text style={styles.completionSubtitle}>
+                  {isCompleted
+                    ? 'This summary has been completed and removed from your active Activity Feed.'
+                    : 'Mark as completed to automatically remove it from your Activity Feed and keep your inbox clean.'}
+                </Text>
+              </View>
+            </View>
+
+            {isCompleted ? (
+              <TouchableOpacity
+                style={styles.completedBadgeBox}
+                onPress={handleRestoreToFeed}
+                activeOpacity={0.75}>
+                <Text style={styles.completedBadgeText}>↺ Restore to Activity Feed</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.completeBtn}
+                onPress={handleConfirmComplete}
+                activeOpacity={0.8}>
+                <Text style={styles.completeBtnText}>✅ Yes, Mark Completed & Archive</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
-          <TouchableOpacity style={styles.watchOriginalButton} onPress={handleOpenOriginalVideo}>
-            <Text style={styles.watchOriginalText}>Watch Original Video ↗</Text>
+          <TouchableOpacity
+            style={styles.watchOriginalButton}
+            onPress={handleOpenOriginalVideo}
+            activeOpacity={0.85}>
+            <Text style={styles.watchOriginalText}>▶  Watch on YouTube ↗</Text>
           </TouchableOpacity>
 
           {summary && (
-            <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-              <Text style={styles.shareText}>Share Summary ⇪</Text>
-            </TouchableOpacity>
+            <View style={styles.shareRow}>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={handleCopy}
+                activeOpacity={0.75}>
+                <Text style={styles.secondaryButtonText}>
+                  {copied ? '✓ Copied!' : '📋 Copy Summary'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={handleShare}
+                activeOpacity={0.75}>
+                <Text style={styles.secondaryButtonText}>⇪ Share</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       </View>

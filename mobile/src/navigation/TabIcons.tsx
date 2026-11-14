@@ -13,7 +13,7 @@ export const HomeTabIcon = React.memo<TabIconProps>(({ color, focused }) => {
     <View style={styles.container}>
       <View style={styles.homeRoof} />
       <View style={styles.homeBody}>
-        {!focused && <View style={styles.homeDoor} />}
+        <View style={styles.homeDoor} />
       </View>
     </View>
   );
@@ -23,14 +23,12 @@ export const FollowingTabIcon = React.memo<TabIconProps>(({ color, focused }) =>
   const styles = useMemo(() => createTabIconStyles(color, focused), [color, focused]);
   return (
     <View style={styles.followingContainer}>
-      <View style={styles.backUserWrapper}>
-        <View style={styles.backUserHead} />
-        <View style={styles.backUserTorso} />
-      </View>
-      <View style={styles.frontUserWrapper}>
-        <View style={styles.frontUserHead} />
-        <View style={styles.frontUserTorso} />
-      </View>
+      {/* Back person */}
+      <View style={styles.backUserHead} />
+      <View style={styles.backUserBody} />
+      {/* Front person */}
+      <View style={styles.frontUserHead} />
+      <View style={styles.frontUserBody} />
     </View>
   );
 });
@@ -38,9 +36,9 @@ export const FollowingTabIcon = React.memo<TabIconProps>(({ color, focused }) =>
 export const ConnectedTabIcon = React.memo<TabIconProps>(({ color, focused }) => {
   const styles = useMemo(() => createTabIconStyles(color, focused), [color, focused]);
   return (
-    <View style={styles.container}>
-      <View style={styles.linkUpper} />
-      <View style={styles.linkLower} />
+    <View style={styles.linkContainer}>
+      <View style={styles.linkUpperOuter} />
+      <View style={styles.linkLowerOuter} />
     </View>
   );
 });
@@ -48,10 +46,10 @@ export const ConnectedTabIcon = React.memo<TabIconProps>(({ color, focused }) =>
 export const AlertsTabIcon = React.memo<TabIconProps>(({ color, focused }) => {
   const styles = useMemo(() => createTabIconStyles(color, focused), [color, focused]);
   return (
-    <View style={styles.container}>
-      <View style={styles.bellDot} />
+    <View style={styles.bellContainer}>
+      <View style={styles.bellTop} />
       <View style={styles.bellBody} />
-      <View style={styles.bellRim} />
+      <View style={styles.bellBase} />
       <View style={styles.bellClapper} />
     </View>
   );
@@ -60,10 +58,9 @@ export const AlertsTabIcon = React.memo<TabIconProps>(({ color, focused }) => {
 export const ProfileTabIcon = React.memo<TabIconProps>(({ color, focused }) => {
   const styles = useMemo(() => createTabIconStyles(color, focused), [color, focused]);
   return (
-    <View style={styles.container}>
+    <View style={styles.profileContainer}>
       <View style={styles.profileHead} />
       <View style={styles.profileBody} />
     </View>
   );
 });
-

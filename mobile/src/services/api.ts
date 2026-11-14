@@ -101,10 +101,28 @@ export const integrationsApi = {
     return res.data;
   },
 
+  syncYouTube: async (): Promise<{ syncedChannelsCount: number; sources: TrackedSource[] }> => {
+    const res = await request<{ data: { syncedChannelsCount: number; sources: TrackedSource[] } }>(
+      '/integrations/youtube/sync',
+      { method: 'POST' }
+    );
+    return res.data;
+  },
+
   disconnect: async (id: string): Promise<{ success: boolean }> => {
     return request<{ success: boolean }>(`/integrations/${id}`, {
       method: 'DELETE',
     });
+  },
+
+  backfillChannel: async (channelId?: string): Promise<{ channelsProcessed: number; videosUpserted: number }> => {
+    const url = channelId
+      ? `/integrations/youtube/backfill?channelId=${encodeURIComponent(channelId)}`
+      : '/integrations/youtube/backfill';
+    const res = await request<{ data: { channelsProcessed: number; videosUpserted: number } }>(url, {
+      method: 'POST',
+    });
+    return res.data;
   },
 };
 
@@ -132,9 +150,22 @@ export const sourcesApi = {
 
 // Videos & Summaries API
 export const videosApi = {
-  getFeed: async (page = 1, limit = 20): Promise<{ videos: VideoItem[]; totalPages: number }> => {
+  getFeed: async (
+    page = 1,
+    limit = 20,
+    opts: { channelId?: string; from?: string; to?: string; search?: string } = {}
+  ): Promise<{ videos: VideoItem[]; totalPages: number }> => {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    if (opts.channelId) params.set('channelId', opts.channelId);
+    if (opts.from)      params.set('from', opts.from);
+    if (opts.to)        params.set('to', opts.to);
+    if (opts.search)    params.set('search', opts.search);
+
     const res = await request<{ data: VideoItem[]; pagination: { totalPages: number } }>(
-      `/videos?page=${page}&limit=${limit}`
+      `/videos?${params.toString()}`
     );
     return {
       videos: res.data,
@@ -165,6 +196,26 @@ export const videosApi = {
     return request<{ status: string; message: string }>(`/videos/${videoId}/summarize`, {
       method: 'POST',
     });
+  },
+
+  importByUrl: async (url: string, channelId?: string): Promise<VideoItem> => {
+    const res = await request<{ data: VideoItem }>('/videos/import', {
+      method: 'POST',
+      body: JSON.stringify({ url, channelId }),
+    });
+    return res.data;
+  },
+
+  syncFeed: async (
+    priorityChannelIds: string[] = []
+  ): Promise<{ channelsSynced: number; totalChannels: number; newVideosCount: number }> => {
+    const res = await request<{
+      data: { channelsSynced: number; totalChannels: number; newVideosCount: number };
+    }>('/videos/sync-feed', {
+      method: 'POST',
+      body: JSON.stringify({ priorityChannelIds }),
+    });
+    return res.data;
   },
 };
 

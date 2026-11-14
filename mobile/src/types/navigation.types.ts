@@ -15,4 +15,10 @@ export type RootStackParamList = {
   Auth: undefined;
   MainTabs: undefined;
   SummaryDetail: { videoId: string; videoTitle?: string };
+  ChannelDetail: {
+    channelId: string;
+    channelName: string;
+    thumbnailUrl?: string | null;
+    trackedSince?: string;
+  };
 };
