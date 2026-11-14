@@ -598,11 +598,13 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     channelGridCard: {
       flex: 1,
       maxWidth: '48.3%',
+      minHeight: 184,
       backgroundColor: colors.surface,
       borderRadius: 18,
       paddingVertical: 14,
       paddingHorizontal: 12,
       alignItems: 'center',
+      justifyContent: 'space-between',
       borderWidth: 1,
       borderColor: colors.border,
       shadowColor: '#000',
@@ -714,6 +716,30 @@ export const createFollowingStyles = (colors: ThemeColors) =>
       fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: '#10B981',
+    },
+    gridFooterLoading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 18,
+      gap: 8,
+    },
+    gridFooterLoadingText: {
+      fontSize: 12,
+      fontFamily: 'PlusJakartaSans-Medium',
+      fontWeight: '500',
+      color: colors.textMuted,
+    },
+    gridFooterEnd: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 20,
+    },
+    gridFooterEndText: {
+      fontSize: 12,
+      fontFamily: 'PlusJakartaSans-SemiBold',
+      fontWeight: '600',
+      color: colors.textMuted,
     },
 
     // ── Section Headers ─────────────────────────────────────────────────────

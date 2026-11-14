@@ -164,15 +164,27 @@ const getInitials = (name: string): string => {
   return name.slice(0, 2).toUpperCase();
 };
 
-function classifyChannel(sourceName: string, isFav: boolean): CategoryId {
-  if (isFav) return 'favorites';
+const categoryCache = new Map<string, CategoryConfig | null>();
+
+function getCategoryForChannel(sourceName: string): CategoryConfig | null {
+  const cached = categoryCache.get(sourceName);
+  if (cached !== undefined) return cached;
+
   for (const cat of CATEGORIES) {
     if (cat.id === 'favorites' || cat.id === 'other') continue;
     if (cat.matcher.test(sourceName)) {
-      return cat.id;
+      categoryCache.set(sourceName, cat);
+      return cat;
     }
   }
-  return 'other';
+  categoryCache.set(sourceName, null);
+  return null;
+}
+
+function classifyChannel(sourceName: string, isFav: boolean): CategoryId {
+  if (isFav) return 'favorites';
+  const cat = getCategoryForChannel(sourceName);
+  return cat ? cat.id : 'other';
 }
 
 const sortSources = (arr: TrackedSource[], filter: SortFilter): TrackedSource[] => {
@@ -212,15 +224,8 @@ interface ChannelGridCardProps {
 
 const ChannelGridCard = React.memo<ChannelGridCardProps>(
   ({ item, isFavorite, styles, onToggle, onToggleFavorite, onPress }) => {
-    const category = useMemo(() => {
-      for (const cat of CATEGORIES) {
-        if (cat.id === 'favorites' || cat.id === 'other') continue;
-        if (cat.matcher.test(item.sourceName)) {
-          return cat;
-        }
-      }
-      return null;
-    }, [item.sourceName]);
+    // O(1) cached category lookup (bypasses regex execution on every render)
+    const category = getCategoryForChannel(item.sourceName);
 
     return (
       <TouchableOpacity
@@ -311,6 +316,15 @@ export const FollowingScreen: React.FC = () => {
   const [newChannelId, setNewChannelId] = useState<string>('');
   const [newChannelName, setNewChannelName] = useState<string>('');
   const [adding, setAdding] = useState<boolean>(false);
+
+  // Progressive Virtual Pagination (Optimizes FlatList for 1,000+ items)
+  const PAGE_SIZE = 24;
+  const [displayLimit, setDisplayLimit] = useState<number>(PAGE_SIZE);
+
+  // Reset pagination window when filters or search change
+  useEffect(() => {
+    setDisplayLimit(PAGE_SIZE);
+  }, [deferredSearchQuery, selectedCategory, sortFilter]);
 
   // Load persistent favorites from AsyncStorage
   useEffect(() => {
@@ -513,6 +527,39 @@ export const FollowingScreen: React.FC = () => {
     // 3. Sort
     return sortSources(list, sortFilter);
   }, [sources, favoriteIds, deferredSearchQuery, selectedCategory, sortFilter]);
+
+  // Sliced virtual window for FlatList (renders max 24 cards initially, batches seamlessly on scroll)
+  const visibleSources = useMemo(() => {
+    return filteredSources.slice(0, displayLimit);
+  }, [filteredSources, displayLimit]);
+
+  const handleEndReached = useCallback(() => {
+    setDisplayLimit((prev) => {
+      if (prev >= filteredSources.length) return prev;
+      return Math.min(prev + PAGE_SIZE, filteredSources.length);
+    });
+  }, [filteredSources.length]);
+
+  const ListFooter = useMemo(() => {
+    if (filteredSources.length === 0) return undefined;
+    if (visibleSources.length >= filteredSources.length) {
+      return (
+        <View style={styles.gridFooterEnd}>
+          <Text style={styles.gridFooterEndText}>
+            Showing all {filteredSources.length} {filteredSources.length === 1 ? 'channel' : 'channels'}
+          </Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.gridFooterLoading}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={styles.gridFooterLoadingText}>
+          Loading more… ({visibleSources.length} of {filteredSources.length})
+        </Text>
+      </View>
+    );
+  }, [visibleSources.length, filteredSources.length, colors.primary, styles]);
 
   // Category counts for pills
   const categoryCounts = useMemo(() => {
@@ -817,16 +864,20 @@ export const FollowingScreen: React.FC = () => {
         </View>
       ) : (
         <FlatList
-          data={filteredSources}
+          data={visibleSources}
           keyExtractor={keyExtractor}
           numColumns={2}
           columnWrapperStyle={styles.gridColumnWrapper}
           renderItem={renderItem}
           ListHeaderComponent={ListHeader}
+          ListFooterComponent={ListFooter}
           contentContainerStyle={styles.gridListContent}
-          initialNumToRender={10}
-          maxToRenderPerBatch={10}
-          windowSize={7}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          updateCellsBatchingPeriod={40}
+          windowSize={5}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.5}
           removeClippedSubviews={true}
           refreshControl={
             <RefreshControl
