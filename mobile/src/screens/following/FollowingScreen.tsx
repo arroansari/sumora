@@ -8,7 +8,7 @@ import React, {
 import {
   View,
   Text,
-  SectionList,
+  FlatList,
   TouchableOpacity,
   Alert,
   TextInput,
@@ -199,9 +199,9 @@ const sortSources = (arr: TrackedSource[], filter: SortFilter): TrackedSource[] 
   }
 };
 
-// ─── ChannelRow Component ────────────────────────────────────────────────────
+// ─── ChannelGridCard Component (Option 3: 2-Column Visual Grid) ───────────────
 
-interface ChannelRowProps {
+interface ChannelGridCardProps {
   item: TrackedSource;
   isFavorite: boolean;
   styles: ReturnType<typeof createFollowingStyles>;
@@ -210,59 +210,83 @@ interface ChannelRowProps {
   onPress: (source: TrackedSource) => void;
 }
 
-const ChannelRow = React.memo<ChannelRowProps>(
-  ({ item, isFavorite, styles, onToggle, onToggleFavorite, onPress }) => (
-    <TouchableOpacity
-      style={styles.sourceCard}
-      onPress={() => onPress(item)}
-      activeOpacity={0.75}>
-      <View style={styles.sourceAvatar}>
-        {item.thumbnailUrl ? (
-          <FastImage
-            source={{
-              uri: item.thumbnailUrl,
-              priority: FastImage.priority.normal,
-              cache: FastImage.cacheControl.immutable,
-            }}
-            style={styles.sourceAvatarImage}
-            resizeMode={FastImage.resizeMode.cover}
-          />
-        ) : (
-          <Text style={styles.sourceAvatarText}>{getInitials(item.sourceName)}</Text>
-        )}
-      </View>
+const ChannelGridCard = React.memo<ChannelGridCardProps>(
+  ({ item, isFavorite, styles, onToggle, onToggleFavorite, onPress }) => {
+    const category = useMemo(() => {
+      for (const cat of CATEGORIES) {
+        if (cat.id === 'favorites' || cat.id === 'other') continue;
+        if (cat.matcher.test(item.sourceName)) {
+          return cat;
+        }
+      }
+      return null;
+    }, [item.sourceName]);
 
-      <View style={styles.sourceInfo}>
-        <Text style={styles.sourceName} numberOfLines={1}>
+    return (
+      <TouchableOpacity
+        style={styles.channelGridCard}
+        onPress={() => onPress(item)}
+        activeOpacity={0.8}>
+        {/* Top bar: Category badge on left, Star priority button on right */}
+        <View style={styles.gridCardTopRow}>
+          {category ? (
+            <View style={styles.gridCategoryBadge}>
+              <Text style={styles.gridCategoryText} numberOfLines={1}>
+                {category.icon} {category.label.split(' ')[0]}
+              </Text>
+            </View>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
+
+          <TouchableOpacity
+            style={[styles.gridStarBtn, isFavorite && styles.gridStarBtnActive]}
+            onPress={() => onToggleFavorite(item)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.7}>
+            <Text style={styles.gridStarIcon}>{isFavorite ? '⭐' : '☆'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Center: Circular Avatar */}
+        <View style={styles.gridAvatarContainer}>
+          {item.thumbnailUrl ? (
+            <FastImage
+              source={{
+                uri: item.thumbnailUrl,
+                priority: FastImage.priority.normal,
+                cache: FastImage.cacheControl.immutable,
+              }}
+              style={styles.gridAvatarImage}
+              resizeMode={FastImage.resizeMode.cover}
+            />
+          ) : (
+            <View style={styles.gridAvatarPlaceholder}>
+              <Text style={styles.gridAvatarText}>{getInitials(item.sourceName)}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Channel Name */}
+        <Text style={styles.gridChannelTitle} numberOfLines={1}>
           {item.sourceName}
         </Text>
-        <Text style={styles.sourceIdText} numberOfLines={1}>
-          ID: {item.sourceId.slice(0, 18)}…
-        </Text>
-        <Text style={styles.sourceHint} numberOfLines={1}>
-          Tap to view summaries ›
-        </Text>
-      </View>
 
-      <View style={styles.sourceActionRow}>
-        {/* Star / Favorite Priority Button */}
+        {/* Subtle tap hint */}
+        <Text style={styles.gridSubMeta} numberOfLines={1}>
+          Tap to view ›
+        </Text>
+
+        {/* Bottom: Tracking Pill Button */}
         <TouchableOpacity
-          style={[styles.starBtn, isFavorite && styles.starBtnActive]}
-          onPress={() => onToggleFavorite(item)}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          activeOpacity={0.7}>
-          <Text style={[styles.starIcon, isFavorite && styles.starIconActive]}>
-            {isFavorite ? '⭐' : '☆'}
-          </Text>
+          style={styles.gridTrackingBtn}
+          onPress={() => onToggle(item)}
+          activeOpacity={0.75}>
+          <Text style={styles.gridTrackingText}>Tracking ✓</Text>
         </TouchableOpacity>
-
-        {/* Tracking Pill Button */}
-        <TouchableOpacity style={styles.trackingButton} onPress={() => onToggle(item)}>
-          <Text style={styles.trackingButtonText}>Tracking ✓</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  )
+      </TouchableOpacity>
+    );
+  }
 );
 
 // ─── Main Following Screen ───────────────────────────────────────────────────
@@ -283,7 +307,6 @@ export const FollowingScreen: React.FC = () => {
   const [sortFilter, setSortFilter] = useState<SortFilter>('newest');
   const [selectedCategory, setSelectedCategory] = useState<CategoryId>('all');
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
   const [newChannelId, setNewChannelId] = useState<string>('');
   const [newChannelName, setNewChannelName] = useState<string>('');
@@ -463,13 +486,13 @@ export const FollowingScreen: React.FC = () => {
     return sources.filter((s) => favoriteIds.includes(s.sourceId));
   }, [sources, favoriteIds]);
 
-  // ── SectionList Categorization ─────────────────────────────────────────────
+  // ── 2-Column Grid Filtering & Sorting (Option 3) ──────────────────────────
 
-  const sections = useMemo(() => {
+  const filteredSources = useMemo(() => {
     const query = deferredSearchQuery.trim().toLowerCase();
 
     // 1. Filter by search query if any
-    const searched = query
+    let list = query
       ? sources.filter(
           (s) =>
             s.sourceName.toLowerCase().includes(query) ||
@@ -477,64 +500,19 @@ export const FollowingScreen: React.FC = () => {
         )
       : sources;
 
-    // 2. Group into category buckets
-    const bucketMap = new Map<CategoryId, TrackedSource[]>();
-    for (const cat of CATEGORIES) {
-      bucketMap.set(cat.id, []);
+    // 2. Filter by category
+    if (selectedCategory === 'favorites') {
+      list = list.filter((s) => favoriteIds.includes(s.sourceId));
+    } else if (selectedCategory !== 'all') {
+      list = list.filter((s) => {
+        const catId = classifyChannel(s.sourceName, false);
+        return catId === selectedCategory;
+      });
     }
 
-    for (const source of searched) {
-      const isFav = favoriteIds.includes(source.sourceId);
-      if (selectedCategory === 'favorites') {
-        if (isFav) bucketMap.get('favorites')?.push(source);
-      } else {
-        const catId = classifyChannel(source.sourceName, false);
-        bucketMap.get(catId)?.push(source);
-      }
-    }
-
-    // 3. Build SectionList sections based on selectedCategory filter
-    const result: Array<{
-      id: CategoryId;
-      title: string;
-      icon: string;
-      totalCount: number;
-      isCollapsed: boolean;
-      data: TrackedSource[];
-    }> = [];
-
-    for (const cat of CATEGORIES) {
-      if (selectedCategory !== 'all' && selectedCategory !== cat.id) {
-        continue;
-      }
-      // In 'all' view, Priority Channels are already featured in the top story bar, so skip redundant accordion card
-      if (selectedCategory === 'all' && cat.id === 'favorites') {
-        continue;
-      }
-
-      const items = bucketMap.get(cat.id) || [];
-      if (items.length > 0) {
-        const isCollapsed = Boolean(collapsedSections[cat.id]);
-        result.push({
-          id: cat.id,
-          title: cat.label,
-          icon: cat.icon,
-          totalCount: items.length,
-          isCollapsed,
-          data: isCollapsed ? [] : sortSources(items, sortFilter),
-        });
-      }
-    }
-
-    return result;
-  }, [sources, favoriteIds, deferredSearchQuery, selectedCategory, sortFilter, collapsedSections]);
-
-  const toggleCollapse = useCallback((catId: CategoryId) => {
-    setCollapsedSections((prev) => ({
-      ...prev,
-      [catId]: !prev[catId],
-    }));
-  }, []);
+    // 3. Sort
+    return sortSources(list, sortFilter);
+  }, [sources, favoriteIds, deferredSearchQuery, selectedCategory, sortFilter]);
 
   // Category counts for pills
   const categoryCounts = useMemo(() => {
@@ -554,7 +532,7 @@ export const FollowingScreen: React.FC = () => {
 
   const renderItem = useCallback(
     ({ item }: { item: TrackedSource }) => (
-      <ChannelRow
+      <ChannelGridCard
         item={item}
         isFavorite={favoriteIds.includes(item.sourceId)}
         styles={styles}
@@ -566,44 +544,10 @@ export const FollowingScreen: React.FC = () => {
     [favoriteIds, styles, handleToggleTracking, handleToggleFavorite, handleChannelPress]
   );
 
-  const renderSectionHeader = useCallback(
-    ({
-      section,
-    }: {
-      section: {
-        id: CategoryId;
-        title: string;
-        icon: string;
-        totalCount: number;
-        isCollapsed: boolean;
-        data: TrackedSource[];
-      };
-    }) => (
-      <TouchableOpacity
-        style={styles.sectionHeader}
-        onPress={() => toggleCollapse(section.id)}
-        activeOpacity={0.75}>
-        <View style={styles.sectionTitleRow}>
-          <Text style={{ fontSize: 16 }}>{section.icon}</Text>
-          <Text style={styles.sectionTitle}>{section.title}</Text>
-        </View>
-        <View style={styles.sectionBadge}>
-          <Text style={styles.sectionBadgeText}>
-            {section.totalCount} {section.totalCount === 1 ? 'channel' : 'channels'}
-          </Text>
-          <Text style={styles.sectionChevron}>
-            {section.isCollapsed ? '▶' : '▼'}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    ),
-    [styles, toggleCollapse]
-  );
-
   const ListHeader = useMemo(
     () => (
       <View>
-        {/* ── Priority Channels Story Bar (Matching Prototype) ── */}
+        {/* ── Priority Channels Story Bar (Matching Prototype - Preserved) ── */}
         <View style={styles.prioritySection}>
           <View style={styles.priorityHeaderRow}>
             <Text style={styles.priorityHeaderTitle}>Priority Channels</Text>
@@ -663,7 +607,7 @@ export const FollowingScreen: React.FC = () => {
               onPress={() => {
                 Alert.alert(
                   'Add Priority Channel',
-                  'Tap the ⭐ star button on any channel in the list below to pin it to Priority Channels!'
+                  'Tap the ⭐ star button on any channel in the grid below to pin it to Priority Channels!'
                 );
               }}
               activeOpacity={0.8}>
@@ -703,7 +647,7 @@ export const FollowingScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Horizontal Category Switcher */}
+        {/* Horizontal Category Filter Pills */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -745,6 +689,24 @@ export const FollowingScreen: React.FC = () => {
             );
           })}
         </ScrollView>
+
+        {/* 2-Column Grid Section Header */}
+        <View style={styles.gridSectionHeaderRow}>
+          <Text style={styles.gridSectionTitle}>
+            {selectedCategory === 'all'
+              ? `All Channels (${filteredSources.length})`
+              : `${CATEGORIES.find((c) => c.id === selectedCategory)?.icon || ''} ${CATEGORIES.find((c) => c.id === selectedCategory)?.label || 'Channels'} (${filteredSources.length})`}
+          </Text>
+          <Text style={styles.gridSectionSub}>
+            {sortFilter === 'newest'
+              ? 'Newest'
+              : sortFilter === 'oldest'
+              ? 'Oldest'
+              : sortFilter === 'a_z'
+              ? 'A → Z'
+              : 'Z → A'}
+          </Text>
+        </View>
       </View>
     ),
     [
@@ -755,6 +717,7 @@ export const FollowingScreen: React.FC = () => {
       sources.length,
       categoryCounts,
       prioritySources,
+      filteredSources.length,
       handleChannelPress,
     ]
   );
@@ -826,7 +789,7 @@ export const FollowingScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Body: SectionList */}
+      {/* Body: 2-Column Visual Grid */}
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -853,14 +816,14 @@ export const FollowingScreen: React.FC = () => {
           )}
         </View>
       ) : (
-        <SectionList
-          sections={sections}
+        <FlatList
+          data={filteredSources}
           keyExtractor={keyExtractor}
+          numColumns={2}
+          columnWrapperStyle={styles.gridColumnWrapper}
           renderItem={renderItem}
-          renderSectionHeader={renderSectionHeader}
           ListHeaderComponent={ListHeader}
-          contentContainerStyle={styles.listContent}
-          stickySectionHeadersEnabled={false}
+          contentContainerStyle={styles.gridListContent}
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={7}
@@ -871,6 +834,24 @@ export const FollowingScreen: React.FC = () => {
               onRefresh={handleRefresh}
               tintColor={colors.primary}
             />
+          }
+          ListEmptyComponent={
+            <View style={styles.centerContainer}>
+              <Text style={{ fontSize: 36, marginBottom: 8 }}>🔍</Text>
+              <Text style={styles.emptyTitle}>No Channels Found</Text>
+              <Text style={styles.emptySubtitle}>
+                {searchQuery
+                  ? `No tracked channels match "${searchQuery}".`
+                  : 'No channels found for the selected category.'}
+              </Text>
+              {selectedCategory !== 'all' && (
+                <TouchableOpacity
+                  style={styles.clearSearchButton}
+                  onPress={() => setSelectedCategory('all')}>
+                  <Text style={styles.clearSearchButtonText}>Show All Channels</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           }
         />
       )}
