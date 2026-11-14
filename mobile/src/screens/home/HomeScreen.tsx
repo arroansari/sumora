@@ -474,17 +474,19 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       {/* ── Curved Gradient Header Banner (Matching attached Prototype) ── */}
-      <View style={[styles.headerGradientWrapper, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.headerGradientWrapper, { paddingTop: insets.top + 6 }]}>
         <Image
           source={require('../../assets/images/header_gradient.png')}
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Video Activity Feed</Text>
-          <Text style={styles.headerSubtitle}>
-            Distilled summaries from followed channels & links
-          </Text>
+          <View style={styles.headerLeftCol}>
+            <Text style={styles.headerTitle}>Video Activity Feed</Text>
+            <Text style={styles.headerSubtitle} numberOfLines={2}>
+              Distilled summaries from followed channels & links
+            </Text>
+          </View>
 
           <TouchableOpacity
             style={styles.headerSummarizeBtn}
@@ -493,7 +495,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             <View
               style={[
                 StyleSheet.absoluteFill,
-                { borderRadius: 22, overflow: 'hidden' },
+                { borderRadius: 19, overflow: 'hidden' },
               ]}
               pointerEvents="none">
               <Image
