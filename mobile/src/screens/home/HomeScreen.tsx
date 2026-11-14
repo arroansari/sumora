@@ -93,22 +93,56 @@ const FeedItemCard = React.memo<FeedCardProps>(
     const isCustom = item.isCustomImport || item.channelId === 'imported';
 
     const takeawayBullets = useMemo(() => {
+      const points: string[] = [];
       if (item.summary?.keyPoints && item.summary.keyPoints.length > 0) {
-        return item.summary.keyPoints
-          .slice(0, 3)
-          .map((p) => p.replace(/^[-•*]\s*/, '').trim());
+        item.summary.keyPoints.forEach((p) => {
+          const cleaned = p.replace(/^[-•*]\s*/, '').trim();
+          if (cleaned && !points.includes(cleaned)) {
+            points.push(cleaned);
+          }
+        });
       }
-      const text = item.summary?.overview || item.description || shortOverview;
-      if (text) {
-        const sentences = text
-          .split(/(?<=[.?!])\s+/)
-          .map((s) => s.trim())
-          .filter((s) => s.length > 12);
-        if (sentences.length > 0) {
-          return sentences.slice(0, 3);
+
+      if (points.length < 5 && item.summary?.conclusion) {
+        const cleanedConclusion = item.summary.conclusion.replace(/^[-•*]\s*/, '').trim();
+        if (cleanedConclusion && !points.includes(cleanedConclusion)) {
+          points.push(cleanedConclusion);
         }
       }
-      return [shortOverview];
+
+      if (points.length < 5 && item.summary?.importantConcepts && Array.isArray(item.summary.importantConcepts)) {
+        item.summary.importantConcepts.forEach((c: any) => {
+          if (points.length >= 5) return;
+          const text =
+            typeof c === 'string'
+              ? c
+              : c?.explanation
+                ? `${c.concept}: ${c.explanation}`
+                : c?.concept;
+          if (text && !points.includes(text)) {
+            points.push(text);
+          }
+        });
+      }
+
+      if (points.length === 0) {
+        const text = item.summary?.overview || item.description || shortOverview;
+        if (text) {
+          const sentences = text
+            .split(/(?<=[.?!])\s+/)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 12);
+          if (sentences.length > 0) {
+            points.push(...sentences.slice(0, 5));
+          }
+        }
+      }
+
+      if (points.length === 0) {
+        points.push(shortOverview);
+      }
+
+      return points.slice(0, 4);
     }, [item.summary, item.description, shortOverview]);
 
     const cardDynamicHeightStyle = useMemo(
@@ -175,65 +209,69 @@ const FeedItemCard = React.memo<FeedCardProps>(
         </View>
 
         <View style={styles.cardContent}>
-          <Text style={styles.videoTitle} numberOfLines={2}>
-            {item.title}
-          </Text>
+          <View>
+            <Text style={styles.videoTitle} numberOfLines={2}>
+              {item.title}
+            </Text>
 
-          <View style={styles.channelRow}>
-            <Text style={styles.channelName}>{item.channelName || (isCustom ? 'Custom Link' : 'YouTube Creator')}</Text>
-            <Text style={styles.dot}>•</Text>
-            <Text style={styles.dateText}>{publishedFormatted}</Text>
-          </View>
-
-          {/* 60-Second Inshorts Key Takeaways */}
-          <View style={styles.takeawaysContainer}>
-            <View style={styles.takeawaysHeader}>
-              <Text style={styles.takeawaysIcon}>💡</Text>
-              <Text style={styles.takeawaysTitle}>60-Second Takeaways</Text>
+            <View style={styles.channelRow}>
+              <Text style={styles.channelName}>{item.channelName || (isCustom ? 'Custom Link' : 'YouTube Creator')}</Text>
+              <Text style={styles.dot}>•</Text>
+              <Text style={styles.dateText}>{publishedFormatted}</Text>
             </View>
-            {takeawayBullets.map((bullet, idx) => (
-              <View key={idx} style={styles.bulletRow}>
-                <Text style={styles.bulletDot}>•</Text>
-                <Text style={styles.bulletText} numberOfLines={2}>
-                  {bullet}
-                </Text>
+
+            {/* 60-Second Inshorts Key Takeaways */}
+            <View style={styles.takeawaysContainer}>
+              <View style={styles.takeawaysHeader}>
+                <Text style={styles.takeawaysIcon}>💡</Text>
+                <Text style={styles.takeawaysTitle}>60-Second Takeaways</Text>
               </View>
-            ))}
+              {takeawayBullets.map((bullet, idx) => (
+                <View key={idx} style={styles.bulletRow}>
+                  <Text style={styles.bulletDot}>•</Text>
+                  <Text style={styles.bulletText} numberOfLines={2}>
+                    {bullet}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
 
-          <View style={styles.actionsRow}>
-            <TouchableOpacity
-              style={styles.readButtonLavender}
-              onPress={() => onReadSummary(item.videoId, item.title)}
-              activeOpacity={0.8}>
-              <Text style={styles.readButtonTextLavender}>Read Summary</Text>
-            </TouchableOpacity>
-
-            <GradientButton
-              title="Watch"
-              onPress={() => onWatchVideo(item.videoUrl)}
-              style={styles.watchGradientBtn}
-            />
-
-            {isCompletedView ? (
+          <View>
+            <View style={styles.actionsRow}>
               <TouchableOpacity
-                style={styles.restoreButton}
-                onPress={() => onRestoreVideo?.(item.videoId)}
-                activeOpacity={0.75}>
-                <Text style={styles.restoreButtonText}>↺</Text>
+                style={styles.readButtonLavender}
+                onPress={() => onReadSummary(item.videoId, item.title)}
+                activeOpacity={0.8}>
+                <Text style={styles.readButtonTextLavender}>Read Summary</Text>
               </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.doneButton}
-                onPress={() => onMarkDone?.(item.videoId, item.title)}
-                activeOpacity={0.75}>
-                <Text style={styles.doneButtonText}>✓ Done</Text>
-              </TouchableOpacity>
-            )}
-          </View>
 
-          <View style={styles.swipePromptRow}>
-            <Text style={styles.swipePromptText}>▲ Swipe up for next video</Text>
+              <GradientButton
+                title="Watch"
+                onPress={() => onWatchVideo(item.videoUrl)}
+                style={styles.watchGradientBtn}
+              />
+
+              {isCompletedView ? (
+                <TouchableOpacity
+                  style={styles.restoreButton}
+                  onPress={() => onRestoreVideo?.(item.videoId)}
+                  activeOpacity={0.75}>
+                  <Text style={styles.restoreButtonText}>↺</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.doneButton}
+                  onPress={() => onMarkDone?.(item.videoId, item.title)}
+                  activeOpacity={0.75}>
+                  <Text style={styles.doneButtonText}>✓ Done</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.swipePromptRow}>
+              <Text style={styles.swipePromptText}>▲ Swipe up for next video</Text>
+            </View>
           </View>
         </View>
       </View>

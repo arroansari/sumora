@@ -307,7 +307,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     thumbnailContainer: {
       width: '100%',
-      height: 162,
+      height: 144,
       borderRadius: 14,
       overflow: 'hidden',
       position: 'relative',
@@ -439,9 +439,11 @@ export const createHomeStyles = (colors: ThemeColors) =>
       color: '#FFFFFF',
     },
     cardContent: {
+      flex: 1,
       paddingHorizontal: 4,
-      paddingTop: 14,
-      paddingBottom: 4,
+      paddingTop: 8,
+      paddingBottom: 2,
+      justifyContent: 'space-between',
     },
     videoTitle: {
       fontSize: 17,
@@ -454,8 +456,8 @@ export const createHomeStyles = (colors: ThemeColors) =>
     channelRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 6,
-      marginBottom: 8,
+      marginTop: 4,
+      marginBottom: 6,
     },
     channelName: {
       fontSize: 13,
@@ -474,15 +476,15 @@ export const createHomeStyles = (colors: ThemeColors) =>
     overviewText: {
       fontSize: 13.5,
       lineHeight: 19,
-      marginBottom: 10,
+      marginBottom: 8,
       color: colors.textSecondary,
     },
     takeawaysContainer: {
       backgroundColor: 'rgba(124, 58, 237, 0.05)',
-      borderRadius: 14,
+      borderRadius: 15,
       paddingHorizontal: 13,
       paddingVertical: 10,
-      marginBottom: 10,
+      marginBottom: 6,
       borderWidth: 1,
       borderColor: 'rgba(124, 58, 237, 0.14)',
     },
@@ -493,10 +495,10 @@ export const createHomeStyles = (colors: ThemeColors) =>
       marginBottom: 6,
     },
     takeawaysIcon: {
-      fontSize: 13,
+      fontSize: 13.5,
     },
     takeawaysTitle: {
-      fontSize: 12.5,
+      fontSize: 13,
       fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.primary,
@@ -506,17 +508,17 @@ export const createHomeStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: 8,
-      marginBottom: 5,
+      marginBottom: 4,
     },
     bulletDot: {
       fontSize: 16,
       color: colors.primary,
-      lineHeight: 21,
+      lineHeight: 20,
       fontWeight: '800',
     },
     bulletText: {
       flex: 1,
-      fontSize: 13.5,
+      fontSize: 14,
       fontFamily: 'PlusJakartaSans-Medium',
       color: colors.textPrimary,
       lineHeight: 20,
@@ -525,8 +527,8 @@ export const createHomeStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingTop: 6,
-      paddingBottom: 2,
+      paddingTop: 4,
+      paddingBottom: 0,
     },
     swipePromptText: {
       fontSize: 11,
@@ -538,12 +540,12 @@ export const createHomeStyles = (colors: ThemeColors) =>
     actionsRow: {
       flexDirection: 'row',
       gap: 10,
-      marginTop: 2,
+      marginTop: 4,
     },
     readButton: {
       flex: 1.2,
-      height: 42,
-      borderRadius: 21,
+      height: 40,
+      borderRadius: 20,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.primary,
@@ -555,8 +557,8 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     readButtonLavender: {
       flex: 1.2,
-      height: 42,
-      borderRadius: 21,
+      height: 40,
+      borderRadius: 20,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'rgba(124, 58, 237, 0.08)',
@@ -571,8 +573,8 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     watchGradientBtn: {
       flex: 0.9,
-      height: 42,
-      borderRadius: 21,
+      height: 40,
+      borderRadius: 20,
     },
     readButtonText: {
       color: '#FFFFFF',
