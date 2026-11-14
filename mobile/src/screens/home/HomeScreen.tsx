@@ -276,10 +276,17 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     };
   }, []);
 
-  // Dedicated refresh handler, completely decoupled from useEffect dependencies
+  // Dedicated refresh handler: queries YouTube for fresh uploads, then reloads the feed
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
+      // 1. Auto-fetch fresh YouTube uploads for favorite & followed channels
+      const favList = Array.from(favoriteChannelIds);
+      await videosApi.syncFeed(favList).catch((err) => {
+        console.warn('[HomeScreen] Auto-fetch YouTube note:', err.message);
+      });
+
+      // 2. Fetch updated feed from database
       const res = await videosApi.getFeed(1, 40);
       setVideos(res.videos);
       await loadStoredData();
@@ -288,7 +295,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     } finally {
       setRefreshing(false);
     }
-  }, [loadStoredData]);
+  }, [favoriteChannelIds, loadStoredData]);
 
   const handleReadSummary = useCallback(
     (videoId: string, title: string) => {

@@ -9,6 +9,11 @@ router.use(authenticate);
 // Video feed
 router.get('/', (req, res, next) => videosController.getFeed(req, res, next));
 
+// Sync fresh YouTube uploads on demand (pull-to-refresh)
+router.post('/sync-feed', (req, res, next) =>
+  videosController.syncFeed(req, res, next)
+);
+
 // Import any YouTube video by URL or ID on-demand
 router.post('/import', (req, res, next) =>
   videosController.importVideo(req, res, next)

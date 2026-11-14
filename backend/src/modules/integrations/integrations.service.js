@@ -145,6 +145,46 @@ class IntegrationsService {
   }
 
   /**
+   * Retrieves a decrypted, valid OAuth access token for a user, automatically refreshing if expired.
+   * Returns null if YouTube is not connected.
+   * @param {string} userId
+   * @returns {Promise<string|null>}
+   */
+  async getValidAccessToken(userId) {
+    try {
+      const account = await prisma.connectedAccount.findUnique({
+        where: { userId_platform: { userId, platform: 'youtube' } },
+        include: { token: true },
+      });
+
+      if (!account || !account.token) return null;
+
+      let accessToken = decrypt(account.token.encryptedAccessToken);
+      const isExpired =
+        account.token.expiresAt && new Date(account.token.expiresAt).getTime() <= Date.now() + 60000;
+
+      if (isExpired && account.token.encryptedRefreshToken) {
+        const refreshed = await youTubeService.refreshAccessToken(account.token.encryptedRefreshToken);
+        accessToken = refreshed.accessToken;
+        await prisma.platformToken.update({
+          where: { id: account.token.id },
+          data: {
+            encryptedAccessToken: encrypt(refreshed.accessToken),
+            expiresAt: refreshed.expiresIn
+              ? new Date(Date.now() + refreshed.expiresIn * 1000)
+              : null,
+          },
+        });
+      }
+
+      return accessToken;
+    } catch (err) {
+      console.warn(`[IntegrationsService] Could not retrieve access token for ${userId}:`, err.message);
+      return null;
+    }
+  }
+
+  /**
    * Re-syncs the user's YouTube subscriptions (names + profile thumbnails)
    * using their stored encrypted OAuth tokens, refreshing if expired.
    * @param {string} userId

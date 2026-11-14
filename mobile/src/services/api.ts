@@ -205,6 +205,18 @@ export const videosApi = {
     });
     return res.data;
   },
+
+  syncFeed: async (
+    priorityChannelIds: string[] = []
+  ): Promise<{ channelsSynced: number; totalChannels: number; newVideosCount: number }> => {
+    const res = await request<{
+      data: { channelsSynced: number; totalChannels: number; newVideosCount: number };
+    }>('/videos/sync-feed', {
+      method: 'POST',
+      body: JSON.stringify({ priorityChannelIds }),
+    });
+    return res.data;
+  },
 };
 
 // Preferences & Notifications API

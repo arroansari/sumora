@@ -1,6 +1,7 @@
 const app = require('./app');
 const config = require('./config');
 const workerManager = require('./jobs/worker.manager');
+const schedulerService = require('./jobs/scheduler.service');
 
 const server = app.listen(config.port, () => {
   console.log(`===============================================`);
@@ -13,6 +14,9 @@ const server = app.listen(config.port, () => {
   // If Redis is unavailable, the inline pipeline handles transcript + summarization
   // directly on WebSub notifications — no data is lost, only async queue benefits are skipped.
   workerManager.startAll();
+
+  // Start background daily feed sync scheduler
+  schedulerService.start();
 
   // Warn about missing Google OAuth credentials at startup
   if (!config.google.clientId || !config.google.clientSecret) {
@@ -29,6 +33,7 @@ const server = app.listen(config.port, () => {
 
 process.on('SIGTERM', async () => {
   console.log('SIGTERM signal received: closing HTTP server');
+  schedulerService.stop();
   await workerManager.stopAll();
   server.close(() => {
     console.log('HTTP server closed');
@@ -37,6 +42,7 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   console.log('SIGINT received: shutting down gracefully');
+  schedulerService.stop();
   await workerManager.stopAll();
   server.close(() => {
     process.exit(0);

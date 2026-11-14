@@ -84,6 +84,21 @@ class VideosController {
       next(error);
     }
   }
+
+  async syncFeed(req, res, next) {
+    try {
+      const { priorityChannelIds = [] } = req.body || {};
+      const result = await videosService.syncLatestFeedUploads(req.user.id, {
+        priorityChannelIds,
+      });
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new VideosController();

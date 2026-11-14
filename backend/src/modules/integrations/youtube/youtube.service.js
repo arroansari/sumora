@@ -155,6 +155,46 @@ class YouTubeService {
 
     return channels;
   }
+
+  /**
+   * Fetches latest uploads for a channel using YouTube Data API v3 playlistItems.
+   * Every channel's upload playlist ID is 'UU' + channelId.slice(2).
+   * @param {string} channelId
+   * @param {string} accessToken
+   * @param {number} maxResults
+   */
+  async getChannelUploads(channelId, accessToken, maxResults = 5) {
+    if (!channelId || !channelId.startsWith('UC')) return [];
+    const uploadPlaylistId = 'UU' + channelId.slice(2);
+
+    try {
+      const response = await axios.get(`${YOUTUBE_API_BASE}/playlistItems`, {
+        params: {
+          part: 'snippet',
+          playlistId: uploadPlaylistId,
+          maxResults,
+        },
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 8000,
+      });
+
+      const items = response.data.items || [];
+      return items.map((item) => ({
+        videoId: item.snippet.resourceId.videoId,
+        channelId,
+        title: item.snippet.title,
+        videoUrl: `https://www.youtube.com/watch?v=${item.snippet.resourceId.videoId}`,
+        thumbnailUrl:
+          item.snippet.thumbnails?.high?.url ||
+          item.snippet.thumbnails?.medium?.url ||
+          `https://i.ytimg.com/vi/${item.snippet.resourceId.videoId}/hqdefault.jpg`,
+        publishedAt: item.snippet.publishedAt,
+      }));
+    } catch (err) {
+      console.warn(`[YouTubeService] playlistItems lookup note for ${channelId}:`, err.message);
+      return [];
+    }
+  }
 }
 
 module.exports = new YouTubeService();

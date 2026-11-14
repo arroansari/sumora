@@ -2,6 +2,9 @@ const prisma = require('../../config/db');
 const axios = require('axios');
 const { getQueue, QUEUE_NAMES } = require('../../jobs');
 const inlinePipeline = require('../pipeline/inline-pipeline.service');
+const webSubService = require('../integrations/youtube/websub.service');
+const youTubeService = require('../integrations/youtube/youtube.service');
+const integrationsService = require('../integrations/integrations.service');
 
 function extractYouTubeVideoId(input) {
   if (!input) return null;
@@ -424,6 +427,116 @@ class VideosService {
       ...video,
       isCustomImport: true,
       channelName: authorName,
+    };
+  }
+
+  /**
+   * Fetches fresh YouTube uploads for a user's tracked channels on pull-to-refresh.
+   * Priority/favorite channels are synced immediately; remaining channels are updated
+   * gracefully in background batches.
+   * @param {string} userId
+   * @param {object} [opts]
+   * @param {string[]} [opts.priorityChannelIds]
+   */
+  async syncLatestFeedUploads(userId, { priorityChannelIds = [] } = {}) {
+    // 1. Get all YouTube channels tracked by the user
+    const tracked = await prisma.trackedSource.findMany({
+      where: { userId, platform: 'youtube' },
+      select: { sourceId: true },
+    });
+
+    const allChannelIds = tracked.map((t) => t.sourceId);
+    if (allChannelIds.length === 0) {
+      return { channelsSynced: 0, newVideosCount: 0 };
+    }
+
+    // 2. Check for valid OAuth access token for official YouTube Data API
+    const accessToken = await integrationsService.getValidAccessToken(userId);
+
+    // 3. Separate priority channels from the rest
+    const prioritySet = new Set(priorityChannelIds);
+    const priorityChannels = allChannelIds.filter((id) => prioritySet.has(id));
+    const nonPriorityChannels = allChannelIds.filter((id) => !prioritySet.has(id));
+
+    // For pull-to-refresh: Sync all priority channels + up to 10 recent non-priority channels immediately
+    const immediateChannels =
+      priorityChannels.length > 0
+        ? [...priorityChannels, ...nonPriorityChannels.slice(0, 10)]
+        : allChannelIds.slice(0, 15);
+
+    let newVideosCount = 0;
+    const batchSize = 5;
+
+    const processChannel = async (channelId) => {
+      if (accessToken) {
+        const uploads = await youTubeService.getChannelUploads(channelId, accessToken, 3);
+        if (uploads.length > 0) {
+          for (const upload of uploads) {
+            const existing = await prisma.video.findUnique({
+              where: { videoId: upload.videoId },
+              select: { id: true, summaryStatus: true },
+            });
+
+            await prisma.video.upsert({
+              where: { videoId: upload.videoId },
+              create: {
+                videoId: upload.videoId,
+                channelId: upload.channelId,
+                title: upload.title,
+                videoUrl: upload.videoUrl,
+                thumbnailUrl: upload.thumbnailUrl,
+                publishedAt: new Date(upload.publishedAt),
+                transcriptStatus: 'pending',
+                summaryStatus: 'pending',
+              },
+              update: {
+                title: upload.title,
+                thumbnailUrl: upload.thumbnailUrl,
+              },
+            });
+
+            if (!existing) {
+              newVideosCount++;
+              inlinePipeline.fireAndForget({
+                videoId: upload.videoId,
+                channelId: upload.channelId,
+                title: upload.title,
+                videoUrl: upload.videoUrl,
+              });
+            }
+          }
+          return { upserted: uploads.length };
+        }
+      }
+
+      // Fallback: WebSub RSS feed parser
+      return webSubService.backfillChannelFeed(channelId, { triggerPipeline: true });
+    };
+
+    for (let i = 0; i < immediateChannels.length; i += batchSize) {
+      const batch = immediateChannels.slice(i, i + batchSize);
+      await Promise.allSettled(batch.map((channelId) => processChannel(channelId)));
+    }
+
+    // 4. Sync remaining channels in non-blocking background batches
+    const remainingChannels = nonPriorityChannels.slice(10);
+    if (remainingChannels.length > 0) {
+      setTimeout(async () => {
+        try {
+          for (let i = 0; i < remainingChannels.length; i += batchSize) {
+            const batch = remainingChannels.slice(i, i + batchSize);
+            await Promise.allSettled(batch.map((channelId) => processChannel(channelId)));
+          }
+        } catch (err) {
+          console.warn('[VideosService] Background sync pass note:', err.message);
+        }
+      }, 1000);
+    }
+
+    return {
+      channelsSynced: immediateChannels.length,
+      totalChannels: allChannelIds.length,
+      newVideosCount,
     };
   }
 }
