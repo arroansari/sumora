@@ -21,17 +21,15 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const systemScheme = useColorScheme();
-  const [themeMode, setThemeModeState] = useState<'light' | 'dark' | 'system'>('dark');
+  const [themeMode, setThemeModeState] = useState<'light' | 'dark' | 'system'>('light');
 
   useEffect(() => {
     AsyncStorage.getItem(THEME_STORAGE_KEY)
       .then((stored) => {
-        if (systemScheme === 'dark') {
-          setThemeModeState('dark');
-        } else if (stored === 'light' || stored === 'dark') {
+        if (stored === 'light' || stored === 'dark') {
           setThemeModeState(stored);
         } else {
-          setThemeModeState('dark');
+          setThemeModeState('light');
         }
       })
       .catch(() => {});

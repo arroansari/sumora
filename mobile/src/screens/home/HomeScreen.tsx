@@ -155,15 +155,18 @@ const FeedItemCard = React.memo<FeedCardProps>(
           </Text>
 
           <View style={styles.actionsRow}>
-            <GradientButton
-              title="Read Summary"
+            <TouchableOpacity
+              style={styles.readButtonLavender}
               onPress={() => onReadSummary(item.videoId, item.title)}
-              style={styles.readButton}
-            />
-
-            <TouchableOpacity style={styles.watchButton} onPress={() => onWatchVideo(item.videoUrl)}>
-              <Text style={styles.watchButtonText}>Watch ↗</Text>
+              activeOpacity={0.8}>
+              <Text style={styles.readButtonTextLavender}>Read Summary</Text>
             </TouchableOpacity>
+
+            <GradientButton
+              title="Watch"
+              onPress={() => onWatchVideo(item.videoUrl)}
+              style={styles.watchGradientBtn}
+            />
 
             {isCompletedView ? (
               <TouchableOpacity
@@ -438,6 +441,11 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             style={styles.headerSummarizeBtn}
             onPress={() => setShowImportModal(true)}
             activeOpacity={0.85}>
+            <Image
+              source={require('../../assets/images/button_gradient.png')}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
             <Text style={styles.headerSparkleIcon}>✦</Text>
             <Text style={styles.headerSummarizeBtnText}>Summarize</Text>
           </TouchableOpacity>
@@ -454,8 +462,15 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             style={[styles.filterTab, activeTab === 'all' && styles.filterTabActive]}
             onPress={() => setActiveTab('all')}
             activeOpacity={0.75}>
+            {activeTab === 'all' && (
+              <Image
+                source={require('../../assets/images/button_gradient.png')}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+              />
+            )}
             <Text style={[styles.filterTabText, activeTab === 'all' && styles.filterTabTextActive]}>
-              📡 All Activity
+              All Activity
             </Text>
           </TouchableOpacity>
 
@@ -463,8 +478,15 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             style={[styles.filterTab, activeTab === 'custom' && styles.filterTabActive]}
             onPress={() => setActiveTab('custom')}
             activeOpacity={0.75}>
+            {activeTab === 'custom' && (
+              <Image
+                source={require('../../assets/images/button_gradient.png')}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+              />
+            )}
             <Text style={[styles.filterTabText, activeTab === 'custom' && styles.filterTabTextActive]}>
-              🔗 Custom Links
+              Custom Links
             </Text>
             {customCount > 0 && (
               <View
@@ -487,8 +509,15 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             style={[styles.filterTab, activeTab === 'favorites' && styles.filterTabActive]}
             onPress={() => setActiveTab('favorites')}
             activeOpacity={0.75}>
+            {activeTab === 'favorites' && (
+              <Image
+                source={require('../../assets/images/button_gradient.png')}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+              />
+            )}
             <Text style={[styles.filterTabText, activeTab === 'favorites' && styles.filterTabTextActive]}>
-              ⭐ Priority
+              Priority
             </Text>
           </TouchableOpacity>
 
@@ -497,8 +526,15 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
               style={[styles.filterTab, activeTab === 'completed' && styles.filterTabActive]}
               onPress={() => setActiveTab('completed')}
               activeOpacity={0.75}>
+              {activeTab === 'completed' && (
+                <Image
+                  source={require('../../assets/images/button_gradient.png')}
+                  style={StyleSheet.absoluteFill}
+                  resizeMode="cover"
+                />
+              )}
               <Text style={[styles.filterTabText, activeTab === 'completed' && styles.filterTabTextActive]}>
-                ✅ Completed
+                Completed
               </Text>
               <View
                 style={[
