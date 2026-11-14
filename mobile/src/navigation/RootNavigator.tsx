@@ -52,9 +52,7 @@ function processOAuthUrl(
   url: string,
   navigationRef: React.RefObject<NavigationContainerRef<RootStackParamList> | null>
 ) {
-  if (!url || !url.startsWith('sumora://oauth/callback')) {
-    return;
-  }
+  if (!url) return;
 
   try {
     // Parse query params from the deep-link
@@ -65,16 +63,20 @@ function processOAuthUrl(
       if (key) params[decodeURIComponent(key)] = decodeURIComponent(val || '');
     });
 
-    const success = params['success'] === 'true';
-
-    if (success && navigationRef.current?.isReady()) {
-      // Navigate to the ConnectedAccounts tab so it can re-fetch the account list
-      navigationRef.current.navigate('MainTabs', { screen: 'ConnectedAccounts' } as any);
+    if (url.startsWith('sumora://oauth/callback')) {
+      const success = params['success'] === 'true';
+      if (success && navigationRef.current?.isReady()) {
+        navigationRef.current.navigate('MainTabs', { screen: 'ConnectedAccounts' } as any);
+      }
+    } else if (url.startsWith('sumora://summary')) {
+      const videoId = params['videoId'] || '';
+      const videoTitle = params['title'] || 'Video Summary';
+      if (navigationRef.current?.isReady() && videoId) {
+        navigationRef.current.navigate('SummaryDetail', { videoId, videoTitle });
+      }
     }
-
-    // ConnectedAccountsScreen subscribes to Linking events too — it will refresh regardless
   } catch (err) {
-    console.warn('[RootNavigator] Error processing OAuth deep-link:', err);
+    console.warn('[RootNavigator] Error processing deep-link:', err);
   }
 }
 
@@ -131,7 +133,7 @@ export const RootNavigator: React.FC = () => {
             <Stack.Screen
               name="SummaryDetail"
               component={SummaryDetailScreen}
-              options={{ title: 'AI Summary Details', headerBackTitle: 'Feed' }}
+              options={{ headerShown: false }}
             />
             <Stack.Screen
               name="ChannelDetail"

@@ -510,7 +510,7 @@ export const NotificationsScreen: React.FC = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Notification Settings</Text>
         <Text style={styles.headerSubtitle}>
-          Control push notification alerts for AI video summaries
+          Control push notification alerts for video summaries
         </Text>
       </View>
 

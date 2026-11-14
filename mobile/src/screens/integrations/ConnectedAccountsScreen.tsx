@@ -175,7 +175,7 @@ export const ConnectedAccountsScreen: React.FC = () => {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Connected Accounts</Text>
           <Text style={styles.headerSubtitle}>
-            Sign in with Google to automatically track your YouTube subscriptions and receive AI-generated summaries for new uploads.
+            Sign in with Google to automatically track your YouTube subscriptions and receive structured summaries for new uploads.
           </Text>
         </View>
 
@@ -204,7 +204,7 @@ export const ConnectedAccountsScreen: React.FC = () => {
                     ? `Connected · ${youtubeAccount?.platformUserId || 'Google Account'}`
                     : loading
                     ? 'Checking connection status…'
-                    : 'Sync subscriptions and generate AI summaries for new uploads'}
+                    : 'Sync subscriptions and generate summaries for new uploads'}
                 </Text>
               </View>
             </View>
@@ -257,7 +257,7 @@ export const ConnectedAccountsScreen: React.FC = () => {
                 { step: '1', text: 'Tap "Connect with Google" and sign in with your Google account.' },
                 { step: '2', text: 'We fetch your active YouTube subscriptions and register webhook listeners.' },
                 { step: '3', text: 'When a subscribed channel publishes a new video, we retrieve its transcript.' },
-                { step: '4', text: 'An AI model generates a structured summary grounded exclusively in the transcript.' },
+                { step: '4', text: 'A summarization engine generates a structured summary grounded exclusively in the transcript.' },
                 { step: '5', text: 'Your Home feed updates with the summary — no watching required.' },
               ].map((item) => (
                 <View key={item.step} style={{ flexDirection: 'row', marginBottom: 10, alignItems: 'flex-start' }}>

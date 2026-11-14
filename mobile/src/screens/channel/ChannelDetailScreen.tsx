@@ -145,7 +145,7 @@ const VideoCard = React.memo<VideoCardProps>(({ item, styles, colors, onPress })
           />
           {item.summaryStatus === 'completed' && (
             <View style={styles.summaryBadge}>
-              <Text style={styles.summaryBadgeText}>AI ✓</Text>
+              <Text style={styles.summaryBadgeText}>Summary ✓</Text>
             </View>
           )}
         </View>
@@ -182,9 +182,9 @@ const VideoCard = React.memo<VideoCardProps>(({ item, styles, colors, onPress })
             },
           ]}>
           {item.summaryStatus === 'completed'
-            ? '✨ Read AI Summary →'
+            ? '✨ Read Summary →'
             : item.summaryStatus === 'processing' || item.summaryStatus === 'fetching_transcript'
-            ? '⚡ Generating AI summary…'
+            ? '⚡ Generating summary…'
             : '✨ Tap to view & generate summary →'}
         </Text>
       </View>

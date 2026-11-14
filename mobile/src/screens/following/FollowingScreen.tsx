@@ -699,7 +699,7 @@ export const FollowingScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
         <Text style={styles.headerSubtitle}>
-          Manage subscribed channels for automatic AI summarization
+          Manage subscribed channels for automatic summarization
         </Text>
       </View>
 

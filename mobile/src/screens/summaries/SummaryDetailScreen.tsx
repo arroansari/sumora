@@ -8,15 +8,19 @@ import {
   ActivityIndicator,
   Share,
   Alert,
+  Image,
+  StyleSheet,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { videosApi } from '../../services/api';
 import { VideoItem, VideoSummary, SummaryStatus } from '../../types/models.types';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation.types';
 import { createSummaryDetailStyles } from './SummaryDetailScreen.styles';
+import { GradientButton } from '../../components/atoms';
 
 const READ_VIDEOS_KEY = 'sumora:read_video_ids';
 
@@ -27,12 +31,13 @@ type ViewMode = 'highlights' | 'deepdive';
 export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { videoId, videoTitle } = route.params;
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createSummaryDetailStyles(colors), [colors]);
 
   const [video, setVideo] = useState<VideoItem | null>(null);
   const [summary, setSummary] = useState<VideoSummary | null>(null);
   const [status, setStatus] = useState<SummaryStatus>('pending');
-  const [statusMessage, setStatusMessage] = useState<string>('Distilling video with Gemini AI…');
+  const [statusMessage, setStatusMessage] = useState<string>('Distilling video summary…');
   const [loading, setLoading] = useState<boolean>(true);
   const [generating, setGenerating] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<ViewMode>('highlights');
@@ -132,7 +137,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const handleTriggerSummary = useCallback(async () => {
     setGenerating(true);
     setStatus('processing');
-    setStatusMessage('Distilling video with Gemini AI…');
+    setStatusMessage('Distilling video summary…');
     try {
       await videosApi.triggerSummarize(videoId);
       startPolling();
@@ -164,7 +169,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           await videosApi.triggerSummarize(videoId);
           setGenerating(true);
           setStatus('processing');
-          setStatusMessage('Distilling video with Gemini AI…');
+          setStatusMessage('Distilling video summary…');
           startPolling();
         } catch (trigErr: any) {
           console.warn('[SummaryDetail] Auto-trigger note:', trigErr.message);
@@ -234,44 +239,68 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* 1. FastImage Video Thumbnail */}
-      <View style={styles.thumbnailContainer}>
-        <FastImage
-          source={{
-            uri: thumbnailUri,
-            priority: FastImage.priority.high,
-            cache: FastImage.cacheControl.immutable,
-          }}
-          style={styles.thumbnail as ImageStyle}
-          resizeMode={FastImage.resizeMode.cover}
+    <View style={styles.container}>
+      {/* ── Curved Gradient Top Header Banner (Matching attached Prototype) ── */}
+      <View style={[styles.topHeaderGradient, { paddingTop: insets.top + 8 }]}>
+        <Image
+          source={require('../../assets/images/header_gradient.png')}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
         />
-        <View style={styles.thumbnailOverlay} />
+        <View style={styles.topHeaderRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.75}>
+            <Text style={styles.backButtonText}>‹ Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.topHeaderTitle}>Summary</Text>
+          <View style={{ width: 72 }} />
+        </View>
       </View>
 
-      <View style={styles.content}>
-        {/* 2. Video Title */}
-        <Text style={styles.title}>{video?.title || videoTitle || 'Video Summary'}</Text>
-
-        {/* 3. Channel Name & Metadata */}
-        <View style={styles.metaRow}>
-          <View style={styles.channelBadge}>
-            <Text style={styles.channelName}>{video?.channelName || 'YouTube Creator'}</Text>
-          </View>
-
-          <View style={styles.metaPills}>
-            <View style={styles.readTimePill}>
-              <Text style={styles.readTimeText}>⏱️ 1-2 min read</Text>
-            </View>
-            {summary?.aiProvider && (
-              <View style={styles.aiPill}>
-                <Text style={styles.aiPillText}>
-                  {summary.aiProvider.includes('gemini') ? '✨ Gemini AI' : summary.aiProvider}
-                </Text>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
+          {/* 1. FastImage Video Thumbnail */}
+          <View style={styles.thumbnailContainer}>
+            <FastImage
+              source={{
+                uri: thumbnailUri,
+                priority: FastImage.priority.high,
+                cache: FastImage.cacheControl.immutable,
+              }}
+              style={styles.thumbnail as ImageStyle}
+              resizeMode={FastImage.resizeMode.cover}
+            />
+            <View style={styles.thumbnailOverlay}>
+              <View style={styles.playCircle}>
+                <Text style={styles.playTriangle}>▶</Text>
               </View>
-            )}
+            </View>
           </View>
-        </View>
+
+          {/* 2. Video Title */}
+          <Text style={styles.title}>{video?.title || videoTitle || 'Video Summary'}</Text>
+
+          {/* 3. Channel Name & Metadata */}
+          <View style={styles.metaRow}>
+            <View style={styles.channelBadge}>
+              <Text style={styles.channelName}>{video?.channelName || 'YouTube Creator'}</Text>
+            </View>
+
+            <View style={styles.metaPills}>
+              <View style={styles.readTimePill}>
+                <Text style={styles.readTimeText}>⏱️ 1-2 min read</Text>
+              </View>
+              {summary?.aiProvider && (
+                <View style={styles.aiPill}>
+                  <Text style={styles.aiPillText}>
+                    {summary.aiProvider.includes('gemini') ? '✨ Grounded Engine' : summary.aiProvider}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
 
         {/* Processing / Distilling State Banner */}
         {status !== 'completed' && (
@@ -475,12 +504,11 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={styles.watchOriginalButton}
+          <GradientButton
+            title="Watch Full Video ↗"
             onPress={handleOpenOriginalVideo}
-            activeOpacity={0.85}>
-            <Text style={styles.watchOriginalText}>▶  Watch on YouTube ↗</Text>
-          </TouchableOpacity>
+            style={styles.watchOriginalGradient}
+          />
 
           {summary && (
             <View style={styles.shareRow}>
@@ -504,5 +532,6 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
       </View>
     </ScrollView>
+  </View>
   );
 };

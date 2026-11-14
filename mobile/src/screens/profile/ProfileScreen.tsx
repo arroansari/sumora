@@ -16,7 +16,7 @@ export const ProfileScreen: React.FC = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Profile & Settings</Text>
         <Text style={styles.headerSubtitle}>
-          Manage AI preferences and application settings.
+          Manage preferences and application settings.
         </Text>
       </View>
 
@@ -59,7 +59,7 @@ export const ProfileScreen: React.FC = () => {
         </Card>
 
         <Card>
-          <Text style={styles.sectionTitle}>AI Summarization Architecture</Text>
+          <Text style={styles.sectionTitle}>Summarization Architecture</Text>
           <Text style={styles.prefHint}>
             Active engine: Pluggable Grounded Summarizer
           </Text>

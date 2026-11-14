@@ -61,7 +61,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           </View>
           <Text style={styles.brandTitle}>SUMORA</Text>
           <Text style={styles.tagline}>
-            Create your account to start receiving AI video summaries.
+            Create your account to start receiving video summaries.
           </Text>
         </View>
 

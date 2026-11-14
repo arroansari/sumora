@@ -12,15 +12,18 @@ import {
   Alert,
   Modal,
   ScrollView,
+  Image,
+  StyleSheet,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { videosApi } from '../../services/api';
 import { VideoItem, SummaryStatus } from '../../types/models.types';
 import { createHomeStyles } from './HomeScreen.styles';
+import { GradientButton } from '../../components/atoms';
 
 const FAVORITES_STORAGE_KEY = 'sumora:favorite_channel_ids';
 const READ_VIDEOS_KEY = 'sumora:read_video_ids';
@@ -77,7 +80,7 @@ const FeedItemCard = React.memo<FeedCardProps>(
     const shortOverview =
       item.summary?.overview ||
       (item.summaryStatus === 'completed'
-        ? 'AI summary generated.'
+        ? 'Summary ready to read.'
         : item.summaryStatus === 'transcript_unavailable'
         ? 'An accessible transcript could not be retrieved, so a summary cannot be generated yet.'
         : item.summaryStatus === 'failed'
@@ -140,11 +143,11 @@ const FeedItemCard = React.memo<FeedCardProps>(
           </Text>
 
           <View style={styles.actionsRow}>
-            <TouchableOpacity
+            <GradientButton
+              title="Read Summary"
+              onPress={() => onReadSummary(item.videoId, item.title)}
               style={styles.readButton}
-              onPress={() => onReadSummary(item.videoId, item.title)}>
-              <Text style={styles.readButtonText}>Read Summary</Text>
-            </TouchableOpacity>
+            />
 
             <TouchableOpacity style={styles.watchButton} onPress={() => onWatchVideo(item.videoUrl)}>
               <Text style={styles.watchButtonText}>Watch ↗</Text>
@@ -174,6 +177,7 @@ const FeedItemCard = React.memo<FeedCardProps>(
 
 export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createHomeStyles(colors), [colors]);
 
   const [videos, setVideos] = useState<VideoItem[]>([]);
@@ -404,21 +408,25 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <View style={styles.headerTitles}>
-            <Text style={styles.headerTitle}>Video Activity Feed</Text>
-            <Text style={styles.headerSubtitle}>
-              AI-distilled summaries from your followed channels & custom links
-            </Text>
-          </View>
+    <View style={styles.container}>
+      {/* ── Curved Gradient Header Banner (Matching attached Prototype) ── */}
+      <View style={[styles.headerGradientWrapper, { paddingTop: insets.top + 10 }]}>
+        <Image
+          source={require('../../assets/images/header_gradient.png')}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+        />
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Video Activity Feed</Text>
+          <Text style={styles.headerSubtitle}>
+            Distilled summaries from followed channels & links
+          </Text>
 
           <TouchableOpacity
-            style={styles.addLinkBtn}
+            style={styles.headerSummarizeBtn}
             onPress={() => setShowImportModal(true)}
-            activeOpacity={0.8}>
-            <Text style={styles.addLinkBtnText}>+ Summarize</Text>
+            activeOpacity={0.85}>
+            <Text style={styles.headerSummarizeBtnText}>+ Summarize</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -517,7 +525,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
               <Text style={{ fontSize: 44, marginBottom: 12 }}>🔗</Text>
               <Text style={styles.emptyTitle}>No Custom Links Yet</Text>
               <Text style={styles.emptySubtitle}>
-                Paste any YouTube video or Shorts link using '+ Summarize' to get instant AI summaries kept right here in your feed.
+                Paste any YouTube video or Shorts link using '✦ Summarize' to get instant video summaries kept right here in your feed.
               </Text>
               <TouchableOpacity
                 style={styles.connectButton}
@@ -589,7 +597,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSub}>
-              Paste any YouTube video link or Shorts URL to generate an AI summary instantly:
+              Paste any YouTube video link or Shorts URL to generate a concise summary instantly:
             </Text>
 
             <TextInput
@@ -627,6 +635,6 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
