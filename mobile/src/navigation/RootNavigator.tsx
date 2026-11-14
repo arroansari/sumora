@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { Linking, View, ActivityIndicator } from 'react-native';
-import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, NavigationContainerRef, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation.types';
 import { TabNavigator } from './TabNavigator';
@@ -79,9 +79,26 @@ function processOAuthUrl(
 }
 
 export const RootNavigator: React.FC = () => {
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const { isAuthenticated, isRestoring } = useAuth();
   const navigationRef = useRef<NavigationContainerRef<RootStackParamList> | null>(null);
+
+  const navTheme = useMemo(() => {
+    const base = isDark ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      dark: isDark,
+      colors: {
+        ...base.colors,
+        primary: colors.primary,
+        background: colors.background,
+        card: colors.surface,
+        text: colors.textPrimary,
+        border: colors.border,
+        notification: colors.primary,
+      },
+    };
+  }, [isDark, colors]);
 
   useOAuthDeepLink(navigationRef);
 
@@ -94,7 +111,7 @@ export const RootNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer ref={navigationRef} theme={navTheme}>
       <Stack.Navigator
         screenOptions={{
           headerStyle: { backgroundColor: colors.surface },

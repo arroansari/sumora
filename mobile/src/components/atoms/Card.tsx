@@ -18,7 +18,7 @@ export const Card: React.FC<CardProps> = ({ children, style }) => {
         {
           backgroundColor: colors.card,
           borderColor: colors.border,
-          shadowColor: isDark ? '#000000' : '#0F172A',
+          shadowColor: isDark ? colors.primary : '#0F172A',
         },
         style,
       ]}>
@@ -34,9 +34,9 @@ const styles = StyleSheet.create({
     marginVertical: spacing.sm,
     borderWidth: 1,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    elevation: 3,
   },
 });
 

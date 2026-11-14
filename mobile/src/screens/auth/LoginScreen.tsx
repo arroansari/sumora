@@ -45,6 +45,9 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
+          <View style={styles.brandMark}>
+            <Text style={styles.brandMarkText}>S</Text>
+          </View>
           <Text style={styles.brandTitle}>SUMORA</Text>
           <Text style={styles.tagline}>
             All your content. One place. Smarter insights.
@@ -53,6 +56,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Welcome Back</Text>
+          <Text style={styles.cardSubtitle}>Sign in to access your personalized feed</Text>
 
           <Text style={styles.inputLabel}>Email Address</Text>
           <TextInput

@@ -9,7 +9,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     header: {
       paddingHorizontal: 20,
-      paddingTop: 14,
+      paddingTop: 18,
       paddingBottom: 14,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,

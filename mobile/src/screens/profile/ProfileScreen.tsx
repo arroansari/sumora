@@ -39,9 +39,15 @@ export const ProfileScreen: React.FC = () => {
 
         <Card>
           <View style={styles.settingRow}>
-            <View>
-              <Text style={styles.settingTitle}>Dark Appearance</Text>
-              <Text style={styles.settingDesc}>Toggle dark / light mode</Text>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={styles.settingTitle}>
+                {isDark ? '🌑 Dark Mode' : '☀️ Light Mode'}
+              </Text>
+              <Text style={styles.settingDesc}>
+                {isDark
+                  ? 'Option 1: Dark Premium Editorial (Gold & Noir)'
+                  : 'Option 3: Vibrant Modern Intelligence (Violet & Cyan)'}
+              </Text>
             </View>
             <Switch
               value={isDark}

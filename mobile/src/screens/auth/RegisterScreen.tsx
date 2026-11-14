@@ -56,6 +56,9 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
+          <View style={styles.brandMark}>
+            <Text style={styles.brandMarkText}>S</Text>
+          </View>
           <Text style={styles.brandTitle}>SUMORA</Text>
           <Text style={styles.tagline}>
             Create your account to start receiving AI video summaries.
@@ -64,6 +67,7 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Create Account</Text>
+          <Text style={styles.cardSubtitle}>Get intelligent distillations of your favorite creators</Text>
 
           <Text style={styles.inputLabel}>Email Address</Text>
           <TextInput

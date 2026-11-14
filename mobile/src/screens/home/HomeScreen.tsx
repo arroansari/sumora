@@ -578,6 +578,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         onRequestClose={() => setShowImportModal(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>✨ Summarize Any Video</Text>
               <TouchableOpacity
