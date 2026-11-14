@@ -16,6 +16,8 @@ import {
   RefreshControl,
   ScrollView,
   Modal,
+  Image,
+  StyleSheet,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -457,6 +459,10 @@ export const FollowingScreen: React.FC = () => {
     [navigation]
   );
 
+  const prioritySources = useMemo(() => {
+    return sources.filter((s) => favoriteIds.includes(s.sourceId));
+  }, [sources, favoriteIds]);
+
   // ── SectionList Categorization ─────────────────────────────────────────────
 
   const sections = useMemo(() => {
@@ -479,8 +485,12 @@ export const FollowingScreen: React.FC = () => {
 
     for (const source of searched) {
       const isFav = favoriteIds.includes(source.sourceId);
-      const catId = classifyChannel(source.sourceName, isFav);
-      bucketMap.get(catId)?.push(source);
+      if (selectedCategory === 'favorites') {
+        if (isFav) bucketMap.get('favorites')?.push(source);
+      } else {
+        const catId = classifyChannel(source.sourceName, false);
+        bucketMap.get(catId)?.push(source);
+      }
     }
 
     // 3. Build SectionList sections based on selectedCategory filter
@@ -495,6 +505,10 @@ export const FollowingScreen: React.FC = () => {
 
     for (const cat of CATEGORIES) {
       if (selectedCategory !== 'all' && selectedCategory !== cat.id) {
+        continue;
+      }
+      // In 'all' view, Priority Channels are already featured in the top story bar, so skip redundant accordion card
+      if (selectedCategory === 'all' && cat.id === 'favorites') {
         continue;
       }
 
@@ -589,6 +603,80 @@ export const FollowingScreen: React.FC = () => {
   const ListHeader = useMemo(
     () => (
       <View>
+        {/* ── Priority Channels Story Bar (Matching Prototype) ── */}
+        <View style={styles.prioritySection}>
+          <View style={styles.priorityHeaderRow}>
+            <Text style={styles.priorityHeaderTitle}>Priority Channels</Text>
+            <TouchableOpacity
+              onPress={() => setSelectedCategory((prev) => (prev === 'favorites' ? 'all' : 'favorites'))}
+              activeOpacity={0.75}>
+              <Text style={styles.prioritySeeAllText}>
+                {selectedCategory === 'favorites' ? 'Show All' : 'See all'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.priorityScrollContent}>
+            {prioritySources.map((item) => (
+              <TouchableOpacity
+                key={item.sourceId}
+                style={styles.priorityItem}
+                onPress={() => handleChannelPress(item)}
+                activeOpacity={0.8}>
+                <View style={styles.gradientRingWrapper}>
+                  <Image
+                    source={require('../../assets/images/header_gradient.png')}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.avatarInnerGap}>
+                    {item.thumbnailUrl ? (
+                      <FastImage
+                        source={{
+                          uri: item.thumbnailUrl,
+                          priority: FastImage.priority.high,
+                          cache: FastImage.cacheControl.immutable,
+                        }}
+                        style={styles.priorityAvatar}
+                        resizeMode={FastImage.resizeMode.cover}
+                      />
+                    ) : (
+                      <View style={styles.priorityAvatarPlaceholder}>
+                        <Text style={styles.priorityAvatarInitial}>
+                          {item.sourceName.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+                <Text style={styles.priorityName} numberOfLines={1}>
+                  {item.sourceName}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              style={styles.priorityItem}
+              onPress={() => {
+                Alert.alert(
+                  'Add Priority Channel',
+                  'Tap the ⭐ star button on any channel in the list below to pin it to Priority Channels!'
+                );
+              }}
+              activeOpacity={0.8}>
+              <View style={styles.priorityAddButton}>
+                <Text style={styles.priorityAddText}>+</Text>
+              </View>
+              <Text style={styles.priorityName} numberOfLines={1}>
+                Add More
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+
         {/* Search Bar + Filter Button Row */}
         <View style={styles.searchBarRow}>
           <View style={{ flex: 1 }}>
@@ -666,6 +754,8 @@ export const FollowingScreen: React.FC = () => {
       selectedCategory,
       sources.length,
       categoryCounts,
+      prioritySources,
+      handleChannelPress,
     ]
   );
 
