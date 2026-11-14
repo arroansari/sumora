@@ -113,8 +113,8 @@ const FeedItemCard = React.memo<FeedCardProps>(
               <View style={styles.statusBadgeGradientWrapper}>
                 <Image
                   source={require('../../assets/images/button_gradient.png')}
-                  style={StyleSheet.absoluteFill}
-                  resizeMode="cover"
+                  style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
+                  resizeMode="stretch"
                 />
                 <Text style={styles.statusSparkle}>✦</Text>
                 <Text style={styles.statusBadgeGradientText}>Summary Ready</Text>
@@ -443,8 +443,8 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             activeOpacity={0.85}>
             <Image
               source={require('../../assets/images/button_gradient.png')}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
+              style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
+              resizeMode="stretch"
             />
             <Text style={styles.headerSparkleIcon}>✦</Text>
             <Text style={styles.headerSummarizeBtnText}>Summarize</Text>
@@ -462,13 +462,6 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             style={[styles.filterTab, activeTab === 'all' && styles.filterTabActive]}
             onPress={() => setActiveTab('all')}
             activeOpacity={0.75}>
-            {activeTab === 'all' && (
-              <Image
-                source={require('../../assets/images/button_gradient.png')}
-                style={StyleSheet.absoluteFill}
-                resizeMode="cover"
-              />
-            )}
             <Text style={[styles.filterTabText, activeTab === 'all' && styles.filterTabTextActive]}>
               All Activity
             </Text>
@@ -478,13 +471,6 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             style={[styles.filterTab, activeTab === 'custom' && styles.filterTabActive]}
             onPress={() => setActiveTab('custom')}
             activeOpacity={0.75}>
-            {activeTab === 'custom' && (
-              <Image
-                source={require('../../assets/images/button_gradient.png')}
-                style={StyleSheet.absoluteFill}
-                resizeMode="cover"
-              />
-            )}
             <Text style={[styles.filterTabText, activeTab === 'custom' && styles.filterTabTextActive]}>
               Custom Links
             </Text>
@@ -509,13 +495,6 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             style={[styles.filterTab, activeTab === 'favorites' && styles.filterTabActive]}
             onPress={() => setActiveTab('favorites')}
             activeOpacity={0.75}>
-            {activeTab === 'favorites' && (
-              <Image
-                source={require('../../assets/images/button_gradient.png')}
-                style={StyleSheet.absoluteFill}
-                resizeMode="cover"
-              />
-            )}
             <Text style={[styles.filterTabText, activeTab === 'favorites' && styles.filterTabTextActive]}>
               Priority
             </Text>
@@ -526,13 +505,6 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
               style={[styles.filterTab, activeTab === 'completed' && styles.filterTabActive]}
               onPress={() => setActiveTab('completed')}
               activeOpacity={0.75}>
-              {activeTab === 'completed' && (
-                <Image
-                  source={require('../../assets/images/button_gradient.png')}
-                  style={StyleSheet.absoluteFill}
-                  resizeMode="cover"
-                />
-              )}
               <Text style={[styles.filterTabText, activeTab === 'completed' && styles.filterTabTextActive]}>
                 Completed
               </Text>

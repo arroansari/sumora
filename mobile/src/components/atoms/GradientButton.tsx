@@ -40,8 +40,8 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
       style={[styles.container, style]}>
       <Image
         source={buttonGradientSource}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
+        style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
+        resizeMode="stretch"
       />
       {loading ? (
         <ActivityIndicator color="#FFFFFF" size="small" />
