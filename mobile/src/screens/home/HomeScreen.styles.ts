@@ -74,6 +74,36 @@ export const createHomeStyles = (colors: ThemeColors) =>
       letterSpacing: 0.2,
       zIndex: 1,
     },
+    headerSummarizeInnerClip: {
+      borderRadius: 19,
+      overflow: 'hidden',
+    },
+    statusBadgeInnerClip: {
+      borderRadius: 14,
+      overflow: 'hidden',
+    },
+    fullSizeImage: {
+      width: '100%',
+      height: '100%',
+    },
+    deckViewport: {
+      flex: 1,
+    },
+    filterScrollContent: {
+      gap: 8,
+      paddingRight: 24,
+    },
+    emptyIcon: {
+      fontSize: 44,
+      marginBottom: 12,
+    },
+    emptyIconLarge: {
+      fontSize: 48,
+      marginBottom: 12,
+    },
+    placeholderPlayIcon: {
+      fontSize: 32,
+    },
 
     // ── Feed Quick Filter Bar ───────────────────────────────────────────────
     filterBar: {

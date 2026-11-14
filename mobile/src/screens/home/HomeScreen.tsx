@@ -18,7 +18,7 @@ import {
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { videosApi } from '../../services/api';
 import { VideoItem, SummaryStatus } from '../../types/models.types';
@@ -111,8 +111,16 @@ const FeedItemCard = React.memo<FeedCardProps>(
       return [shortOverview];
     }, [item.summary, item.description, shortOverview]);
 
+    const cardDynamicHeightStyle = useMemo(
+      () =>
+        cardHeight && cardHeight > 0
+          ? { height: cardHeight - 16, marginBottom: 16 }
+          : undefined,
+      [cardHeight]
+    );
+
     return (
-      <View style={[styles.card, cardHeight && cardHeight > 0 ? { height: cardHeight - 16, marginBottom: 16 } : null]}>
+      <View style={[styles.card, cardDynamicHeightStyle]}>
         <View style={styles.thumbnailContainer}>
           {item.thumbnailUrl ? (
             <FastImage
@@ -126,7 +134,7 @@ const FeedItemCard = React.memo<FeedCardProps>(
             />
           ) : (
             <View style={styles.thumbnailPlaceholder}>
-              <Text style={{ fontSize: 32 }}>▶</Text>
+              <Text style={styles.placeholderPlayIcon}>▶</Text>
             </View>
           )}
           <View style={styles.badgeOverlay}>
@@ -134,14 +142,11 @@ const FeedItemCard = React.memo<FeedCardProps>(
               <View style={styles.statusBadgeShadowWrapper}>
                 <View style={styles.statusBadgeGradientWrapper}>
                   <View
-                    style={[
-                      StyleSheet.absoluteFill,
-                      { borderRadius: 14, overflow: 'hidden' },
-                    ]}
+                    style={[StyleSheet.absoluteFill, styles.statusBadgeInnerClip]}
                     pointerEvents="none">
                     <Image
                       source={require('../../assets/images/button_gradient.png')}
-                      style={{ width: '100%', height: '100%' }}
+                      style={styles.fullSizeImage}
                       resizeMode="cover"
                     />
                   </View>
@@ -358,7 +363,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
       setVideos(res.videos);
       await loadStoredData();
     } catch (err) {
-      console.warn('[HomeScreen] Feed refresh failed');
+      console.warn('[HomeScreen] Feed refresh failed:', (err as Error)?.message);
     } finally {
       setRefreshing(false);
     }
@@ -493,14 +498,11 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             onPress={() => setShowImportModal(true)}
             activeOpacity={0.85}>
             <View
-              style={[
-                StyleSheet.absoluteFill,
-                { borderRadius: 19, overflow: 'hidden' },
-              ]}
+              style={[StyleSheet.absoluteFill, styles.headerSummarizeInnerClip]}
               pointerEvents="none">
               <Image
                 source={require('../../assets/images/button_gradient.png')}
-                style={{ width: '100%', height: '100%' }}
+                style={styles.fullSizeImage}
                 resizeMode="cover"
               />
             </View>
@@ -515,7 +517,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 8, paddingRight: 24 }}>
+          contentContainerStyle={styles.filterScrollContent}>
           <TouchableOpacity
             style={[styles.filterTab, activeTab === 'all' && styles.filterTabActive]}
             onPress={() => setActiveTab('all')}
@@ -586,7 +588,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
 
       {/* ── Main Feed Viewport Area (Inshorts Vertical Card Deck) ── */}
       <View
-        style={{ flex: 1 }}
+        style={styles.deckViewport}
         onLayout={(e) => {
           const h = e.nativeEvent.layout.height;
           if (h > 0 && Math.abs(h - cardContainerHeight) > 4) {
@@ -602,7 +604,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
           <View style={styles.centerContainer}>
             {activeTab === 'completed' ? (
               <>
-                <Text style={{ fontSize: 44, marginBottom: 12 }}>🎉</Text>
+                <Text style={styles.emptyIcon}>🎉</Text>
                 <Text style={styles.emptyTitle}>No Completed Summaries</Text>
                 <Text style={styles.emptySubtitle}>
                   When you finish reading a summary and mark it as completed, it will be automatically stored in this archive.
@@ -610,7 +612,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
               </>
             ) : activeTab === 'custom' ? (
               <>
-                <Text style={{ fontSize: 44, marginBottom: 12 }}>🔗</Text>
+                <Text style={styles.emptyIcon}>🔗</Text>
                 <Text style={styles.emptyTitle}>No Custom Links Yet</Text>
                 <Text style={styles.emptySubtitle}>
                   Paste any YouTube video or Shorts link using '✦ Summarize' to get instant video summaries kept right here in your feed.
@@ -623,7 +625,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
               </>
             ) : activeTab === 'favorites' ? (
               <>
-                <Text style={{ fontSize: 44, marginBottom: 12 }}>⭐</Text>
+                <Text style={styles.emptyIcon}>⭐</Text>
                 <Text style={styles.emptyTitle}>No Priority Channels Starred</Text>
                 <Text style={styles.emptySubtitle}>
                   Head to the Following tab and star your favorite channels so their summaries are highlighted here.
@@ -636,7 +638,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
               </>
             ) : (
               <>
-                <Text style={{ fontSize: 48, marginBottom: 12 }}>📺</Text>
+                <Text style={styles.emptyIconLarge}>📺</Text>
                 <Text style={styles.emptyTitle}>All Caught Up!</Text>
                 <Text style={styles.emptySubtitle}>
                   You have completed all video summaries in your active feed.
