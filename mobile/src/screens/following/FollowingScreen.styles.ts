@@ -28,6 +28,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     headerTitle: {
       fontSize: 24,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
       letterSpacing: -0.3,
@@ -40,6 +41,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     countBadgeText: {
       fontSize: 12,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.primary,
     },
@@ -55,6 +57,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     toggleAddButtonText: {
       color: '#FFFFFF',
       fontSize: 12,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
     toggleAddButtonTextActive: {
@@ -79,6 +82,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     searchMetaText: {
       fontSize: 12,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textMuted,
     },
@@ -99,6 +103,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     addBoxTitle: {
       fontSize: 15,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       marginBottom: 10,
       color: colors.textPrimary,
@@ -124,6 +129,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     addButtonText: {
       color: '#FFFFFF',
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       fontSize: 14,
     },
@@ -166,6 +172,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     sourceAvatarText: {
       fontSize: 16,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.primary,
     },
@@ -175,6 +182,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     sourceName: {
       fontSize: 15,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
     },
@@ -186,6 +194,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     sourceHint: {
       fontSize: 11,
       marginTop: 2,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.primary,
     },
@@ -199,6 +208,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     trackingButtonText: {
       fontSize: 12,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: '#10B981',
     },
@@ -215,6 +225,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     emptyTitle: {
       fontSize: 18,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
     },
@@ -234,6 +245,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     clearSearchButtonText: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.primary,
     },
@@ -249,6 +261,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     syncEmptyButtonText: {
       fontSize: 14,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: '#FFFFFF',
     },
@@ -286,6 +299,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     filterBtnText: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
     },
@@ -322,6 +336,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     modalTitle: {
       fontSize: 18,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
       letterSpacing: -0.2,
@@ -332,10 +347,12 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     modalCloseText: {
       fontSize: 18,
       color: colors.textMuted,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
     modalSectionTitle: {
       fontSize: 12,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       textTransform: 'uppercase',
       letterSpacing: 0.5,
@@ -363,11 +380,13 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     modalChipText: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textSecondary,
     },
     modalChipTextActive: {
       color: colors.primary,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
     modalBtnRow: {
@@ -385,6 +404,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     modalPrimaryBtnText: {
       fontSize: 15,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: '#FFFFFF',
     },
@@ -400,6 +420,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     modalSecondaryBtnText: {
       fontSize: 14,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textSecondary,
     },
@@ -425,11 +446,13 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     categoryChipText: {
       fontSize: 12.5,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textSecondary,
     },
     categoryChipTextActive: {
       color: colors.primary,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
 
@@ -459,6 +482,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     sectionTitle: {
       fontSize: 15,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
       letterSpacing: -0.2,
@@ -474,11 +498,13 @@ export const createFollowingStyles = (colors: ThemeColors) =>
     },
     sectionBadgeText: {
       fontSize: 11.5,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textSecondary,
     },
     sectionChevron: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.primary,
       marginLeft: 2,

@@ -66,6 +66,7 @@ const styles = StyleSheet.create({
   },
   channel: {
     marginVertical: spacing.xs,
+    fontFamily: 'PlusJakartaSans-SemiBold',
     fontWeight: '600',
   },
   headline: {

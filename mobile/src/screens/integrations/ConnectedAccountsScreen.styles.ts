@@ -16,6 +16,7 @@ export const createConnectedAccountsStyles = (colors: ThemeColors) =>
     },
     headerTitle: {
       fontSize: 24,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
     },
@@ -30,6 +31,7 @@ export const createConnectedAccountsStyles = (colors: ThemeColors) =>
     },
     sectionTitle: {
       fontSize: 17,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       marginBottom: 12,
       color: colors.textPrimary,
@@ -60,6 +62,7 @@ export const createConnectedAccountsStyles = (colors: ThemeColors) =>
     },
     platformName: {
       fontSize: 16,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
     },
@@ -78,6 +81,7 @@ export const createConnectedAccountsStyles = (colors: ThemeColors) =>
     },
     connectButtonText: {
       color: '#FFFFFF',
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       fontSize: 14,
     },
@@ -99,11 +103,13 @@ export const createConnectedAccountsStyles = (colors: ThemeColors) =>
     },
     syncButtonText: {
       color: '#FFFFFF',
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       fontSize: 14,
     },
     disconnectButtonText: {
       color: '#EF4444',
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       fontSize: 14,
     },
@@ -116,6 +122,7 @@ export const createConnectedAccountsStyles = (colors: ThemeColors) =>
     },
     comingSoonText: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textMuted,
     },

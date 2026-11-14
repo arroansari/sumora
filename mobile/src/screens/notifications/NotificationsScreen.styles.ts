@@ -17,6 +17,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     headerTitle: {
       fontSize: 24,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
       letterSpacing: -0.3,
@@ -39,6 +40,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     sectionTitle: {
       fontSize: 16,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
     },
@@ -50,6 +52,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     countBadgeText: {
       fontSize: 12,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.primary,
     },
@@ -88,6 +91,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     masterIconText: {
       fontSize: 13,
       color: '#FF0000',
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '900',
       marginLeft: 2,
     },
@@ -96,6 +100,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     masterTitle: {
       fontSize: 14,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
     },
@@ -138,6 +143,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     toggleLabel: {
       fontSize: 16,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
     },
@@ -177,6 +183,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     filterBtnText: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
     },
@@ -191,6 +198,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     searchMetaText: {
       fontSize: 12,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textMuted,
       marginTop: 6,
@@ -225,6 +233,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     channelAvatarText: {
       fontSize: 14,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.primary,
     },
@@ -233,6 +242,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     channelTitle: {
       fontSize: 15,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
     },
@@ -249,6 +259,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     channelStatus: {
       fontSize: 12,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
     },
     centerContainer: {
@@ -269,6 +280,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     emptySearchTitle: {
       fontSize: 16,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
       marginTop: 8,
@@ -288,6 +300,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     clearSearchButtonText: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.primary,
     },
@@ -327,6 +340,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     bulkButtonText: {
       fontSize: 12,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.primary,
     },
@@ -349,6 +363,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     syncEmptyButtonText: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: '#FFFFFF',
     },
@@ -381,6 +396,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     modalTitle: {
       fontSize: 18,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
       letterSpacing: -0.2,
@@ -390,11 +406,13 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     modalCloseText: {
       fontSize: 18,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textMuted,
     },
     modalSectionTitle: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textSecondary,
       textTransform: 'uppercase',
@@ -422,11 +440,13 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     modalChipText: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textSecondary,
     },
     modalChipTextActive: {
       color: '#FFFFFF',
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
     modalBtnRow: {
@@ -446,6 +466,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     modalSecondaryBtnText: {
       fontSize: 14,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textSecondary,
     },
@@ -459,6 +480,7 @@ export const createNotificationsStyles = (colors: ThemeColors) =>
     },
     modalPrimaryBtnText: {
       fontSize: 14.5,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: '#FFFFFF',
     },

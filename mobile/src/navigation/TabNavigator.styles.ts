@@ -1,5 +1,6 @@
 import { StyleSheet, Platform } from 'react-native';
 import { ThemeColors } from '../theme/colors';
+import { FontFamily } from '../theme/typography';
 
 export const createTabNavigatorStyles = (colors: ThemeColors, bottomInset: number) => {
   // On devices with home indicator (iPhone X+), bottomInset is ~34.
@@ -26,6 +27,7 @@ export const createTabNavigatorStyles = (colors: ThemeColors, bottomInset: numbe
       shadowRadius: 8,
     },
     tabBarLabel: {
+      fontFamily: FontFamily.semiBold,
       fontSize: 10,
       fontWeight: '600',
       letterSpacing: 0.1,

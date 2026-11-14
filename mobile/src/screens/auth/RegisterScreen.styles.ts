@@ -18,6 +18,7 @@ export const createRegisterStyles = (colors: ThemeColors) =>
     },
     brandTitle: {
       fontSize: 32,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       letterSpacing: 2,
       color: colors.primary,
@@ -37,12 +38,14 @@ export const createRegisterStyles = (colors: ThemeColors) =>
     },
     cardTitle: {
       fontSize: 22,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       marginBottom: 16,
       color: colors.textPrimary,
     },
     inputLabel: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       marginBottom: 6,
       marginTop: 10,
@@ -69,6 +72,7 @@ export const createRegisterStyles = (colors: ThemeColors) =>
     registerButtonText: {
       color: '#FFFFFF',
       fontSize: 16,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
     footerRow: {
@@ -81,6 +85,7 @@ export const createRegisterStyles = (colors: ThemeColors) =>
       color: colors.textMuted,
     },
     loginLink: {
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.primary,
     },

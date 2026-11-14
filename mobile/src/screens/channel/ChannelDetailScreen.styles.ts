@@ -35,11 +35,13 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
     },
     avatarInitials: {
       fontSize: 26,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.primary,
     },
     channelName: {
       fontSize: 20,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
       letterSpacing: -0.3,
@@ -59,6 +61,7 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
     },
     resultCount: {
       fontSize: 12,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textMuted,
       paddingHorizontal: 20,
@@ -123,6 +126,7 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
     },
     summaryBadgeText: {
       fontSize: 10,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: '#FFFFFF',
     },
@@ -131,6 +135,7 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
     },
     videoTitle: {
       fontSize: 14,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
       lineHeight: 20,
@@ -154,6 +159,7 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
     },
     readLabel: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
 
@@ -169,6 +175,7 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
     },
     emptyTitle: {
       fontSize: 18,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
       marginBottom: 8,
@@ -188,6 +195,7 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
     },
     emptyActionText: {
       fontSize: 14,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: '#FFFFFF',
     },
@@ -241,6 +249,7 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
     clearSearchText: {
       fontSize: 14,
       color: colors.textMuted,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
     linkActionBtn: {
@@ -260,6 +269,7 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
     },
     linkActionBtnText: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: '#FFFFFF',
     },
@@ -292,6 +302,7 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
     },
     modalTitle: {
       fontSize: 18,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
       letterSpacing: -0.2,
@@ -302,6 +313,7 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
     modalCloseText: {
       fontSize: 18,
       color: colors.textMuted,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
     modalSub: {
@@ -336,6 +348,7 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
     },
     modalPrimaryBtnText: {
       fontSize: 15,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: '#FFFFFF',
     },
@@ -351,6 +364,7 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
     },
     modalSecondaryBtnText: {
       fontSize: 14,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textSecondary,
     },
@@ -376,11 +390,13 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
     },
     presetChipText: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textSecondary,
     },
     presetChipTextActive: {
       color: colors.primary,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
   });

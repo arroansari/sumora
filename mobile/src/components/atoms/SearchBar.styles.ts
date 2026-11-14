@@ -73,6 +73,7 @@ export const createSearchBarStyles = (colors: ThemeColors) =>
     },
     clearIcon: {
       fontSize: 11,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textSecondary,
       lineHeight: 13,
