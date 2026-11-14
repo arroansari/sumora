@@ -438,7 +438,8 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
             style={styles.headerSummarizeBtn}
             onPress={() => setShowImportModal(true)}
             activeOpacity={0.85}>
-            <Text style={styles.headerSummarizeBtnText}>+ Summarize</Text>
+            <Text style={styles.headerSparkleIcon}>✦</Text>
+            <Text style={styles.headerSummarizeBtnText}>Summarize</Text>
           </TouchableOpacity>
         </View>
       </View>
