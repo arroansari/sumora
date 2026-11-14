@@ -82,6 +82,7 @@ const styles = StyleSheet.create({
   },
   pillText: {
     fontSize: 13,
+    fontFamily: 'PlusJakartaSans-SemiBold',
     fontWeight: '600',
   },
 });

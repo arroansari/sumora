@@ -9,6 +9,7 @@ import { SummaryDetailScreen } from '../screens/summaries/SummaryDetailScreen';
 import { ChannelDetailScreen } from '../screens/channel/ChannelDetailScreen';
 import { useAppTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { FontFamily } from '../theme/typography';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -98,7 +99,7 @@ export const RootNavigator: React.FC = () => {
         screenOptions={{
           headerStyle: { backgroundColor: colors.surface },
           headerTintColor: colors.primary,
-          headerTitleStyle: { fontWeight: '700' },
+          headerTitleStyle: { fontFamily: FontFamily.bold, fontWeight: '700' },
           contentStyle: { backgroundColor: colors.background },
         }}>
         {!isAuthenticated ? (

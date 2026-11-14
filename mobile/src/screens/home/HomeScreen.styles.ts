@@ -26,6 +26,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     headerTitle: {
       fontSize: 24,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
       letterSpacing: -0.4,
@@ -52,6 +53,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     addLinkBtnText: {
       color: '#FFFFFF',
       fontSize: 12.5,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
 
@@ -82,11 +84,13 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     filterTabText: {
       fontSize: 12.5,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textSecondary,
     },
     filterTabTextActive: {
       color: '#FFFFFF',
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
     filterTabCount: {
@@ -100,6 +104,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     filterTabCountText: {
       fontSize: 10.5,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
     },
@@ -135,6 +140,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     modalTitle: {
       fontSize: 18,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
       letterSpacing: -0.2,
@@ -145,6 +151,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     modalCloseText: {
       fontSize: 18,
       color: colors.textMuted,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
     modalSub: {
@@ -179,6 +186,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     modalPrimaryBtnText: {
       fontSize: 14.5,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: '#FFFFFF',
     },
@@ -194,6 +202,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     modalSecondaryBtnText: {
       fontSize: 14,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textSecondary,
     },
@@ -241,6 +250,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     statusBadgeText: {
       fontSize: 12,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
     customBadge: {
@@ -251,6 +261,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     customBadgeText: {
       fontSize: 11,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: '#FFFFFF',
     },
@@ -262,6 +273,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     favoriteBadgeText: {
       fontSize: 11,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: '#FFFFFF',
     },
@@ -270,6 +282,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     videoTitle: {
       fontSize: 17,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       lineHeight: 22,
       color: colors.textPrimary,
@@ -282,6 +295,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     channelName: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.primary,
     },
@@ -313,6 +327,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     readButtonText: {
       color: '#FFFFFF',
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       fontSize: 14,
     },
@@ -326,6 +341,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
     },
     watchButtonText: {
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       fontSize: 14,
       color: colors.textPrimary,
@@ -342,6 +358,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     doneButtonText: {
       fontSize: 12.5,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: '#10B981',
     },
@@ -357,6 +374,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     restoreButtonText: {
       fontSize: 14,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.primary,
     },
@@ -373,6 +391,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     emptyTitle: {
       fontSize: 20,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
     },
@@ -399,6 +418,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     connectButtonText: {
       color: '#FFFFFF',
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       fontSize: 14,
     },

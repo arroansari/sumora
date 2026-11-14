@@ -14,6 +14,7 @@ export const createProfileStyles = (colors: ThemeColors) =>
     },
     headerTitle: {
       fontSize: 24,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
     },
@@ -40,6 +41,7 @@ export const createProfileStyles = (colors: ThemeColors) =>
     },
     avatarText: {
       fontSize: 22,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: '#FFFFFF',
     },
@@ -48,6 +50,7 @@ export const createProfileStyles = (colors: ThemeColors) =>
     },
     userName: {
       fontSize: 18,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
     },
@@ -63,6 +66,7 @@ export const createProfileStyles = (colors: ThemeColors) =>
     },
     settingTitle: {
       fontSize: 16,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textPrimary,
     },
@@ -73,6 +77,7 @@ export const createProfileStyles = (colors: ThemeColors) =>
     },
     sectionTitle: {
       fontSize: 16,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
     },
@@ -93,6 +98,7 @@ export const createProfileStyles = (colors: ThemeColors) =>
     logoutButtonText: {
       color: '#EF4444',
       fontSize: 15,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
     footer: {

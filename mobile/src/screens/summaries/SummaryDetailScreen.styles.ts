@@ -29,11 +29,11 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     // Title & Channel Header
     title: {
       fontSize: 21,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       lineHeight: 28,
       letterSpacing: -0.4,
       color: colors.textPrimary,
-      fontFamily: Platform.select({ ios: 'System', android: 'sans-serif-medium' }),
     },
     metaRow: {
       flexDirection: 'row',
@@ -49,6 +49,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     channelName: {
       fontSize: 14,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.primary,
     },
@@ -65,6 +66,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     readTimeText: {
       fontSize: 11,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textSecondary,
     },
@@ -76,6 +78,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     aiPillText: {
       fontSize: 11,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textMuted,
     },
@@ -105,11 +108,13 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     segmentText: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textMuted,
     },
     segmentTextActive: {
       fontSize: 13,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.primary,
     },
@@ -126,6 +131,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     statusBoxTitle: {
       fontSize: 15,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
       marginTop: 10,
@@ -165,6 +171,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     heroTitle: {
       fontSize: 16,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       letterSpacing: -0.2,
       color: colors.primary,
@@ -177,6 +184,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     heroBadgeText: {
       fontSize: 10,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.primary,
       textTransform: 'uppercase',
@@ -207,6 +215,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     sectionHeading: {
       fontSize: 16,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       letterSpacing: -0.2,
       color: colors.textPrimary,
@@ -242,6 +251,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     takeawayNumberText: {
       fontSize: 12,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: '#FFFFFF',
     },
@@ -264,6 +274,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     conceptTitle: {
       fontSize: 14.5,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.primary,
     },
@@ -288,6 +299,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     topicBadgeText: {
       fontSize: 12.5,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textPrimary,
     },
@@ -323,6 +335,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     completionTitle: {
       fontSize: 16,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
       marginBottom: 4,
@@ -348,6 +361,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     completeBtnText: {
       fontSize: 14,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: '#FFFFFF',
     },
@@ -363,6 +377,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     completedBadgeText: {
       fontSize: 13.5,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: '#10B981',
     },
@@ -378,6 +393,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     watchOriginalText: {
       color: '#FFFFFF',
       fontSize: 15,
+      fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
     },
     shareRow: {
@@ -398,6 +414,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     secondaryButtonText: {
       fontSize: 14,
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textPrimary,
     },
@@ -412,6 +429,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     loadingText: {
       marginTop: 12,
       fontSize: 14,
+      fontFamily: 'PlusJakartaSans-Medium',
       fontWeight: '500',
       color: colors.textMuted,
     },
