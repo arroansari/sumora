@@ -97,53 +97,53 @@ export const lightColors = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DARK THEME — Option 1: Dark Premium Editorial
-// Near-black base, gold accents, luminous white typography, editorial luxury
+// DARK THEME — Option 1: Dark Premium Editorial (Exact match to prototype screenshot)
+// Pitch noir base, radiant purple/violet CTAs, smoky glass cards with white-to-black radiant borders
 // ─────────────────────────────────────────────────────────────────────────────
 export const darkColors = {
-  // Foundations
-  background: palette.darkBase,
-  surface: palette.darkSurface,
-  surfaceSubtle: palette.darkSurfaceSubtle,
-  surfaceHighlight: palette.darkSurfaceHighlight,
+  // Foundations: Pitch noir charcoal
+  background: '#0D0E12',
+  surface: '#15161C',
+  surfaceSubtle: '#1E1F26',
+  surfaceHighlight: '#282932',
 
-  // Text
-  textPrimary: palette.darkTextPrimary,
-  textSecondary: palette.darkTextSecondary,
-  textMuted: palette.darkTextMuted,
+  // Text: Luminous white & crisp neutral gray
+  textPrimary: '#FFFFFF',
+  textSecondary: '#9CA3AF',
+  textMuted: '#6B7280',
 
-  // Brand (gold for dark premium)
-  primary: palette.gold,
-  primaryDark: palette.goldDim,
-  primaryLight: palette.goldSoft,
-  secondary: palette.accentElectric,
-  accent: palette.accentPurple,
+  // Brand: Vibrant Radiant Purple / Violet from the screenshot (NO YELLOW CTAs!)
+  primary: '#8B5CF6',       // Vibrant violet for all primary CTAs
+  primaryDark: '#7C3AED',   // Pressed / deep violet
+  primaryLight: '#A78BFA',  // Soft violet tint
+  secondary: '#C084FC',     // Accent fuchsia / lavender
+  accent: '#A855F7',        // Highlights / sparkles
 
-  // UI
-  border: palette.darkBorder,
-  borderSubtle: palette.darkBorderSubtle,
-  card: palette.darkSurface,
-  tint: palette.gold,
-  tabBar: palette.darkSurface,
+  // UI: Radiant borders with white highlight on top
+  border: 'rgba(255, 255, 255, 0.12)',
+  borderSubtle: 'rgba(255, 255, 255, 0.06)',
+  card: '#15161C',
+  tint: '#8B5CF6',
+  tabBar: '#0A0B0E',
 
   // Status
-  success: '#34D399',
-  successBg: '#064E3B',
-  warning: '#FBBF24',
-  warningBg: '#451A03',
-  danger: '#F87171',
-  dangerBg: '#7F1D1D',
+  success: '#10B981',
+  successBg: 'rgba(16, 185, 129, 0.18)',
+  warning: '#F59E0B',
+  warningBg: 'rgba(245, 158, 11, 0.18)',
+  danger: '#EF4444',
+  dangerBg: 'rgba(239, 68, 68, 0.18)',
 
   // Badge
-  badgeBg: '#2E1A47',
-  badgeText: palette.gold,
+  badgeBg: '#7C3AED',
+  badgeText: '#FFFFFF',
 
   // Gradients
-  gradientStart: '#D4AF37',
-  gradientEnd: '#A07820',
+  gradientStart: '#8B5CF6',
+  gradientEnd: '#C026D3',
 
   // Overlay
-  overlay: 'rgba(0, 0, 0, 0.65)',
+  overlay: 'rgba(0, 0, 0, 0.75)',
 };
 
 export type ThemeColors = typeof lightColors;

@@ -18,7 +18,11 @@ export const Card: React.FC<CardProps> = ({ children, style }) => {
         {
           backgroundColor: colors.card,
           borderColor: colors.border,
-          shadowColor: isDark ? colors.primary : '#0F172A',
+          borderTopColor: isDark ? 'rgba(255, 255, 255, 0.20)' : colors.border,
+          borderLeftColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border,
+          borderRightColor: isDark ? 'rgba(255, 255, 255, 0.08)' : colors.border,
+          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.03)' : colors.border,
+          shadowColor: isDark ? '#000000' : '#0F172A',
         },
         style,
       ]}>
@@ -29,14 +33,14 @@ export const Card: React.FC<CardProps> = ({ children, style }) => {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: borderRadius.lg,
+    borderRadius: 22,
     padding: spacing.md,
     marginVertical: spacing.sm,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    elevation: 3,
+    borderWidth: 1.2,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 4,
   },
 });
 

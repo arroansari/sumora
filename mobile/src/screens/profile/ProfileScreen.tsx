@@ -45,7 +45,7 @@ export const ProfileScreen: React.FC = () => {
               </Text>
               <Text style={styles.settingDesc}>
                 {isDark
-                  ? 'Option 1: Dark Premium Editorial (Gold & Noir)'
+                  ? 'Option 1: Dark Premium Editorial (Radiant Violet & Pitch Noir)'
                   : 'Option 3: Vibrant Modern Intelligence (Violet & Cyan)'}
               </Text>
             </View>
