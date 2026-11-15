@@ -39,22 +39,26 @@ export const ProfileScreen: React.FC = () => {
 
         <Card>
           <View style={styles.settingRow}>
-            <View style={{ flex: 1, paddingRight: 12 }}>
+            <View style={styles.settingTextCol}>
               <Text style={styles.settingTitle}>
-                {isDark ? '🌑 Dark Mode' : '☀️ Light Mode'}
+                {isDark ? '🌙 Dark Mode' : '☀️ Light Mode'}
               </Text>
               <Text style={styles.settingDesc}>
                 {isDark
                   ? 'Option 1: Dark Premium Editorial (Radiant Violet & Pitch Noir)'
-                  : 'Option 3: Vibrant Modern Intelligence (Violet & Cyan)'}
+                  : 'Option 3: Vibrant Modern Intelligence (Violet & White)'}
               </Text>
             </View>
-            <Switch
-              value={isDark}
-              onValueChange={toggleTheme}
-              trackColor={{ false: '#CBD5E1', true: colors.primary }}
-              thumbColor="#FFFFFF"
-            />
+            <View style={styles.switchContainer}>
+              <Text style={styles.switchModeIcon}>{isDark ? '🌙' : '☀️'}</Text>
+              <Switch
+                value={isDark}
+                onValueChange={toggleTheme}
+                trackColor={{ false: '#94A3B8', true: colors.primary }}
+                ios_backgroundColor="#94A3B8"
+                thumbColor="#FFFFFF"
+              />
+            </View>
           </View>
         </Card>
 

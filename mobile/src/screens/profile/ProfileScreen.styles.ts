@@ -77,6 +77,24 @@ export const createProfileStyles = (colors: ThemeColors) =>
       justifyContent: 'space-between',
       alignItems: 'center',
     },
+    settingTextCol: {
+      flex: 1,
+      paddingRight: 12,
+    },
+    switchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 22,
+      backgroundColor: colors.surfaceSubtle,
+      borderWidth: 1.2,
+      borderColor: colors.border,
+    },
+    switchModeIcon: {
+      fontSize: 16,
+    },
     settingTitle: {
       fontSize: 16,
       fontFamily: 'PlusJakartaSans-Bold',
