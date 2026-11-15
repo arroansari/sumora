@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   View,
   StyleProp,
+  Image,
 } from 'react-native';
 import { useAppTheme } from '../../context/ThemeContext';
 
@@ -33,6 +34,9 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
   activeOpacity = 0.8,
 }) => {
   const { accentTheme } = useAppTheme();
+  const flattenedStyle = StyleSheet.flatten([styles.container, style]) || {};
+  const radius =
+    typeof flattenedStyle.borderRadius === 'number' ? flattenedStyle.borderRadius : 21;
 
   return (
     <TouchableOpacity
@@ -47,15 +51,22 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
         },
         style,
       ]}>
-      {/* Two-stop gradient simulation: left half lighter, right half primary */}
+      {/* 3-stop hardware-accelerated linear gradient asset */}
       <View
         style={[
           StyleSheet.absoluteFill,
-          styles.gradientOverlay,
-          { backgroundColor: accentTheme.gradientEnd, opacity: 0.45 },
+          {
+            borderRadius: radius,
+            overflow: 'hidden',
+          },
         ]}
-        pointerEvents="none"
-      />
+        pointerEvents="none">
+        <Image
+          source={accentTheme.assets.button}
+          style={styles.fillImage}
+          resizeMode="cover"
+        />
+      </View>
       {loading ? (
         <ActivityIndicator color="#FFFFFF" size="small" />
       ) : (
@@ -79,10 +90,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.38,
     shadowRadius: 8,
     elevation: 5,
-    overflow: 'hidden',
+    position: 'relative',
   },
-  gradientOverlay: {
-    borderRadius: 21,
+  fillImage: {
+    width: '100%',
+    height: '100%',
   },
   text: {
     color: '#FFFFFF',

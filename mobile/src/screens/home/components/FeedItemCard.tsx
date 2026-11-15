@@ -168,20 +168,12 @@ export const FeedItemCard = React.memo<FeedCardProps>(
                 <View style={styles.statusBadgeShadowWrapper}>
                   <View style={styles.statusBadgeGradientWrapper}>
                     <View
-                      style={[
-                        StyleSheet.absoluteFill,
-                        styles.statusBadgeInnerClip,
-                        { backgroundColor: accentTheme.gradientStart },
-                      ]}
+                      style={[StyleSheet.absoluteFill, styles.statusBadgeInnerClip]}
                       pointerEvents="none">
-                      <View
-                        style={[
-                          StyleSheet.absoluteFill,
-                          {
-                            backgroundColor: accentTheme.gradientEnd,
-                            opacity: 0.45,
-                          },
-                        ]}
+                      <Image
+                        source={accentTheme.assets.button}
+                        style={styles.fullSizeImage}
+                        resizeMode="cover"
                       />
                     </View>
                     <Text style={styles.statusSparkle}>✦</Text>

@@ -1,9 +1,17 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// SUMORA — Multi-Theme System
-// Each theme defines a gradient pair (start → end) and derives all UI tokens.
+// SUMORA — Luxury Psychology-Driven Multi-Theme System
+// Each theme defines true 3-stop diagonal gradient assets, psychological framing,
+// and complete WCAG-compliant UI color tokens for high customer retention.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type AppThemeId =
+  | 'royal_amethyst'
+  | 'champagne_gold'
+  | 'emerald_prestige'
+  | 'sunset_cashmere'
+  | 'sapphire_celestial'
+  | 'velvet_orchid'
+  // Backwards compatibility legacy aliases
   | 'royal_violet'
   | 'sunset_glow'
   | 'cyber_teal'
@@ -14,9 +22,16 @@ export type AppThemeId =
 export interface AppThemeOption {
   id: AppThemeId;
   label: string;
+  tagline: string;
+  psychology: string;
   gradientStart: string;
+  gradientMid: string;
   gradientEnd: string;
-  /** Derived UI tokens (same shape as lightColors / darkColors) */
+  assets: {
+    header: any;
+    button: any;
+    swatch: any;
+  };
   primary: string;
   primaryDark: string;
   primaryLight: string;
@@ -25,113 +40,155 @@ export interface AppThemeOption {
   badgeBg: string;
   badgeText: string;
   tint: string;
-  /** Header gradient colours as CSS-compatible strings */
-  headerGradientStart: string;
-  headerGradientEnd: string;
 }
 
 export const APP_THEMES: AppThemeOption[] = [
   {
-    id: 'royal_violet',
-    label: 'Royal Violet',
-    gradientStart: '#5B21B6',
+    id: 'royal_amethyst',
+    label: 'Royal Amethyst',
+    tagline: 'Nobility & Intellect',
+    psychology: 'Deep imperial violet with cobalt sheen. Inspires intellectual curiosity and premium editorial authority.',
+    gradientStart: '#3B0764',
+    gradientMid: '#6D28D9',
     gradientEnd: '#2563EB',
-    primary: '#6C47FF',
-    primaryDark: '#4F28E8',
-    primaryLight: '#A78BFA',
+    assets: {
+      header: require('../assets/images/themes/header_royal_amethyst.png'),
+      button: require('../assets/images/themes/button_royal_amethyst.png'),
+      swatch: require('../assets/images/themes/swatch_royal_amethyst.png'),
+    },
+    primary: '#7C3AED',
+    primaryDark: '#5B21B6',
+    primaryLight: '#DDD6FE',
     secondary: '#2563EB',
     accent: '#8B5CF6',
     badgeBg: '#EDE9FF',
-    badgeText: '#6C47FF',
-    tint: '#6C47FF',
-    headerGradientStart: '#5B21B6',
-    headerGradientEnd: '#2563EB',
+    badgeText: '#7C3AED',
+    tint: '#7C3AED',
   },
   {
-    id: 'sunset_glow',
-    label: 'Sunset Glow',
-    gradientStart: '#E11D48',
+    id: 'champagne_gold',
+    label: 'Champagne Gold',
+    tagline: 'Opulence & Prestige',
+    psychology: 'Obsidian bronze into lustrous Tuscan gold. Evokes timeless wealth, confidence, and high executive value.',
+    gradientStart: '#451A03',
+    gradientMid: '#B45309',
+    gradientEnd: '#F59E0B',
+    assets: {
+      header: require('../assets/images/themes/header_champagne_gold.png'),
+      button: require('../assets/images/themes/button_champagne_gold.png'),
+      swatch: require('../assets/images/themes/swatch_champagne_gold.png'),
+    },
+    primary: '#D97706',
+    primaryDark: '#92400E',
+    primaryLight: '#FDE68A',
+    secondary: '#F59E0B',
+    accent: '#FBBF24',
+    badgeBg: '#FEF3C7',
+    badgeText: '#B45309',
+    tint: '#D97706',
+  },
+  {
+    id: 'emerald_prestige',
+    label: 'Emerald Prestige',
+    tagline: 'Abundance & Serenity',
+    psychology: 'British racing emerald into radiant jade mint. Minimizes optical fatigue and induces parasympathetic calm for long reading sessions.',
+    gradientStart: '#022C22',
+    gradientMid: '#047857',
+    gradientEnd: '#10B981',
+    assets: {
+      header: require('../assets/images/themes/header_emerald_prestige.png'),
+      button: require('../assets/images/themes/button_emerald_prestige.png'),
+      swatch: require('../assets/images/themes/swatch_emerald_prestige.png'),
+    },
+    primary: '#059669',
+    primaryDark: '#064E3B',
+    primaryLight: '#A7F3D0',
+    secondary: '#10B981',
+    accent: '#34D399',
+    badgeBg: '#D1FAE5',
+    badgeText: '#065F46',
+    tint: '#059669',
+  },
+  {
+    id: 'sunset_cashmere',
+    label: 'Sunset Cashmere',
+    tagline: 'Passion & Vitality',
+    psychology: 'Venetian crimson into warm Tuscan amber. Stimulates dopamine-led engagement and emotional connection.',
+    gradientStart: '#881337',
+    gradientMid: '#E11D48',
     gradientEnd: '#F97316',
+    assets: {
+      header: require('../assets/images/themes/header_sunset_cashmere.png'),
+      button: require('../assets/images/themes/button_sunset_cashmere.png'),
+      swatch: require('../assets/images/themes/swatch_sunset_cashmere.png'),
+    },
     primary: '#E11D48',
     primaryDark: '#BE123C',
-    primaryLight: '#FDA4AF',
+    primaryLight: '#FECDD3',
     secondary: '#F97316',
     accent: '#FB7185',
     badgeBg: '#FFE4E6',
-    badgeText: '#E11D48',
+    badgeText: '#BE123C',
     tint: '#E11D48',
-    headerGradientStart: '#E11D48',
-    headerGradientEnd: '#F97316',
   },
   {
-    id: 'cyber_teal',
-    label: 'Cyber Teal',
-    gradientStart: '#0D9488',
-    gradientEnd: '#0284C7',
-    primary: '#0D9488',
-    primaryDark: '#0F766E',
-    primaryLight: '#5EEAD4',
-    secondary: '#0284C7',
-    accent: '#06B6D4',
-    badgeBg: '#CCFBF1',
-    badgeText: '#0D9488',
-    tint: '#0D9488',
-    headerGradientStart: '#0D9488',
-    headerGradientEnd: '#0284C7',
+    id: 'sapphire_celestial',
+    label: 'Sapphire Celestial',
+    tagline: 'Trust & Clarity',
+    psychology: 'Midnight executive abyss into luminous cobalt. Establishes deep cognitive trust, stability, and peaceful focus.',
+    gradientStart: '#0B1329',
+    gradientMid: '#1D4ED8',
+    gradientEnd: '#0EA5E9',
+    assets: {
+      header: require('../assets/images/themes/header_sapphire_celestial.png'),
+      button: require('../assets/images/themes/button_sapphire_celestial.png'),
+      swatch: require('../assets/images/themes/swatch_sapphire_celestial.png'),
+    },
+    primary: '#0284C7',
+    primaryDark: '#0369A1',
+    primaryLight: '#BAE6FD',
+    secondary: '#2563EB',
+    accent: '#38BDF8',
+    badgeBg: '#E0F2FE',
+    badgeText: '#0369A1',
+    tint: '#0284C7',
   },
   {
-    id: 'midnight_ocean',
-    label: 'Midnight Ocean',
-    gradientStart: '#1E1B4B',
-    gradientEnd: '#3B82F6',
-    primary: '#3B82F6',
-    primaryDark: '#1D4ED8',
-    primaryLight: '#93C5FD',
-    secondary: '#6366F1',
-    accent: '#818CF8',
-    badgeBg: '#EEF2FF',
-    badgeText: '#3B82F6',
-    tint: '#3B82F6',
-    headerGradientStart: '#1E1B4B',
-    headerGradientEnd: '#3B82F6',
-  },
-  {
-    id: 'neon_magenta',
-    label: 'Neon Magenta',
-    gradientStart: '#9333EA',
-    gradientEnd: '#EC4899',
+    id: 'velvet_orchid',
+    label: 'Velvet Orchid',
+    tagline: 'Haute Couture & Spark',
+    psychology: 'Byzantine royal plum with radiant coral-orchid glow. Exudes modern luxury, style, and charismatic creative energy.',
+    gradientStart: '#4A044E',
+    gradientMid: '#9333EA',
+    gradientEnd: '#F43F5E',
+    assets: {
+      header: require('../assets/images/themes/header_velvet_orchid.png'),
+      button: require('../assets/images/themes/button_velvet_orchid.png'),
+      swatch: require('../assets/images/themes/swatch_velvet_orchid.png'),
+    },
     primary: '#9333EA',
     primaryDark: '#7E22CE',
-    primaryLight: '#D8B4FE',
-    secondary: '#EC4899',
-    accent: '#C026D3',
+    primaryLight: '#F5D0FE',
+    secondary: '#F43F5E',
+    accent: '#EC4899',
     badgeBg: '#FAE8FF',
-    badgeText: '#9333EA',
+    badgeText: '#86198F',
     tint: '#9333EA',
-    headerGradientStart: '#9333EA',
-    headerGradientEnd: '#EC4899',
-  },
-  {
-    id: 'onyx_slate',
-    label: 'Onyx Slate',
-    gradientStart: '#1E293B',
-    gradientEnd: '#475569',
-    primary: '#475569',
-    primaryDark: '#334155',
-    primaryLight: '#94A3B8',
-    secondary: '#64748B',
-    accent: '#6B7280',
-    badgeBg: '#F1F5F9',
-    badgeText: '#475569',
-    tint: '#475569',
-    headerGradientStart: '#1E293B',
-    headerGradientEnd: '#475569',
   },
 ];
 
-export const DEFAULT_THEME_ID: AppThemeId = 'royal_violet';
+export const DEFAULT_THEME_ID: AppThemeId = 'royal_amethyst';
 
-export function getThemeById(id: AppThemeId): AppThemeOption {
-  return APP_THEMES.find((t) => t.id === id) ?? APP_THEMES[0];
+const LEGACY_MAP: Record<string, AppThemeId> = {
+  royal_violet: 'royal_amethyst',
+  sunset_glow: 'sunset_cashmere',
+  cyber_teal: 'emerald_prestige',
+  midnight_ocean: 'sapphire_celestial',
+  neon_magenta: 'velvet_orchid',
+  onyx_slate: 'champagne_gold',
+};
+
+export function getThemeById(id: AppThemeId | string): AppThemeOption {
+  const normalizedId = LEGACY_MAP[id] || id;
+  return APP_THEMES.find((t) => t.id === normalizedId) ?? APP_THEMES[0];
 }
-

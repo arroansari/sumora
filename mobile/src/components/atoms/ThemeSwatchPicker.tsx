@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image } from 'react-native';
 import { AppThemeOption } from '../../theme/appThemes';
 import { ThemeColors } from '../../theme/colors';
 
@@ -12,14 +12,28 @@ interface ThemeSwatchPickerProps {
 
 export const ThemeSwatchPicker: React.FC<ThemeSwatchPickerProps> = React.memo(
   ({ themes, activeThemeId, onSelectTheme, colors }) => {
+    const activeTheme = useMemo(
+      () => themes.find((t) => t.id === activeThemeId) || themes[0],
+      [themes, activeThemeId]
+    );
+
     return (
       <View style={styles.wrapper}>
-        <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>
-          Colour Theme
-        </Text>
+        <View style={styles.headerRow}>
+          <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>
+            Executive Palette
+          </Text>
+          <View style={[styles.activePill, { backgroundColor: activeTheme.primary + '18' }]}>
+            <Text style={[styles.activePillText, { color: activeTheme.primary }]}>
+              {activeTheme.label}
+            </Text>
+          </View>
+        </View>
+
         <Text style={[styles.sectionSub, { color: colors.textMuted }]}>
-          Applies instantly across the entire app
+          Psychology-tailored luxury gradients crafted for reading endurance & deep focus
         </Text>
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -32,32 +46,26 @@ export const ThemeSwatchPicker: React.FC<ThemeSwatchPickerProps> = React.memo(
                 onPress={() => onSelectTheme(theme.id)}
                 activeOpacity={0.8}
                 style={[
-                  styles.swatchWrap,
+                  styles.swatchCard,
+                  {
+                    backgroundColor: colors.surfaceSubtle,
+                    borderColor: isActive ? theme.primary : colors.border,
+                  },
                   isActive && {
-                    borderColor: theme.primary,
-                    borderWidth: 2.5,
+                    borderWidth: 2,
                     shadowColor: theme.primary,
-                    shadowOpacity: 0.5,
+                    shadowOpacity: 0.35,
                     shadowRadius: 8,
-                    shadowOffset: { width: 0, height: 2 },
-                    elevation: 6,
+                    shadowOffset: { width: 0, height: 3 },
+                    elevation: 5,
                   },
                 ]}>
-                {/* Gradient swatch: two-layer approach */}
-                <View
-                  style={[
-                    styles.swatch,
-                    { backgroundColor: theme.gradientStart },
-                  ]}>
-                  <View
-                    style={[
-                      StyleSheet.absoluteFill,
-                      {
-                        backgroundColor: theme.gradientEnd,
-                        opacity: 0.55,
-                        borderRadius: 12,
-                      },
-                    ]}
+                {/* Real 3-stop diagonal gradient from theme asset */}
+                <View style={styles.swatch}>
+                  <Image
+                    source={theme.assets.swatch}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
                   />
                   {isActive && (
                     <View style={styles.checkCircle}>
@@ -65,19 +73,50 @@ export const ThemeSwatchPicker: React.FC<ThemeSwatchPickerProps> = React.memo(
                     </View>
                   )}
                 </View>
-                <Text
-                  style={[
-                    styles.swatchLabel,
-                    { color: isActive ? theme.primary : colors.textSecondary },
-                    isActive && styles.swatchLabelActive,
-                  ]}
-                  numberOfLines={2}>
-                  {theme.label}
-                </Text>
+
+                <View style={styles.cardInfo}>
+                  <Text
+                    style={[
+                      styles.swatchTitle,
+                      { color: isActive ? theme.primary : colors.textPrimary },
+                      isActive && styles.swatchTitleActive,
+                    ]}
+                    numberOfLines={1}>
+                    {theme.label}
+                  </Text>
+                  <Text
+                    style={[styles.swatchTagline, { color: colors.textMuted }]}
+                    numberOfLines={1}>
+                    {theme.tagline}
+                  </Text>
+                </View>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
+
+        {/* Psychological Insight Card for Active Selection */}
+        {activeTheme && (
+          <View
+            style={[
+              styles.psychologyBox,
+              {
+                backgroundColor: colors.surfaceSubtle,
+                borderColor: colors.border,
+                borderLeftColor: activeTheme.primary,
+              },
+            ]}>
+            <View style={styles.psychologyHeader}>
+              <Text style={styles.psychologyIcon}>✦</Text>
+              <Text style={[styles.psychologyTitle, { color: activeTheme.primary }]}>
+                {activeTheme.tagline}
+              </Text>
+            </View>
+            <Text style={[styles.psychologyDesc, { color: colors.textSecondary }]}>
+              {activeTheme.psychology}
+            </Text>
+          </View>
+        )}
       </View>
     );
   }
@@ -85,63 +124,122 @@ export const ThemeSwatchPicker: React.FC<ThemeSwatchPickerProps> = React.memo(
 
 const styles = StyleSheet.create({
   wrapper: {
-    paddingTop: 4,
+    paddingTop: 2,
     paddingBottom: 2,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   sectionLabel: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'PlusJakartaSans-Bold',
     fontWeight: '700',
-    marginBottom: 2,
+  },
+  activePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  activePillText: {
+    fontSize: 11.5,
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontWeight: '700',
   },
   sectionSub: {
     fontSize: 12,
     marginBottom: 14,
-    lineHeight: 16,
+    lineHeight: 17,
   },
   row: {
     flexDirection: 'row',
     gap: 12,
-    paddingRight: 4,
+    paddingRight: 6,
+    paddingBottom: 4,
   },
-  swatchWrap: {
+  swatchCard: {
+    width: 108,
+    borderRadius: 16,
+    padding: 8,
     alignItems: 'center',
-    gap: 8,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    padding: 2,
+    borderWidth: 1.2,
   },
   swatch: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
+    width: 90,
+    height: 52,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    position: 'relative',
+    marginBottom: 8,
   },
   checkCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 2,
+    elevation: 3,
   },
   checkMark: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#111',
-    lineHeight: 16,
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#0F172A',
+    lineHeight: 14,
   },
-  swatchLabel: {
-    fontSize: 10.5,
-    textAlign: 'center',
-    maxWidth: 60,
-    lineHeight: 13,
+  cardInfo: {
+    alignItems: 'center',
+    width: '100%',
   },
-  swatchLabelActive: {
+  swatchTitle: {
+    fontSize: 11.5,
     fontFamily: 'PlusJakartaSans-Bold',
     fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  swatchTitleActive: {
+    fontWeight: '800',
+  },
+  swatchTagline: {
+    fontSize: 9.5,
+    fontFamily: 'PlusJakartaSans-Medium',
+    textAlign: 'center',
+  },
+  psychologyBox: {
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderLeftWidth: 3.5,
+  },
+  psychologyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  psychologyIcon: {
+    fontSize: 12,
+    color: '#F59E0B',
+  },
+  psychologyTitle: {
+    fontSize: 12.5,
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  psychologyDesc: {
+    fontSize: 11.5,
+    lineHeight: 17,
+    fontFamily: 'PlusJakartaSans-Regular',
   },
 });

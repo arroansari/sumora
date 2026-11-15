@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Share,
   Alert,
+  Image,
   StyleSheet,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
@@ -248,22 +249,10 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             shadowColor: accentTheme.primaryDark,
           },
         ]}>
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: accentTheme.gradientStart },
-          ]}
-          pointerEvents="none"
-        />
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundColor: accentTheme.gradientEnd,
-              opacity: 0.42,
-            },
-          ]}
-          pointerEvents="none"
+        <Image
+          source={accentTheme.assets.header}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
         />
         <View style={styles.topHeaderRow}>
           <TouchableOpacity

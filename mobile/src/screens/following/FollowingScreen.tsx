@@ -16,6 +16,7 @@ import {
   RefreshControl,
   ScrollView,
   Modal,
+  Image,
   StyleSheet,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
@@ -617,20 +618,10 @@ export const FollowingScreen: React.FC = () => {
                 onPress={() => handleChannelPress(item)}
                 activeOpacity={0.8}>
                 <View style={styles.gradientRingWrapper}>
-                  <View
-                    style={[
-                      StyleSheet.absoluteFill,
-                      { backgroundColor: accentTheme.gradientStart },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      StyleSheet.absoluteFill,
-                      {
-                        backgroundColor: accentTheme.gradientEnd,
-                        opacity: 0.5,
-                      },
-                    ]}
+                  <Image
+                    source={accentTheme.assets.swatch}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
                   />
                   <View style={styles.avatarInnerGap}>
                     {item.thumbnailUrl ? (

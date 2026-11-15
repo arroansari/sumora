@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { EdgeInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../../context/ThemeContext';
 import { createHomeStyles } from '../HomeScreen.styles';
@@ -16,23 +16,11 @@ export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
 
     return (
       <View style={[styles.headerGradientWrapper, { paddingTop: insets.top + 6 }]}>
-        {/* Dynamic gradient via two-layer View simulation */}
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: accentTheme.gradientStart },
-          ]}
-          pointerEvents="none"
-        />
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundColor: accentTheme.gradientEnd,
-              opacity: 0.42,
-            },
-          ]}
-          pointerEvents="none"
+        {/* Real 3-stop diagonal gradient from active theme asset */}
+        <Image
+          source={accentTheme.assets.header}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
         />
 
         <View style={styles.headerContent}>
@@ -44,16 +32,18 @@ export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
           </View>
 
           <TouchableOpacity
-            style={[
-              styles.headerSummarizeBtn,
-              {
-                backgroundColor: 'rgba(255,255,255,0.18)',
-                borderColor: 'rgba(255,255,255,0.35)',
-                borderWidth: 1,
-              },
-            ]}
+            style={styles.headerSummarizeBtn}
             onPress={onSummarizePress}
             activeOpacity={0.85}>
+            <View
+              style={[StyleSheet.absoluteFill, styles.headerSummarizeInnerClip]}
+              pointerEvents="none">
+              <Image
+                source={accentTheme.assets.button}
+                style={styles.fullSizeImage}
+                resizeMode="cover"
+              />
+            </View>
             <Text style={styles.headerSparkleIcon}>✦</Text>
             <Text style={styles.headerSummarizeBtnText}>Summarize</Text>
           </TouchableOpacity>
