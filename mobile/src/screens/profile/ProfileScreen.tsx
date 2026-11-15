@@ -209,6 +209,31 @@ export const ProfileScreen: React.FC = () => {
           </Text>
         </Card>
 
+        {/* ── App Store Compliance & Third-Party Attributions ── */}
+        <Card>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <View
+              style={{
+                backgroundColor: '#032541',
+                borderRadius: 8,
+                paddingHorizontal: 9,
+                paddingVertical: 4,
+                marginRight: 10,
+              }}>
+              <Text style={{ color: '#01B4E4', fontWeight: '900', fontSize: 11.5, letterSpacing: 0.8 }}>
+                TMDB
+              </Text>
+            </View>
+            <Text style={styles.sectionTitle}>Third-Party Attributions</Text>
+          </View>
+          <Text style={styles.prefHint}>
+            This application uses the TMDB API but is not endorsed or certified by TMDB.
+          </Text>
+          <Text style={[styles.prefHint, { marginTop: 4 }]}>
+            Book insights and metadata powered by the open, public Open Library API.
+          </Text>
+        </Card>
+
         {/* ── Sign Out ── */}
         <TouchableOpacity style={styles.logoutButton} onPress={logout}>
           <Text style={styles.logoutButtonText}>Sign Out</Text>

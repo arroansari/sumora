@@ -122,7 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       await authApi.logout();
-    } catch (err) {
+    } catch {
       // Ignore network errors on logout
     } finally {
       setAuthToken(null);

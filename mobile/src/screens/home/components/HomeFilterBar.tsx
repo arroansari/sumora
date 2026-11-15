@@ -1,11 +1,13 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { createHomeStyles } from '../HomeScreen.styles';
+import { SpaceType } from '../../../types/models.types';
 
 export type FeedTab = 'all' | 'saved' | 'custom' | 'favorites' | 'completed';
 
 export interface HomeFilterBarProps {
   platform?: 'YOUTUBE' | 'REDDIT';
+  space?: SpaceType;
   activeTab: FeedTab;
   onSelectTab: (tab: FeedTab) => void;
   savedCount: number;
@@ -16,11 +18,18 @@ export interface HomeFilterBarProps {
   subreddits?: string[];
   activeSubreddit?: string;
   onSelectSubreddit?: (sub: string) => void;
+  // Cinema & Book custom filters
+  activeFilter?: string;
+  onSelectFilter?: (filter: string) => void;
 }
+
+const CINEMA_FILTERS = ['Trending Today', 'Netflix', 'Max', 'Prime Video', 'Top Rated', 'Saved'];
+const BOOK_FILTERS = ['All Books', 'Psychology', 'Productivity', 'Wealth', 'Philosophy', 'Saved'];
 
 export const HomeFilterBar: React.FC<HomeFilterBarProps> = React.memo(
   ({
     platform = 'YOUTUBE',
+    space = 'YOUTUBE',
     activeTab,
     onSelectTab,
     savedCount,
@@ -30,8 +39,99 @@ export const HomeFilterBar: React.FC<HomeFilterBarProps> = React.memo(
     subreddits = ['technology', 'stocks', 'artificial'],
     activeSubreddit = 'all',
     onSelectSubreddit,
+    activeFilter,
+    onSelectFilter,
   }) => {
-    if (platform === 'REDDIT') {
+    const currentSpace = space || (platform === 'REDDIT' ? 'REDDIT' : 'YOUTUBE');
+
+    // ── Cinema & OTT Filters ──
+    if (currentSpace === 'TMDB') {
+      const selected = activeFilter || 'Trending Today';
+      return (
+        <View style={styles.filterBar}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScrollContent}>
+            {CINEMA_FILTERS.map((f) => {
+              const isSelected = selected === f;
+              return (
+                <TouchableOpacity
+                  key={f}
+                  style={[styles.filterTab, isSelected && styles.filterTabActive]}
+                  onPress={() => onSelectFilter?.(f)}
+                  activeOpacity={0.75}>
+                  <Text style={[styles.filterTabText, isSelected && styles.filterTabTextActive]}>
+                    {f}
+                  </Text>
+                  {f === 'Saved' && savedCount > 0 && (
+                    <View
+                      style={[
+                        styles.filterTabCount,
+                        isSelected && styles.filterTabCountActive,
+                      ]}>
+                      <Text
+                        style={[
+                          styles.filterTabCountText,
+                          isSelected && styles.filterTabCountTextActive,
+                        ]}>
+                        {savedCount}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      );
+    }
+
+    // ── Book Insights Filters ──
+    if (currentSpace === 'OPEN_LIBRARY') {
+      const selected = activeFilter || 'All Books';
+      return (
+        <View style={styles.filterBar}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScrollContent}>
+            {BOOK_FILTERS.map((f) => {
+              const isSelected = selected === f;
+              return (
+                <TouchableOpacity
+                  key={f}
+                  style={[styles.filterTab, isSelected && styles.filterTabActive]}
+                  onPress={() => onSelectFilter?.(f)}
+                  activeOpacity={0.75}>
+                  <Text style={[styles.filterTabText, isSelected && styles.filterTabTextActive]}>
+                    {f}
+                  </Text>
+                  {f === 'Saved' && savedCount > 0 && (
+                    <View
+                      style={[
+                        styles.filterTabCount,
+                        isSelected && styles.filterTabCountActive,
+                      ]}>
+                      <Text
+                        style={[
+                          styles.filterTabCountText,
+                          isSelected && styles.filterTabCountTextActive,
+                        ]}>
+                        {savedCount}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      );
+    }
+
+    // ── Reddit Discussions Filters ──
+    if (currentSpace === 'REDDIT') {
       return (
         <View style={styles.filterBar}>
           <ScrollView
@@ -107,7 +207,7 @@ export const HomeFilterBar: React.FC<HomeFilterBarProps> = React.memo(
       );
     }
 
-    // Default YouTube Filter Bar
+    // ── Default YouTube Filter Bar ──
     return (
       <View style={styles.filterBar}>
         <ScrollView

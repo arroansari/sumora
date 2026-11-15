@@ -8,6 +8,8 @@ import {
   NotificationPreference,
   RedditPostItem,
   RedditSummary,
+  ContentPostItem,
+  SpaceType,
 } from '../types/models.types';
 
 // Default to localhost for iOS simulator, 10.0.2.2 for Android emulator
@@ -300,5 +302,37 @@ export const redditApi = {
     return res.data;
   },
 };
+
+// Universal Space API (TMDB Cinema & Open Library Books)
+export const contentApi = {
+  getFeed: async (
+    space: SpaceType,
+    page = 1,
+    limit = 20,
+    opts: { filter?: string; search?: string } = {}
+  ): Promise<{ posts: ContentPostItem[]; totalPages: number }> => {
+    const params = new URLSearchParams({
+      space,
+      page: String(page),
+      limit: String(limit),
+    });
+    if (opts.filter) params.set('filter', opts.filter);
+    if (opts.search) params.set('search', opts.search);
+
+    const res = await request<{ data: ContentPostItem[]; pagination: { totalPages: number } }>(
+      `/feed?${params.toString()}`
+    );
+    return {
+      posts: res.data || [],
+      totalPages: res.pagination?.totalPages || 1,
+    };
+  },
+
+  getFilters: async (space: SpaceType): Promise<string[]> => {
+    const res = await request<{ data: string[] }>(`/feed/filters?space=${space}`);
+    return res.data || [];
+  },
+};
+
 
 

@@ -1,8 +1,10 @@
 export * from './FeedItemCard';
 export * from './RedditDiscussionCard';
+export * from './MovieCard';
+export * from './BookCard';
+export * from './SpaceSwitcherModal';
 export * from './HomeHeader';
 export * from './HomeFilterBar';
 export * from './FeedEmptyState';
 export * from './ImportVideoModal';
 export * from './SavedCelebrationModal';
-
