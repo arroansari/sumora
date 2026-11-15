@@ -145,6 +145,20 @@ class SchedulerService {
         `[Scheduler] ✅ Feed sync completed: checked ${channelIds.length} channels, processed ${totalUpserted} videos.`
       );
 
+      // Also sync active Reddit subreddits
+      try {
+        const redditService = require('../modules/integrations/reddit/reddit.service');
+        const activeSubreddits = await prisma.trackedSource.findMany({
+          where: { platform: 'reddit', isActive: true },
+          distinct: ['sourceId'],
+        });
+        for (const sub of activeSubreddits) {
+          await redditService.syncSubredditPosts(sub.sourceId, 5).catch(() => {});
+        }
+      } catch (redditErr) {
+        console.warn('[Scheduler] Reddit sync note:', redditErr.message);
+      }
+
       return {
         channelsChecked: channelIds.length,
         newVideos: totalUpserted,

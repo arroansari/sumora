@@ -28,6 +28,8 @@ const QUEUE_NAMES = {
   AI_SUMMARIZATION: 'ai-summarization',
   PUSH_NOTIFICATIONS: 'push-notifications',
   CHANNEL_POLLING: 'channel-polling',
+  REDDIT_SYNC: 'reddit-sync-queue',
+  REDDIT_SUMMARY: 'reddit-summary-queue',
 };
 
 let queuesCache = {};

@@ -25,6 +25,11 @@ module.exports = {
     secret: process.env.WEBSUB_SECRET || 'websub_secret_key_sumora',
     callbackUrl: process.env.WEBSUB_CALLBACK_URL || 'http://localhost:5000/api/webhooks/youtube',
   },
+  reddit: {
+    clientId: process.env.REDDIT_CLIENT_ID || '',
+    clientSecret: process.env.REDDIT_CLIENT_SECRET || '',
+    userAgent: process.env.REDDIT_USER_AGENT || 'Sumora/1.0.0 (by /u/sumora_app)',
+  },
   ai: {
     provider: process.env.AI_PROVIDER || 'gemini',
     geminiApiKey: process.env.GEMINI_API_KEY,

@@ -18,16 +18,17 @@ import {
   Modal,
   Image,
   StyleSheet,
+  Switch,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
-import { sourcesApi, integrationsApi } from '../../services/api';
+import { sourcesApi, integrationsApi, redditApi } from '../../services/api';
 import { TrackedSource } from '../../types/models.types';
 import { SearchBar } from '../../components/atoms/SearchBar';
-import { FilterPills, FilterPillOption } from '../../components/atoms/FilterPills';
+import { FilterPillOption } from '../../components/atoms/FilterPills';
 import { createFollowingStyles } from './FollowingScreen.styles';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -317,6 +318,13 @@ export const FollowingScreen: React.FC = () => {
   const [newChannelName, setNewChannelName] = useState<string>('');
   const [adding, setAdding] = useState<boolean>(false);
 
+  // Platform Section: Channels vs Subreddits
+  const [platformSection, setPlatformSection] = useState<'channels' | 'subreddits'>('channels');
+  const [subreddits, setSubreddits] = useState<TrackedSource[]>([]);
+  const [newSubredditInput, setNewSubredditInput] = useState<string>('');
+  const [addingSubreddit, setAddingSubreddit] = useState<boolean>(false);
+  const [showAddSubredditModal, setShowAddSubredditModal] = useState<boolean>(false);
+
   // Progressive Virtual Pagination (Optimizes FlatList for 1,000+ items)
   const PAGE_SIZE = 24;
   const [displayLimit, setDisplayLimit] = useState<number>(PAGE_SIZE);
@@ -346,12 +354,14 @@ export const FollowingScreen: React.FC = () => {
 
       async function fetchSources() {
         try {
-          const [data, accounts] = await Promise.all([
+          const [data, accounts, subs] = await Promise.all([
             sourcesApi.list(),
             integrationsApi.list().catch(() => []),
+            redditApi.listSources().catch(() => []),
           ]);
           if (isMounted) {
             setSources(data);
+            setSubreddits(subs);
             setIsYouTubeConnected(
               accounts.some((a) => a.platform === 'youtube' && a.status === 'active')
             );
@@ -430,7 +440,7 @@ export const FollowingScreen: React.FC = () => {
     try {
       const data = await sourcesApi.list();
       setSources(data);
-    } catch (err: any) {
+    } catch {
       console.warn('[FollowingScreen] Refresh failed');
     } finally {
       setRefreshing(false);
@@ -483,6 +493,58 @@ export const FollowingScreen: React.FC = () => {
       setAdding(false);
     }
   }, [newChannelId, newChannelName]);
+
+  const handleToggleSubreddit = useCallback(async (sub: TrackedSource) => {
+    try {
+      const updated = await redditApi.toggleSource(sub.sourceId);
+      setSubreddits((prev) =>
+        prev.map((s) => (s.id === sub.id ? { ...s, isActive: updated.isActive } : s))
+      );
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Could not update subreddit tracking');
+    }
+  }, []);
+
+  const handleRemoveSubreddit = useCallback((sub: TrackedSource) => {
+    Alert.alert(
+      'Unfollow Subreddit?',
+      `Are you sure you want to stop tracking community discussions from ${sub.sourceName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unfollow',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await redditApi.removeSource(sub.sourceId);
+              setSubreddits((prev) => prev.filter((s) => s.id !== sub.id));
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Could not unfollow subreddit');
+            }
+          },
+        },
+      ]
+    );
+  }, []);
+
+  const handleAddSubreddit = useCallback(async () => {
+    if (!newSubredditInput.trim()) {
+      Alert.alert('Name Required', 'Please enter a valid subreddit name (e.g. r/technology)');
+      return;
+    }
+    setAddingSubreddit(true);
+    try {
+      const added = await redditApi.addSource(newSubredditInput.trim());
+      setSubreddits((prev) => [added, ...prev.filter((s) => s.sourceId !== added.sourceId)]);
+      setNewSubredditInput('');
+      setShowAddSubredditModal(false);
+      Alert.alert('Success', `Now tracking discussions in ${added.sourceName}!`);
+    } catch (err: any) {
+      Alert.alert('Failed to Add', err.message || 'Could not add subreddit.');
+    } finally {
+      setAddingSubreddit(false);
+    }
+  }, [newSubredditInput]);
 
   const handleChannelPress = useCallback(
     (source: TrackedSource) => {
@@ -776,32 +838,97 @@ export const FollowingScreen: React.FC = () => {
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleGroup}>
-            <Text style={styles.headerTitle}>Tracked Channels</Text>
-            {sources.length > 0 && (
-              <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>{sources.length}</Text>
-              </View>
-            )}
+            <Text style={styles.headerTitle}>
+              {platformSection === 'channels' ? 'Tracked Channels' : 'Tracked Subreddits'}
+            </Text>
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>
+                {platformSection === 'channels' ? sources.length : subreddits.length}
+              </Text>
+            </View>
           </View>
 
           <TouchableOpacity
             style={[
               styles.toggleAddButton,
-              showAddForm && styles.toggleAddButtonActive,
+              (platformSection === 'channels' ? showAddForm : showAddSubredditModal) && styles.toggleAddButtonActive,
             ]}
-            onPress={() => setShowAddForm((prev) => !prev)}>
+            onPress={() => {
+              if (platformSection === 'channels') {
+                setShowAddForm((prev) => !prev);
+              } else {
+                setShowAddSubredditModal(true);
+              }
+            }}>
             <Text
               style={[
                 styles.toggleAddButtonText,
-                showAddForm && styles.toggleAddButtonTextActive,
+                (platformSection === 'channels' ? showAddForm : showAddSubredditModal) && styles.toggleAddButtonTextActive,
               ]}>
-              {showAddForm ? '✕ Close' : '+ Add'}
+              {platformSection === 'channels' ? (showAddForm ? '✕ Close' : '+ Add') : '+ Add Subreddit'}
             </Text>
           </TouchableOpacity>
         </View>
+
         <Text style={styles.headerSubtitle}>
-          Manage subscribed channels for automatic summarization
+          {platformSection === 'channels'
+            ? 'Manage subscribed channels for automatic summarization'
+            : 'Track high-upvote debates and community consensus across Reddit'}
         </Text>
+
+        {/* Top Two-Segment Pill Switch: [ Channels (392) | Subreddits (Active Count) ] */}
+        <View
+          style={{
+            flexDirection: 'row',
+            backgroundColor: colors.surfaceSubtle,
+            borderRadius: 14,
+            padding: 3,
+            marginTop: 12,
+            borderWidth: 1.2,
+            borderColor: colors.border,
+          }}>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              paddingVertical: 8,
+              borderRadius: 11,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: platformSection === 'channels' ? colors.primary : 'transparent',
+            }}
+            onPress={() => setPlatformSection('channels')}
+            activeOpacity={0.8}>
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: '800',
+                color: platformSection === 'channels' ? '#FFFFFF' : colors.textSecondary,
+              }}>
+              ▶ Channels ({sources.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              paddingVertical: 8,
+              borderRadius: 11,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: platformSection === 'subreddits' ? '#FF4500' : 'transparent',
+            }}
+            onPress={() => setPlatformSection('subreddits')}
+            activeOpacity={0.8}>
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: '800',
+                color: platformSection === 'subreddits' ? '#FFFFFF' : colors.textSecondary,
+              }}>
+              💬 Subreddits ({subreddits.filter((s) => s.isActive !== false).length})
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Manual Add Form */}
@@ -837,8 +964,97 @@ export const FollowingScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Body: 2-Column Visual Grid */}
-      {loading ? (
+      {/* Body: 2-Column Visual Grid vs Subreddits List */}
+      {platformSection === 'subreddits' ? (
+        <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 10 }}>
+          <FlatList
+            data={subreddits}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 40, gap: 10 }}
+            renderItem={({ item }) => (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: colors.surface,
+                  padding: 14,
+                  borderRadius: 16,
+                  borderWidth: 1.2,
+                  borderColor: colors.border,
+                  justifyContent: 'space-between',
+                }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: '#FF4500',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                    <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>r/</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontSize: 15.5,
+                        fontWeight: '800',
+                        color: colors.textPrimary,
+                        marginBottom: 2,
+                      }}
+                      numberOfLines={1}>
+                      {item.sourceName}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                      {item.memberCount && item.memberCount > 0
+                        ? `${item.memberCount >= 1000000 ? (item.memberCount / 1000000).toFixed(1) + 'M' : (item.memberCount / 1000).toFixed(0) + 'k'} members`
+                        : 'Active community'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Switch
+                    value={item.isActive !== false}
+                    onValueChange={() => handleToggleSubreddit(item)}
+                    trackColor={{ false: colors.border, true: '#FF4500' }}
+                    thumbColor="#FFFFFF"
+                  />
+                  <TouchableOpacity
+                    onPress={() => handleRemoveSubreddit(item)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={{ fontSize: 16, color: colors.textMuted }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+            ListEmptyComponent={
+              <View style={[styles.centerContainer, { paddingHorizontal: 32 }]}>
+                <Text style={{ fontSize: 44, marginBottom: 12 }}>💬</Text>
+                <Text style={styles.emptyTitle}>No Subreddits Tracked</Text>
+                <Text style={styles.emptySubtitle}>
+                  Track your favorite subreddits (e.g. r/technology, r/stocks) to auto-distill top community discussions.
+                </Text>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: '#FF4500',
+                    paddingHorizontal: 20,
+                    paddingVertical: 12,
+                    borderRadius: 14,
+                    marginTop: 14,
+                  }}
+                  onPress={() => setShowAddSubredditModal(true)}>
+                  <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 14 }}>
+                    + Track First Subreddit
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            }
+          />
+        </View>
+      ) : loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading tracked channels…</Text>
@@ -1009,6 +1225,51 @@ export const FollowingScreen: React.FC = () => {
                 <Text style={styles.modalPrimaryBtnText}>Apply Filters</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Modal: Track a Subreddit ── */}
+      <Modal
+        visible={showAddSubredditModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAddSubredditModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalContent, { paddingBottom: 24 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>💬 Track a Subreddit</Text>
+              <TouchableOpacity
+                onPress={() => setShowAddSubredditModal(false)}
+                style={styles.modalCloseBtn}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 14 }}>
+              Enter the name of a subreddit you want to distill top debates from.
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. technology or r/stocks"
+              placeholderTextColor={colors.textMuted}
+              value={newSubredditInput}
+              onChangeText={setNewSubredditInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <TouchableOpacity
+              style={[styles.addButton, { backgroundColor: '#FF4500', marginTop: 14 }]}
+              onPress={handleAddSubreddit}
+              disabled={addingSubreddit}>
+              {addingSubreddit ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.addButtonText}>Start Tracking Subreddit</Text>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

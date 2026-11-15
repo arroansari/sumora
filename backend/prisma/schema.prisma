@@ -7,6 +7,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum Platform {
+  YOUTUBE
+  REDDIT
+}
+
 model User {
   id                      String                   @id @default(uuid())
   email                   String                   @unique
@@ -54,11 +59,15 @@ model TrackedSource {
   id           String   @id @default(uuid())
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  platform     String   // e.g. "youtube"
-  sourceId     String   // e.g. YouTube channel ID
-  sourceName   String
+  platform     String   // e.g. "youtube", "reddit"
+  sourceId     String   // e.g. YouTube channel ID or Subreddit name (e.g. "technology")
+  sourceName   String   // e.g. Channel Name or "r/technology"
   thumbnailUrl String?
+  isPriority   Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  memberCount  Int?     @default(0)
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt @default(now())
 
   @@unique([userId, platform, sourceId])
   @@index([platform, sourceId])
@@ -147,11 +156,49 @@ model DeviceToken {
 
 model SyncJob {
   id           String    @id @default(uuid())
-  platform     String    // e.g. "youtube"
+  platform     String    // e.g. "youtube", "reddit"
   status       String    @default("pending") // "pending", "in_progress", "completed", "failed"
   lastSyncedAt DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   @@map("sync_jobs")
+}
+
+model RedditPost {
+  id           String         @id @default(uuid())
+  externalId   String         @unique // e.g. "t3_xyz" or "xyz"
+  subreddit    String         // e.g. "technology"
+  title        String
+  author       String
+  permalink    String
+  url          String?
+  score        Int            @default(0) // upvotes
+  commentCount Int            @default(0)
+  selftext     String?        @db.Text
+  publishedAt  DateTime
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  summary      RedditSummary?
+
+  @@index([subreddit])
+  @@index([publishedAt])
+  @@map("reddit_posts")
+}
+
+model RedditSummary {
+  id              String      @id @default(uuid())
+  postId          String      @unique
+  post            RedditPost  @relation(fields: [postId], references: [externalId], onDelete: Cascade)
+  consensus       String      @db.Text
+  contrarianViews Json        // Array of strings (skeptics' caveats)
+  keyTakeaways    Json        // 4 bullet points: Consensus, Skepticism, Key Facts, Verdict
+  fullSummary     String      @db.Text
+  aiProvider      String      @default("gemini")
+  modelName       String      @default("gemini-1.5-flash")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("reddit_summaries")
 }

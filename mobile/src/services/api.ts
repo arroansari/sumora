@@ -6,6 +6,8 @@ import {
   ConnectedAccount,
   TrackedSource,
   NotificationPreference,
+  RedditPostItem,
+  RedditSummary,
 } from '../types/models.types';
 
 // Default to localhost for iOS simulator, 10.0.2.2 for Android emulator
@@ -241,4 +243,62 @@ export const preferencesApi = {
     });
   },
 };
+
+// Reddit Discussions & Sources API
+export const redditApi = {
+  getFeed: async (
+    page = 1,
+    limit = 20,
+    opts: { subreddit?: string; filter?: string; search?: string } = {}
+  ): Promise<{ posts: RedditPostItem[]; totalPages: number }> => {
+    const params = new URLSearchParams({
+      platform: 'REDDIT',
+      page: String(page),
+      limit: String(limit),
+    });
+    if (opts.subreddit) params.set('subreddit', opts.subreddit);
+    if (opts.filter)    params.set('filter', opts.filter);
+    if (opts.search)    params.set('search', opts.search);
+
+    const res = await request<{ data: RedditPostItem[]; pagination: { totalPages: number } }>(
+      `/feed?${params.toString()}`
+    );
+    return {
+      posts: res.data,
+      totalPages: res.pagination?.totalPages || 1,
+    };
+  },
+
+  listSources: async (): Promise<TrackedSource[]> => {
+    const res = await request<{ data: TrackedSource[] }>('/sources/reddit');
+    return res.data;
+  },
+
+  addSource: async (subreddit: string): Promise<TrackedSource> => {
+    const res = await request<{ data: TrackedSource }>('/sources/reddit', {
+      method: 'POST',
+      body: JSON.stringify({ subreddit }),
+    });
+    return res.data;
+  },
+
+  toggleSource: async (id: string): Promise<TrackedSource> => {
+    const res = await request<{ data: TrackedSource }>(`/sources/reddit/${id}/toggle`, {
+      method: 'POST',
+    });
+    return res.data;
+  },
+
+  removeSource: async (id: string): Promise<void> => {
+    await request(`/sources/reddit/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  getPostSummary: async (postId: string): Promise<RedditSummary> => {
+    const res = await request<{ data: RedditSummary }>(`/reddit/posts/${postId}/summary`);
+    return res.data;
+  },
+};
+
 

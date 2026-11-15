@@ -14,7 +14,7 @@ import { integrationsApi } from '../../services/api';
 import { ConnectedAccount } from '../../types/models.types';
 import { createConnectedAccountsStyles } from './ConnectedAccountsScreen.styles';
 
-export const ConnectedAccountsScreen: React.FC = () => {
+export const ConnectedAccountsScreen: React.FC<any> = ({ navigation }) => {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createConnectedAccountsStyles(colors), [colors]);
 
@@ -249,6 +249,27 @@ export const ConnectedAccountsScreen: React.FC = () => {
             )}
           </View>
 
+          {/* ── Active Reddit Integration Card ── */}
+          <View style={[styles.platformCard, { marginTop: 14 }]}>
+            <View style={styles.platformRow}>
+              <View style={[styles.iconCircle, { backgroundColor: '#FF4500' }]}>
+                <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: '900' }}>r/</Text>
+              </View>
+              <View style={styles.platformInfo}>
+                <Text style={styles.platformName}>Reddit Discussions</Text>
+                <Text style={styles.platformDesc}>
+                  Track top community debates from followed subreddits & auto-distill consensus
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.connectButton, { backgroundColor: '#FF4500', marginTop: 12 }]}
+              onPress={() => navigation?.navigate('Following')}>
+              <Text style={styles.connectButtonText}>Manage & Track Subreddits</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* How it works section */}
           {!isYouTubeConnected && !loading ? (
             <View style={[styles.platformCard, { marginTop: 20 }]}>
@@ -278,7 +299,6 @@ export const ConnectedAccountsScreen: React.FC = () => {
           <Text style={[styles.sectionTitle, { marginTop: 28 }]}>Future Integrations</Text>
 
           {[
-            { name: 'Reddit', icon: '📋', desc: 'Summarize top discussions from followed subreddits' },
             { name: 'TikTok', icon: '🎵', desc: 'Distill transcripts from authorized creator videos' },
             { name: 'Instagram', icon: '📸', desc: 'Summarize updates from permitted creator media' },
             { name: 'X (Twitter)', icon: '✖️', desc: 'Digest long-form threads and posts' },
