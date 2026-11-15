@@ -98,28 +98,19 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadStoredData();
-    }, [loadStoredData])
-  );
-
-  // Load initial YouTube feed
-  useEffect(() => {
-    let isMounted = true;
-    async function loadInitialFeed() {
-      try {
-        const res = await videosApi.getFeed(1, 40);
-        if (isMounted) setVideos(res?.videos || []);
-      } catch (err) {
-        console.warn('[HomeScreen] Could not fetch YouTube feed:', err);
-        if (isMounted) setVideos([]);
-      } finally {
-        if (isMounted) setLoading(false);
+  // Fetch YouTube feed
+  const loadYouTubeFeed = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
+    try {
+      const res = await videosApi.getFeed(1, 40);
+      if (res?.videos) {
+        setVideos(res.videos);
       }
+    } catch (err) {
+      console.warn('[HomeScreen] Could not fetch YouTube feed:', err);
+    } finally {
+      setLoading(false);
     }
-    loadInitialFeed();
-    return () => { isMounted = false; };
   }, []);
 
   // Fetch Reddit feed
@@ -145,10 +136,19 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     }
   }, [activeSubreddit]);
 
-  // Load Reddit posts when activeSubreddit changes or on initial platform switch
+  useFocusEffect(
+    useCallback(() => {
+      loadStoredData();
+      loadYouTubeFeed();
+      loadRedditFeed();
+    }, [loadStoredData, loadYouTubeFeed, loadRedditFeed])
+  );
+
+  // Load initial feeds on mount
   useEffect(() => {
+    loadYouTubeFeed(true);
     loadRedditFeed();
-  }, [loadRedditFeed]);
+  }, [loadYouTubeFeed, loadRedditFeed]);
 
   // YouTube Refresh
   const handleRefresh = useCallback(async () => {
