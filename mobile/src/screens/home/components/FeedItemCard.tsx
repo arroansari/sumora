@@ -10,6 +10,7 @@ import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import { VideoItem, SummaryStatus } from '../../../types/models.types';
 import { createHomeStyles } from '../HomeScreen.styles';
 import { GradientButton } from '../../../components/atoms';
+import { useAppTheme } from '../../../context/ThemeContext';
 
 export interface FeedCardProps {
   item: VideoItem;
@@ -60,6 +61,7 @@ export const FeedItemCard = React.memo<FeedCardProps>(
     onMarkDone,
     onRestoreVideo,
   }) => {
+    const { accentTheme } = useAppTheme();
     const publishedFormatted = item.publishedAt
       ? new Date(item.publishedAt).toLocaleDateString(undefined, {
         month: 'short',
@@ -169,7 +171,7 @@ export const FeedItemCard = React.memo<FeedCardProps>(
                       style={[StyleSheet.absoluteFill, styles.statusBadgeInnerClip]}
                       pointerEvents="none">
                       <Image
-                        source={require('../../../assets/images/button_gradient.png')}
+                        source={accentTheme.assets.button}
                         style={styles.fullSizeImage}
                         resizeMode="cover"
                       />

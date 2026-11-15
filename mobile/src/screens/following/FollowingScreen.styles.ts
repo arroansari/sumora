@@ -184,7 +184,7 @@ export const createFollowingStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       justifyContent: 'center',
       position: 'relative',
-      shadowColor: '#7C3AED',
+      shadowColor: colors.primary,
       shadowOffset: { width: 0, height: 3 },
       shadowOpacity: 0.45,
       shadowRadius: 6,

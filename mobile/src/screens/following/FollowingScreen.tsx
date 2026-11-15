@@ -297,7 +297,7 @@ const ChannelGridCard = React.memo<ChannelGridCardProps>(
 // ─── Main Following Screen ───────────────────────────────────────────────────
 
 export const FollowingScreen: React.FC = () => {
-  const { colors } = useAppTheme();
+  const { colors, accentTheme } = useAppTheme();
   const styles = useMemo(() => createFollowingStyles(colors), [colors]);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -619,7 +619,7 @@ export const FollowingScreen: React.FC = () => {
                 activeOpacity={0.8}>
                 <View style={styles.gradientRingWrapper}>
                   <Image
-                    source={require('../../assets/images/header_gradient.png')}
+                    source={accentTheme.assets.swatch}
                     style={StyleSheet.absoluteFill}
                     resizeMode="cover"
                   />
@@ -764,6 +764,7 @@ export const FollowingScreen: React.FC = () => {
       sources.length,
       categoryCounts,
       prioritySources,
+      accentTheme,
       filteredSources.length,
       handleChannelPress,
     ]

@@ -1,8 +1,11 @@
 import { StyleSheet, Platform } from 'react-native';
 import { ThemeColors } from '../../theme/colors';
 
-export const createSummaryDetailStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+export const createSummaryDetailStyles = (colors: ThemeColors, scale: number = 1.0) => {
+  const fs = (size: number) => Math.round(size * scale);
+  const lh = (lineHeight: number) => Math.round(lineHeight * scale);
+
+  return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.background,
@@ -14,7 +17,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
       borderBottomRightRadius: 28,
       paddingHorizontal: 18,
       paddingBottom: 22,
-      shadowColor: '#6D28D9',
+      shadowColor: colors.primary,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.35,
       shadowRadius: 14,
@@ -42,6 +45,24 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
       fontSize: 14,
       fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    headerScaleButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.22)',
+      borderWidth: 1.2,
+      borderColor: 'rgba(255, 255, 255, 0.35)',
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 18,
+      minWidth: 72,
+      justifyContent: 'center',
+    },
+    headerScaleText: {
+      fontSize: 13,
+      fontFamily: 'PlusJakartaSans-Bold',
+      fontWeight: '800',
       color: '#FFFFFF',
     },
     topHeaderTitle: {
@@ -102,10 +123,10 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
 
     // Title & Channel Header
     title: {
-      fontSize: 21,
+      fontSize: fs(21),
       fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
-      lineHeight: 28,
+      lineHeight: lh(28),
       letterSpacing: -0.4,
       color: colors.textPrimary,
     },
@@ -122,7 +143,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
       gap: 6,
     },
     channelName: {
-      fontSize: 14,
+      fontSize: fs(14),
       fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.primary,
@@ -247,7 +268,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
       gap: 8,
     },
     heroTitle: {
-      fontSize: 16,
+      fontSize: fs(16),
       fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       letterSpacing: -0.2,
@@ -268,8 +289,8 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
       letterSpacing: 0.5,
     },
     heroBodyText: {
-      fontSize: 15.5,
-      lineHeight: 25,
+      fontSize: fs(15.5),
+      lineHeight: lh(25),
       letterSpacing: 0.2,
       color: colors.textPrimary,
       fontFamily: Platform.select({ ios: 'System', android: 'sans-serif' }),
@@ -294,15 +315,15 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
       marginBottom: 14,
     },
     sectionHeading: {
-      fontSize: 16,
+      fontSize: fs(16),
       fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       letterSpacing: -0.2,
       color: colors.textPrimary,
     },
     bodyText: {
-      fontSize: 15,
-      lineHeight: 24,
+      fontSize: fs(15),
+      lineHeight: lh(24),
       letterSpacing: 0.15,
       color: colors.textPrimary,
       fontFamily: Platform.select({ ios: 'System', android: 'sans-serif' }),
@@ -337,8 +358,8 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
     },
     takeawayText: {
       flex: 1,
-      fontSize: 14.5,
-      lineHeight: 22,
+      fontSize: fs(14.5),
+      lineHeight: lh(22),
       letterSpacing: 0.1,
       color: colors.textPrimary,
     },
@@ -353,14 +374,14 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
       marginBottom: 10,
     },
     conceptTitle: {
-      fontSize: 14.5,
+      fontSize: fs(14.5),
       fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.primary,
     },
     conceptExplanation: {
-      fontSize: 13.5,
-      lineHeight: 20,
+      fontSize: fs(13.5),
+      lineHeight: lh(20),
       marginTop: 4,
       color: colors.textSecondary,
     },
@@ -479,7 +500,7 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
       width: '100%',
       height: 52,
       borderRadius: 26,
-      shadowColor: '#7C3AED',
+      shadowColor: colors.primary,
       shadowOffset: { width: 0, height: 5 },
       shadowOpacity: 0.45,
       shadowRadius: 12,
@@ -529,3 +550,4 @@ export const createSummaryDetailStyles = (colors: ThemeColors) =>
       color: colors.textMuted,
     },
   });
+};

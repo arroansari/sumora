@@ -5,13 +5,12 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
-  Image,
   ActivityIndicator,
   View,
   StyleProp,
+  Image,
 } from 'react-native';
-
-const buttonGradientSource = require('../../assets/images/button_gradient.png');
+import { useAppTheme } from '../../context/ThemeContext';
 
 interface GradientButtonProps {
   title: string;
@@ -34,6 +33,7 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
   icon,
   activeOpacity = 0.8,
 }) => {
+  const { accentTheme } = useAppTheme();
   const flattenedStyle = StyleSheet.flatten([styles.container, style]) || {};
   const radius =
     typeof flattenedStyle.borderRadius === 'number' ? flattenedStyle.borderRadius : 21;
@@ -43,8 +43,15 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
       activeOpacity={activeOpacity}
       onPress={onPress}
       disabled={disabled || loading}
-      style={[styles.container, style]}>
-      {/* Dedicated clipping container so iOS clips the gradient to border radius without clipping outer shadows */}
+      style={[
+        styles.container,
+        {
+          backgroundColor: accentTheme.primary,
+          shadowColor: accentTheme.primaryDark,
+        },
+        style,
+      ]}>
+      {/* 3-stop hardware-accelerated linear gradient asset */}
       <View
         style={[
           StyleSheet.absoluteFill,
@@ -55,8 +62,8 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
         ]}
         pointerEvents="none">
         <Image
-          source={buttonGradientSource}
-          style={{ width: '100%', height: '100%' }}
+          source={accentTheme.assets.button}
+          style={styles.fillImage}
           resizeMode="cover"
         />
       </View>
@@ -79,11 +86,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
-    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.38,
     shadowRadius: 8,
     elevation: 5,
+    position: 'relative',
+  },
+  fillImage: {
+    width: '100%',
+    height: '100%',
   },
   text: {
     color: '#FFFFFF',

@@ -97,8 +97,8 @@ export const lightColors = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DARK THEME — Option 1: Dark Premium Editorial (Exact match to prototype screenshot)
-// Pitch noir base, radiant purple/violet CTAs, smoky glass cards with white-to-black radiant borders
+// DARK THEME — Option 1: Dark Premium Editorial
+// Pitch noir base, radiant purple/violet CTAs, smoky glass cards
 // ─────────────────────────────────────────────────────────────────────────────
 export const darkColors = {
   // Foundations: Pitch noir charcoal
@@ -107,17 +107,17 @@ export const darkColors = {
   surfaceSubtle: '#1E1F26',
   surfaceHighlight: '#282932',
 
-  // Text: Luminous soft off-white (toned down to eliminate eye glare in dark mode)
+  // Text: Luminous soft off-white
   textPrimary: '#E2E4EB',
   textSecondary: '#9496A1',
   textMuted: '#646672',
 
-  // Brand: Vibrant Radiant Purple / Violet from the screenshot (NO YELLOW CTAs!)
-  primary: '#8B5CF6',       // Vibrant violet for all primary CTAs
-  primaryDark: '#7C3AED',   // Pressed / deep violet
-  primaryLight: '#A78BFA',  // Soft violet tint
-  secondary: '#C084FC',     // Accent fuchsia / lavender
-  accent: '#A855F7',        // Highlights / sparkles
+  // Brand: Vibrant Radiant Purple
+  primary: '#8B5CF6',
+  primaryDark: '#7C3AED',
+  primaryLight: '#A78BFA',
+  secondary: '#C084FC',
+  accent: '#A855F7',
 
   // UI: Radiant borders with white highlight on top
   border: 'rgba(255, 255, 255, 0.12)',
@@ -148,3 +148,50 @@ export const darkColors = {
 
 export type ThemeColors = typeof lightColors;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// THEME-AWARE COLOR FACTORY
+// Merges the active AppThemeOption luxury tokens into the base palette so
+// every component that calls useAppTheme().colors gets the right luxury ambiance.
+// ─────────────────────────────────────────────────────────────────────────────
+import type { AppThemeOption } from './appThemes';
+
+export function buildLightColors(theme: AppThemeOption): ThemeColors {
+  return {
+    ...lightColors,
+    background: theme.lightBackground || lightColors.background,
+    surfaceSubtle: theme.lightSurfaceSubtle || lightColors.surfaceSubtle,
+    border: theme.lightBorder || lightColors.border,
+    primary: theme.primaryDark, // rich, high-contrast primary for light mode
+    primaryDark: theme.primaryDark,
+    primaryLight: theme.primaryLight,
+    secondary: theme.secondary,
+    accent: theme.accent,
+    tint: theme.primaryDark,
+    badgeBg: theme.badgeBg,
+    badgeText: theme.badgeText,
+    gradientStart: theme.gradientStart,
+    gradientEnd: theme.gradientEnd,
+  };
+}
+
+export function buildDarkColors(theme: AppThemeOption): ThemeColors {
+  return {
+    ...darkColors,
+    background: theme.darkBackground || darkColors.background,
+    surface: theme.darkSurface || darkColors.surface,
+    surfaceSubtle: theme.darkSurfaceSubtle || darkColors.surfaceSubtle,
+    card: theme.darkSurface || darkColors.card,
+    border: theme.darkBorder || darkColors.border,
+    tabBar: theme.darkBackground || darkColors.tabBar,
+    primary: theme.primary,
+    primaryDark: theme.primaryDark,
+    primaryLight: theme.primaryLight,
+    secondary: theme.secondary,
+    accent: theme.accent,
+    tint: theme.primary,
+    badgeBg: theme.badgeBg,
+    badgeText: '#FFFFFF',
+    gradientStart: theme.gradientStart,
+    gradientEnd: theme.gradientEnd,
+  };
+}

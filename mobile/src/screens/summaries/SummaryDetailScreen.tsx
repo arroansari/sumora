@@ -20,7 +20,7 @@ import { VideoItem, VideoSummary, SummaryStatus } from '../../types/models.types
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation.types';
 import { createSummaryDetailStyles } from './SummaryDetailScreen.styles';
-import { GradientButton } from '../../components/atoms';
+import { GradientButton, TextScaleScrollbar } from '../../components/atoms';
 
 const READ_VIDEOS_KEY = 'sumora:read_video_ids';
 
@@ -30,19 +30,20 @@ type ViewMode = 'highlights' | 'deepdive';
 
 export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { videoId, videoTitle } = route.params;
-  const { colors } = useAppTheme();
+  const { colors, accentTheme, textScale, setTextScale, resetTextScale } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const styles = useMemo(() => createSummaryDetailStyles(colors), [colors]);
+  const styles = useMemo(() => createSummaryDetailStyles(colors, textScale), [colors, textScale]);
 
   const [video, setVideo] = useState<VideoItem | null>(null);
   const [summary, setSummary] = useState<VideoSummary | null>(null);
   const [status, setStatus] = useState<SummaryStatus>('pending');
   const [statusMessage, setStatusMessage] = useState<string>('Distilling video summary…');
   const [loading, setLoading] = useState<boolean>(true);
-  const [generating, setGenerating] = useState<boolean>(false);
+  const [, setGenerating] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<ViewMode>('highlights');
   const [copied, setCopied] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
+  const [isScaleVisible, setIsScaleVisible] = useState<boolean>(false);
 
   useEffect(() => {
     async function checkCompleted() {
@@ -78,7 +79,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               }
               setIsCompleted(true);
               navigation.goBack();
-            } catch (err) {
+            } catch {
               navigation.goBack();
             }
           },
@@ -240,10 +241,17 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* ── Curved Gradient Top Header Banner (Matching attached Prototype) ── */}
-      <View style={[styles.topHeaderGradient, { paddingTop: insets.top + 8 }]}>
+      {/* ── Curved Dynamic Gradient Top Header Banner ── */}
+      <View
+        style={[
+          styles.topHeaderGradient,
+          {
+            paddingTop: insets.top + 8,
+            shadowColor: accentTheme.primaryDark,
+          },
+        ]}>
         <Image
-          source={require('../../assets/images/header_gradient.png')}
+          source={accentTheme.assets.header}
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />
@@ -255,7 +263,14 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.backButtonText}>‹ Back</Text>
           </TouchableOpacity>
           <Text style={styles.topHeaderTitle}>Summary</Text>
-          <View style={{ width: 72 }} />
+          <TouchableOpacity
+            style={styles.headerScaleButton}
+            onPress={() => setIsScaleVisible((prev) => !prev)}
+            activeOpacity={0.75}>
+            <Text allowFontScaling={false} style={styles.headerScaleText}>
+              Aa {Math.round(textScale * 100)}%
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -280,7 +295,9 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           {/* 2. Video Title */}
-          <Text style={styles.title}>{video?.title || videoTitle || 'Video Summary'}</Text>
+          <Text style={styles.title}>
+            {video?.title || videoTitle || 'Video Summary'}
+          </Text>
 
           {/* 3. Channel Name & Metadata */}
           <View style={styles.metaRow}>
@@ -377,7 +394,9 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                       <Text style={styles.heroBadgeText}>TL;DR</Text>
                     </View>
                   </View>
-                  <Text style={styles.heroBodyText}>{summary.overview}</Text>
+                  <Text style={styles.heroBodyText}>
+                    {summary.overview}
+                  </Text>
                 </View>
 
                 {/* 2. Key Takeaways */}
@@ -394,7 +413,9 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                               {index < 9 ? `0${index + 1}` : `${index + 1}`}
                             </Text>
                           </View>
-                          <Text style={styles.takeawayText}>{point}</Text>
+                          <Text style={styles.takeawayText}>
+                            {point}
+                          </Text>
                         </View>
                       ))}
                     </View>
@@ -433,7 +454,9 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     <View style={styles.sectionHeadingRow}>
                       <Text style={styles.sectionHeading}>📝 Detailed Story</Text>
                     </View>
-                    <Text style={styles.bodyText}>{summary.detailedSummary}</Text>
+                    <Text style={styles.bodyText}>
+                      {summary.detailedSummary}
+                    </Text>
                   </View>
                 )}
 
@@ -443,7 +466,9 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     <View style={styles.sectionHeadingRow}>
                       <Text style={styles.sectionHeading}>🏁 Final Verdict</Text>
                     </View>
-                    <Text style={styles.bodyText}>{summary.conclusion}</Text>
+                    <Text style={styles.bodyText}>
+                      {summary.conclusion}
+                    </Text>
                   </View>
                 )}
 
@@ -533,6 +558,19 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
       </View>
     </ScrollView>
+
+    {/* ── Dynamic Luxury Text Scaling Scrollbar Dropdown ── */}
+    <TextScaleScrollbar
+      textScale={textScale}
+      onChangeScale={setTextScale}
+      onResetScale={resetTextScale}
+      accentTheme={accentTheme}
+      colors={colors}
+      expanded={isScaleVisible}
+      onClose={() => setIsScaleVisible(false)}
+      showFloatingTrigger={false}
+      style={{ top: insets.top + 70, right: 18 }}
+    />
   </View>
   );
 };

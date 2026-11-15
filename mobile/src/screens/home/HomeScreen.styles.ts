@@ -128,7 +128,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     filterTabActive: {
       backgroundColor: colors.primary,
       borderColor: colors.primary,
-      shadowColor: '#4F46E5',
+      shadowColor: colors.primary,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.3,
       shadowRadius: 6,
@@ -302,7 +302,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
       alignItems: 'center',
       borderWidth: 1.5,
       borderColor: colors.border,
-      shadowColor: '#4F46E5',
+      shadowColor: colors.primary,
       shadowOffset: { width: 0, height: 10 },
       shadowOpacity: 0.35,
       shadowRadius: 20,
@@ -446,7 +446,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
       gap: 6,
     },
     statusBadgeShadowWrapper: {
-      shadowColor: '#6D28D9',
+      shadowColor: colors.primary,
       shadowOffset: { width: 0, height: 3 },
       shadowOpacity: 0.45,
       shadowRadius: 6,

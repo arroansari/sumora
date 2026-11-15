@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { EdgeInsets } from 'react-native-safe-area-context';
+import { useAppTheme } from '../../../context/ThemeContext';
 import { createHomeStyles } from '../HomeScreen.styles';
 
 export interface HomeHeaderProps {
@@ -11,13 +12,17 @@ export interface HomeHeaderProps {
 
 export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
   ({ insets, styles, onSummarizePress }) => {
+    const { accentTheme } = useAppTheme();
+
     return (
       <View style={[styles.headerGradientWrapper, { paddingTop: insets.top + 6 }]}>
+        {/* Real 3-stop diagonal gradient from active theme asset */}
         <Image
-          source={require('../../../assets/images/header_gradient.png')}
+          source={accentTheme.assets.header}
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />
+
         <View style={styles.headerContent}>
           <View style={styles.headerLeftCol}>
             <Text style={styles.headerTitle}>Video Activity Feed</Text>
@@ -34,7 +39,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
               style={[StyleSheet.absoluteFill, styles.headerSummarizeInnerClip]}
               pointerEvents="none">
               <Image
-                source={require('../../../assets/images/button_gradient.png')}
+                source={accentTheme.assets.button}
                 style={styles.fullSizeImage}
                 resizeMode="cover"
               />
@@ -47,4 +52,3 @@ export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
     );
   }
 );
-
