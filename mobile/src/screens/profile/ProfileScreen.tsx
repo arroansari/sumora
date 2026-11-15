@@ -8,9 +8,30 @@ import { ThemeSwatchPicker } from '../../components/atoms/ThemeSwatchPicker';
 import { createProfileStyles } from './ProfileScreen.styles';
 
 export const ProfileScreen: React.FC = () => {
-  const { colors, isDark, toggleTheme, accentThemeId, setAccentTheme, allThemes } = useAppTheme();
+  const {
+    colors,
+    isDark,
+    toggleTheme,
+    accentTheme,
+    accentThemeId,
+    setAccentTheme,
+    allThemes,
+    textScale,
+    setTextScale,
+    resetTextScale,
+  } = useAppTheme();
   const { user, logout } = useAuth();
   const styles = useMemo(() => createProfileStyles(colors), [colors]);
+
+  const percentage = Math.round(textScale * 100);
+
+  const presets = [
+    { label: '85%', value: 0.85 },
+    { label: '100%', value: 1.0 },
+    { label: '115%', value: 1.15 },
+    { label: '130%', value: 1.3 },
+    { label: '140%', value: 1.4 },
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -75,6 +96,109 @@ export const ProfileScreen: React.FC = () => {
             onSelectTheme={setAccentTheme}
             colors={colors}
           />
+        </Card>
+
+        {/* ── Reading Typography & Text Scaling ── */}
+        <Card>
+          <View style={styles.textScaleHeaderRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionTitle}>Reading Typography Size</Text>
+              <Text style={styles.prefHint}>
+                Scales summaries up or down for high visual comfort.
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.textScaleBadge,
+                { backgroundColor: accentTheme.badgeBg },
+              ]}>
+              <Text
+                style={[
+                  styles.textScaleBadgeText,
+                  { color: accentTheme.badgeText },
+                ]}>
+                {percentage}%
+              </Text>
+            </View>
+          </View>
+
+          {/* Stepped Preset Pills */}
+          <View style={styles.presetRow}>
+            {presets.map((preset) => {
+              const active = Math.abs(textScale - preset.value) < 0.03;
+              return (
+                <TouchableOpacity
+                  key={preset.label}
+                  style={[
+                    styles.presetPill,
+                    active && [
+                      styles.presetPillActive,
+                      {
+                        borderColor: accentTheme.primary,
+                        backgroundColor: accentTheme.badgeBg,
+                      },
+                    ],
+                  ]}
+                  onPress={() => setTextScale(preset.value)}
+                  activeOpacity={0.75}>
+                  <Text
+                    style={[
+                      styles.presetPillText,
+                      active && [
+                        styles.presetPillTextActive,
+                        { color: accentTheme.badgeText },
+                      ],
+                    ]}>
+                    {preset.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Live Dynamic Preview Card */}
+          <View
+            style={[
+              styles.textPreviewCard,
+              {
+                backgroundColor: colors.surfaceSubtle,
+                borderColor: colors.borderSubtle,
+              },
+            ]}>
+            <Text
+              style={{
+                fontSize: Math.round(15 * textScale),
+                lineHeight: Math.round(23 * textScale),
+                color: colors.textPrimary,
+                fontFamily: 'PlusJakartaSans-Medium',
+              }}>
+              Sumora distills complex video knowledge into concise, grounded takeaways designed for maximum visual retention and deep intellect.
+            </Text>
+          </View>
+
+          {/* Incremental Steppers */}
+          <View style={styles.stepperRow}>
+            <TouchableOpacity
+              style={styles.stepperBtn}
+              onPress={() => setTextScale((prev) => Math.max(0.8, Math.round((prev - 0.05) * 100) / 100))}
+              activeOpacity={0.75}>
+              <Text style={styles.stepperBtnText}>A- Smaller</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.stepperBtn, { backgroundColor: accentTheme.badgeBg, borderColor: accentTheme.badgeBg }]}
+              onPress={resetTextScale}
+              activeOpacity={0.75}>
+              <Text style={[styles.stepperBtnText, { color: accentTheme.badgeText }]}>100% Reset</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.stepperBtn}
+              onPress={() => setTextScale((prev) => Math.min(1.4, Math.round((prev + 0.05) * 100) / 100))}
+              activeOpacity={0.75}>
+              <Text style={styles.stepperBtnText}>A+ Larger</Text>
+            </TouchableOpacity>
+          </View>
         </Card>
 
         {/* ── Summarization Info Card ── */}

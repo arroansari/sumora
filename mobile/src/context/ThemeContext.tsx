@@ -12,6 +12,11 @@ import {
 
 const THEME_STORAGE_KEY = 'sumora:theme_mode';
 const ACCENT_THEME_KEY = 'sumora:accent_theme_id';
+const TEXT_SCALE_KEY = 'sumora:reader_text_scale';
+
+export const MIN_TEXT_SCALE = 0.8;
+export const MAX_TEXT_SCALE = 1.4;
+export const DEFAULT_TEXT_SCALE = 1.0;
 
 interface ThemeContextType {
   isDark: boolean;
@@ -23,6 +28,10 @@ interface ThemeContextType {
   accentThemeId: AppThemeId;
   setAccentTheme: (id: AppThemeId) => void;
   allThemes: AppThemeOption[];
+  // Reader Typography Scaling
+  textScale: number;
+  setTextScale: (scale: number | ((prev: number) => number)) => void;
+  resetTextScale: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
@@ -34,20 +43,25 @@ const ThemeContext = createContext<ThemeContextType>({
   accentThemeId: DEFAULT_THEME_ID,
   setAccentTheme: () => {},
   allThemes: APP_THEMES,
+  textScale: DEFAULT_TEXT_SCALE,
+  setTextScale: () => {},
+  resetTextScale: () => {},
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const systemScheme = useColorScheme();
   const [themeMode, setThemeModeState] = useState<'light' | 'dark' | 'system'>('light');
   const [accentThemeId, setAccentThemeIdState] = useState<AppThemeId>(DEFAULT_THEME_ID);
+  const [textScale, setTextScaleState] = useState<number>(DEFAULT_TEXT_SCALE);
 
   // Load persisted preferences on mount
   useEffect(() => {
     Promise.all([
       AsyncStorage.getItem(THEME_STORAGE_KEY),
       AsyncStorage.getItem(ACCENT_THEME_KEY),
+      AsyncStorage.getItem(TEXT_SCALE_KEY),
     ])
-      .then(([storedMode, storedAccent]) => {
+      .then(([storedMode, storedAccent, storedScale]) => {
         if (storedMode === 'light' || storedMode === 'dark') {
           setThemeModeState(storedMode);
         } else {
@@ -56,6 +70,12 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const validAccent = APP_THEMES.find((t) => t.id === storedAccent);
         if (validAccent) {
           setAccentThemeIdState(validAccent.id);
+        }
+        if (storedScale) {
+          const parsed = parseFloat(storedScale);
+          if (!isNaN(parsed) && parsed >= MIN_TEXT_SCALE && parsed <= MAX_TEXT_SCALE) {
+            setTextScaleState(Math.round(parsed * 100) / 100);
+          }
         }
       })
       .catch(() => {});
@@ -69,6 +89,20 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setAccentTheme = useCallback((id: AppThemeId) => {
     setAccentThemeIdState(id);
     AsyncStorage.setItem(ACCENT_THEME_KEY, id).catch(() => {});
+  }, []);
+
+  const setTextScale = useCallback((action: number | ((prev: number) => number)) => {
+    setTextScaleState((prev) => {
+      const nextRaw = typeof action === 'function' ? action(prev) : action;
+      const clamped = Math.max(MIN_TEXT_SCALE, Math.min(MAX_TEXT_SCALE, Math.round(nextRaw * 100) / 100));
+      AsyncStorage.setItem(TEXT_SCALE_KEY, clamped.toString()).catch(() => {});
+      return clamped;
+    });
+  }, []);
+
+  const resetTextScale = useCallback(() => {
+    setTextScaleState(DEFAULT_TEXT_SCALE);
+    AsyncStorage.setItem(TEXT_SCALE_KEY, DEFAULT_TEXT_SCALE.toString()).catch(() => {});
   }, []);
 
   const isDark = useMemo(() => {
@@ -100,8 +134,22 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       accentThemeId,
       setAccentTheme,
       allThemes: APP_THEMES,
+      textScale,
+      setTextScale,
+      resetTextScale,
     }),
-    [isDark, colors, toggleTheme, setThemeMode, accentTheme, accentThemeId, setAccentTheme]
+    [
+      isDark,
+      colors,
+      toggleTheme,
+      setThemeMode,
+      accentTheme,
+      accentThemeId,
+      setAccentTheme,
+      textScale,
+      setTextScale,
+      resetTextScale,
+    ]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

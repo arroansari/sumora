@@ -20,7 +20,7 @@ import { VideoItem, VideoSummary, SummaryStatus } from '../../types/models.types
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation.types';
 import { createSummaryDetailStyles } from './SummaryDetailScreen.styles';
-import { GradientButton } from '../../components/atoms';
+import { GradientButton, TextScaleScrollbar } from '../../components/atoms';
 
 const READ_VIDEOS_KEY = 'sumora:read_video_ids';
 
@@ -30,7 +30,7 @@ type ViewMode = 'highlights' | 'deepdive';
 
 export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { videoId, videoTitle } = route.params;
-  const { colors, accentTheme } = useAppTheme();
+  const { colors, accentTheme, textScale, setTextScale, resetTextScale } = useAppTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createSummaryDetailStyles(colors), [colors]);
 
@@ -39,7 +39,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [status, setStatus] = useState<SummaryStatus>('pending');
   const [statusMessage, setStatusMessage] = useState<string>('Distilling video summary…');
   const [loading, setLoading] = useState<boolean>(true);
-  const [generating, setGenerating] = useState<boolean>(false);
+  const [, setGenerating] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<ViewMode>('highlights');
   const [copied, setCopied] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
@@ -78,7 +78,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               }
               setIsCompleted(true);
               navigation.goBack();
-            } catch (err) {
+            } catch {
               navigation.goBack();
             }
           },
@@ -266,6 +266,16 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
       </View>
 
+      {/* ── Floating Dynamic Luxury Text Scaling Scrollbar ── */}
+      <TextScaleScrollbar
+        textScale={textScale}
+        onChangeScale={setTextScale}
+        onResetScale={resetTextScale}
+        accentTheme={accentTheme}
+        colors={colors}
+        style={{ top: insets.top + 64 }}
+      />
+
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           {/* 1. FastImage Video Thumbnail */}
@@ -287,7 +297,16 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           {/* 2. Video Title */}
-          <Text style={styles.title}>{video?.title || videoTitle || 'Video Summary'}</Text>
+          <Text
+            style={[
+              styles.title,
+              {
+                fontSize: Math.round(21 * textScale),
+                lineHeight: Math.round(27 * textScale),
+              },
+            ]}>
+            {video?.title || videoTitle || 'Video Summary'}
+          </Text>
 
           {/* 3. Channel Name & Metadata */}
           <View style={styles.metaRow}>
@@ -384,7 +403,16 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                       <Text style={styles.heroBadgeText}>TL;DR</Text>
                     </View>
                   </View>
-                  <Text style={styles.heroBodyText}>{summary.overview}</Text>
+                  <Text
+                    style={[
+                      styles.heroBodyText,
+                      {
+                        fontSize: Math.round(15.5 * textScale),
+                        lineHeight: Math.round(24 * textScale),
+                      },
+                    ]}>
+                    {summary.overview}
+                  </Text>
                 </View>
 
                 {/* 2. Key Takeaways */}
@@ -401,7 +429,16 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                               {index < 9 ? `0${index + 1}` : `${index + 1}`}
                             </Text>
                           </View>
-                          <Text style={styles.takeawayText}>{point}</Text>
+                          <Text
+                            style={[
+                              styles.takeawayText,
+                              {
+                                fontSize: Math.round(15 * textScale),
+                                lineHeight: Math.round(22 * textScale),
+                              },
+                            ]}>
+                            {point}
+                          </Text>
                         </View>
                       ))}
                     </View>
@@ -416,11 +453,25 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     </View>
                     {summary.importantConcepts.map((item, index) => (
                       <View key={index} style={styles.conceptItem}>
-                        <Text style={styles.conceptTitle}>
+                        <Text
+                          style={[
+                            styles.conceptTitle,
+                            {
+                              fontSize: Math.round(14.5 * textScale),
+                              lineHeight: Math.round(20 * textScale),
+                            },
+                          ]}>
                           {item.concept || String(item)}
                         </Text>
                         {item.explanation && (
-                          <Text style={styles.conceptExplanation}>
+                          <Text
+                            style={[
+                              styles.conceptExplanation,
+                              {
+                                fontSize: Math.round(13.5 * textScale),
+                                lineHeight: Math.round(21 * textScale),
+                              },
+                            ]}>
                             {item.explanation}
                           </Text>
                         )}
@@ -440,7 +491,16 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     <View style={styles.sectionHeadingRow}>
                       <Text style={styles.sectionHeading}>📝 Detailed Story</Text>
                     </View>
-                    <Text style={styles.bodyText}>{summary.detailedSummary}</Text>
+                    <Text
+                      style={[
+                        styles.bodyText,
+                        {
+                          fontSize: Math.round(14.5 * textScale),
+                          lineHeight: Math.round(23 * textScale),
+                        },
+                      ]}>
+                      {summary.detailedSummary}
+                    </Text>
                   </View>
                 )}
 
@@ -450,7 +510,16 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     <View style={styles.sectionHeadingRow}>
                       <Text style={styles.sectionHeading}>🏁 Final Verdict</Text>
                     </View>
-                    <Text style={styles.bodyText}>{summary.conclusion}</Text>
+                    <Text
+                      style={[
+                        styles.bodyText,
+                        {
+                          fontSize: Math.round(14.5 * textScale),
+                          lineHeight: Math.round(23 * textScale),
+                        },
+                      ]}>
+                      {summary.conclusion}
+                    </Text>
                   </View>
                 )}
 

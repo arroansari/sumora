@@ -5,4 +5,5 @@ export * from './SearchBar';
 export * from './FilterPills';
 export * from './GradientButton';
 export * from './ThemeSwatchPicker';
+export * from './TextScaleScrollbar';
 
