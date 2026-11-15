@@ -10,12 +10,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
+import { usePlatform } from '../../context/PlatformContext';
 import { integrationsApi } from '../../services/api';
 import { ConnectedAccount } from '../../types/models.types';
 import { createConnectedAccountsStyles } from './ConnectedAccountsScreen.styles';
 
 export const ConnectedAccountsScreen: React.FC<any> = ({ navigation }) => {
   const { colors } = useAppTheme();
+  const { activePlatform } = usePlatform();
   const styles = useMemo(() => createConnectedAccountsStyles(colors), [colors]);
 
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
@@ -189,86 +191,175 @@ export const ConnectedAccountsScreen: React.FC<any> = ({ navigation }) => {
             </View>
           ) : null}
 
-          <Text style={styles.sectionTitle}>Primary Platform</Text>
+          <Text style={styles.sectionTitle}>
+            {activePlatform === 'REDDIT' ? 'Active Platform: Reddit' : 'Primary Platform: YouTube'}
+          </Text>
 
-          <View style={styles.platformCard}>
-            <View style={styles.platformRow}>
-              <View style={[styles.iconCircle, { backgroundColor: '#FF000018' }]}>
-                {/* YouTube wordmark approximation using text */}
-                <Text style={{ fontSize: 20, color: '#FF0000', fontWeight: '900', letterSpacing: -1 }}>▶</Text>
-              </View>
-              <View style={styles.platformInfo}>
-                <Text style={styles.platformName}>YouTube</Text>
-                <Text style={styles.platformDesc}>
-                  {isYouTubeConnected
-                    ? `Connected · ${youtubeAccount?.platformUserId || 'Google Account'}`
-                    : loading
-                    ? 'Checking connection status…'
-                    : 'Sync subscriptions and generate summaries for new uploads'}
-                </Text>
-              </View>
-            </View>
+          {activePlatform === 'REDDIT' ? (
+            <>
+              {/* ── Active Reddit Integration Card ── */}
+              <View style={styles.platformCard}>
+                <View style={styles.platformRow}>
+                  <View style={[styles.iconCircle, { backgroundColor: '#FF4500' }]}>
+                    <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: '900' }}>r/</Text>
+                  </View>
+                  <View style={styles.platformInfo}>
+                    <Text style={styles.platformName}>Reddit Discussions</Text>
+                    <Text style={styles.platformDesc}>
+                      Track top community debates from followed subreddits & auto-distill consensus
+                    </Text>
+                  </View>
+                </View>
 
-            {loading ? (
-              <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} />
-            ) : isYouTubeConnected ? (
-              <View>
                 <TouchableOpacity
-                  style={styles.syncButton}
-                  onPress={handleSyncYouTube}
-                  disabled={syncing}>
-                  {syncing ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                      <Text style={styles.syncButtonText}>Syncing Subscriptions…</Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.syncButtonText}>↻ Sync Subscriptions</Text>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.disconnectButton}
-                  onPress={() => youtubeAccount && handleDisconnect(youtubeAccount.id, 'YouTube')}>
-                  <Text style={styles.disconnectButtonText}>Disconnect Account</Text>
+                  style={[styles.connectButton, { backgroundColor: '#FF4500', marginTop: 12 }]}
+                  onPress={() => navigation?.navigate('Following')}>
+                  <Text style={styles.connectButtonText}>Manage & Track Subreddits</Text>
                 </TouchableOpacity>
               </View>
-            ) : (
-              <TouchableOpacity
-                style={styles.connectButton}
-                onPress={handleConnectYouTube}
-                disabled={connecting}>
-                {connecting ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                    <Text style={styles.connectButtonText}>Opening Google…</Text>
+
+              <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Secondary Platforms</Text>
+
+              {/* YouTube Card */}
+              <View style={styles.platformCard}>
+                <View style={styles.platformRow}>
+                  <View style={[styles.iconCircle, { backgroundColor: '#FF000018' }]}>
+                    <Text style={{ fontSize: 20, color: '#FF0000', fontWeight: '900', letterSpacing: -1 }}>▶</Text>
+                  </View>
+                  <View style={styles.platformInfo}>
+                    <Text style={styles.platformName}>YouTube</Text>
+                    <Text style={styles.platformDesc}>
+                      {isYouTubeConnected
+                        ? `Connected · ${youtubeAccount?.platformUserId || 'Google Account'}`
+                        : loading
+                        ? 'Checking connection status…'
+                        : 'Sync subscriptions and generate summaries for new uploads'}
+                    </Text>
+                  </View>
+                </View>
+
+                {loading ? (
+                  <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} />
+                ) : isYouTubeConnected ? (
+                  <View>
+                    <TouchableOpacity
+                      style={styles.syncButton}
+                      onPress={handleSyncYouTube}
+                      disabled={syncing}>
+                      {syncing ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <ActivityIndicator color="#FFFFFF" size="small" />
+                          <Text style={styles.syncButtonText}>Syncing Subscriptions…</Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.syncButtonText}>↻ Sync Subscriptions</Text>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.disconnectButton}
+                      onPress={() => youtubeAccount && handleDisconnect(youtubeAccount.id, 'YouTube')}>
+                      <Text style={styles.disconnectButtonText}>Disconnect Account</Text>
+                    </TouchableOpacity>
                   </View>
                 ) : (
-                  <Text style={styles.connectButtonText}>Connect with Google</Text>
+                  <TouchableOpacity
+                    style={styles.connectButton}
+                    onPress={handleConnectYouTube}
+                    disabled={connecting}>
+                    {connecting ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                        <Text style={styles.connectButtonText}>Opening Google…</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.connectButtonText}>Connect with Google</Text>
+                    )}
+                  </TouchableOpacity>
                 )}
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* ── Active Reddit Integration Card ── */}
-          <View style={[styles.platformCard, { marginTop: 14 }]}>
-            <View style={styles.platformRow}>
-              <View style={[styles.iconCircle, { backgroundColor: '#FF4500' }]}>
-                <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: '900' }}>r/</Text>
               </View>
-              <View style={styles.platformInfo}>
-                <Text style={styles.platformName}>Reddit Discussions</Text>
-                <Text style={styles.platformDesc}>
-                  Track top community debates from followed subreddits & auto-distill consensus
-                </Text>
-              </View>
-            </View>
+            </>
+          ) : (
+            <>
+              {/* YouTube Card */}
+              <View style={styles.platformCard}>
+                <View style={styles.platformRow}>
+                  <View style={[styles.iconCircle, { backgroundColor: '#FF000018' }]}>
+                    <Text style={{ fontSize: 20, color: '#FF0000', fontWeight: '900', letterSpacing: -1 }}>▶</Text>
+                  </View>
+                  <View style={styles.platformInfo}>
+                    <Text style={styles.platformName}>YouTube</Text>
+                    <Text style={styles.platformDesc}>
+                      {isYouTubeConnected
+                        ? `Connected · ${youtubeAccount?.platformUserId || 'Google Account'}`
+                        : loading
+                        ? 'Checking connection status…'
+                        : 'Sync subscriptions and generate summaries for new uploads'}
+                    </Text>
+                  </View>
+                </View>
 
-            <TouchableOpacity
-              style={[styles.connectButton, { backgroundColor: '#FF4500', marginTop: 12 }]}
-              onPress={() => navigation?.navigate('Following')}>
-              <Text style={styles.connectButtonText}>Manage & Track Subreddits</Text>
-            </TouchableOpacity>
-          </View>
+                {loading ? (
+                  <ActivityIndicator color={colors.primary} style={{ marginTop: 12 }} />
+                ) : isYouTubeConnected ? (
+                  <View>
+                    <TouchableOpacity
+                      style={styles.syncButton}
+                      onPress={handleSyncYouTube}
+                      disabled={syncing}>
+                      {syncing ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <ActivityIndicator color="#FFFFFF" size="small" />
+                          <Text style={styles.syncButtonText}>Syncing Subscriptions…</Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.syncButtonText}>↻ Sync Subscriptions</Text>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.disconnectButton}
+                      onPress={() => youtubeAccount && handleDisconnect(youtubeAccount.id, 'YouTube')}>
+                      <Text style={styles.disconnectButtonText}>Disconnect Account</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.connectButton}
+                    onPress={handleConnectYouTube}
+                    disabled={connecting}>
+                    {connecting ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                        <Text style={styles.connectButtonText}>Opening Google…</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.connectButtonText}>Connect with Google</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* ── Active Reddit Integration Card ── */}
+              <View style={[styles.platformCard, { marginTop: 14 }]}>
+                <View style={styles.platformRow}>
+                  <View style={[styles.iconCircle, { backgroundColor: '#FF4500' }]}>
+                    <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: '900' }}>r/</Text>
+                  </View>
+                  <View style={styles.platformInfo}>
+                    <Text style={styles.platformName}>Reddit Discussions</Text>
+                    <Text style={styles.platformDesc}>
+                      Track top community debates from followed subreddits & auto-distill consensus
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.connectButton, { backgroundColor: '#FF4500', marginTop: 12 }]}
+                  onPress={() => navigation?.navigate('Following')}>
+                  <Text style={styles.connectButtonText}>Manage & Track Subreddits</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
           {/* How it works section */}
           {!isYouTubeConnected && !loading ? (

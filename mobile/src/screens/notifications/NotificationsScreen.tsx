@@ -15,6 +15,7 @@ import FastImage from '@d11/react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
+import { usePlatform } from '../../context/PlatformContext';
 import { preferencesApi, sourcesApi, integrationsApi, redditApi } from '../../services/api';
 import { NotificationPreference, TrackedSource } from '../../types/models.types';
 import { SearchBar } from '../../components/atoms/SearchBar';
@@ -198,10 +199,11 @@ export const NotificationsScreen: React.FC = () => {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createNotificationsStyles(colors), [colors]);
 
+  const { activePlatform } = usePlatform();
+  const activeSegment = activePlatform === 'REDDIT' ? 'subreddits' : 'channels';
   const [preferences, setPreferences] = useState<NotificationPreference[]>([]);
   const [sources, setSources] = useState<TrackedSource[]>([]);
   const [subreddits, setSubreddits] = useState<TrackedSource[]>([]);
-  const [activeSegment, setActiveSegment] = useState<'channels' | 'subreddits'>('channels');
   const [mutedSubreddits, setMutedSubreddits] = useState<Record<string, boolean>>({});
   const [isYouTubeConnected, setIsYouTubeConnected] = useState<boolean>(false);
   const [syncing, setSyncing] = useState<boolean>(false);
@@ -452,106 +454,53 @@ export const NotificationsScreen: React.FC = () => {
   const listHeader = useMemo(
     () => (
       <View>
-        {/* Compact Master Global Toggle: YouTube */}
-        <View style={styles.masterCard}>
-          <View style={styles.masterLeft}>
-            <View style={styles.masterIconBadge}>
-              <Text style={styles.masterIconText}>▶</Text>
+        {activeSegment === 'channels' ? (
+          /* Compact Master Global Toggle: YouTube */
+          <View style={styles.masterCard}>
+            <View style={styles.masterLeft}>
+              <View style={styles.masterIconBadge}>
+                <Text style={styles.masterIconText}>▶</Text>
+              </View>
+              <View style={styles.masterTextGroup}>
+                <Text style={styles.masterTitle}>YouTube Video Alerts</Text>
+                <Text style={styles.masterSubtitle} numberOfLines={1}>
+                  {isYouTubeEnabled
+                    ? 'Push notifications enabled for new uploads'
+                    : 'All notifications paused'}
+                </Text>
+              </View>
             </View>
-            <View style={styles.masterTextGroup}>
-              <Text style={styles.masterTitle}>YouTube Video Alerts</Text>
-              <Text style={styles.masterSubtitle} numberOfLines={1}>
-                {isYouTubeEnabled
-                  ? 'Push notifications enabled for new uploads'
-                  : 'All notifications paused'}
-              </Text>
-            </View>
+            <Switch
+              value={isYouTubeEnabled}
+              onValueChange={handleToggleGlobalYouTube}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#FFFFFF"
+            />
           </View>
-          <Switch
-            value={isYouTubeEnabled}
-            onValueChange={handleToggleGlobalYouTube}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor="#FFFFFF"
-          />
-        </View>
-
-        {/* Master Global Toggle: Reddit */}
-        <View style={[styles.masterCard, { marginTop: 10 }]}>
-          <View style={styles.masterLeft}>
-            <View style={[styles.masterIconBadge, { backgroundColor: '#FF4500' }]}>
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '900' }}>r/</Text>
+        ) : (
+          /* Master Global Toggle: Reddit */
+          <View style={styles.masterCard}>
+            <View style={styles.masterLeft}>
+              <View style={[styles.masterIconBadge, { backgroundColor: '#FF4500' }]}>
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '900' }}>r/</Text>
+              </View>
+              <View style={styles.masterTextGroup}>
+                <Text style={styles.masterTitle}>Reddit Discussion Alerts</Text>
+                <Text style={styles.masterSubtitle} numberOfLines={1}>
+                  {isRedditEnabled
+                    ? 'Push alerts for top community debates'
+                    : 'All Reddit alerts paused'}
+                </Text>
+              </View>
             </View>
-            <View style={styles.masterTextGroup}>
-              <Text style={styles.masterTitle}>Reddit Discussion Alerts</Text>
-              <Text style={styles.masterSubtitle} numberOfLines={1}>
-                {isRedditEnabled
-                  ? 'Push alerts for top community debates'
-                  : 'All Reddit alerts paused'}
-              </Text>
-            </View>
+            <Switch
+              value={isRedditEnabled}
+              onValueChange={handleToggleGlobalReddit}
+              trackColor={{ false: colors.border, true: '#FF4500' }}
+              thumbColor="#FFFFFF"
+            />
           </View>
-          <Switch
-            value={isRedditEnabled}
-            onValueChange={handleToggleGlobalReddit}
-            trackColor={{ false: colors.border, true: '#FF4500' }}
-            thumbColor="#FFFFFF"
-          />
-        </View>
-
-        {/* Platform Notification Segment Switcher */}
-        <View
-          style={{
-            flexDirection: 'row',
-            backgroundColor: colors.surfaceSubtle,
-            borderRadius: 14,
-            padding: 3,
-            marginTop: 14,
-            marginBottom: 8,
-            borderWidth: 1.2,
-            borderColor: colors.border,
-          }}>
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              paddingVertical: 8,
-              borderRadius: 11,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: activeSegment === 'channels' ? colors.primary : 'transparent',
-            }}
-            onPress={() => setActiveSegment('channels')}
-            activeOpacity={0.8}>
-            <Text
-              style={{
-                fontSize: 13,
-                fontWeight: '800',
-                color: activeSegment === 'channels' ? '#FFFFFF' : colors.textSecondary,
-              }}>
-              ▶ Channels ({sources.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              paddingVertical: 8,
-              borderRadius: 11,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: activeSegment === 'subreddits' ? '#FF4500' : 'transparent',
-            }}
-            onPress={() => setActiveSegment('subreddits')}
-            activeOpacity={0.8}>
-            <Text
-              style={{
-                fontSize: 13,
-                fontWeight: '800',
-                color: activeSegment === 'subreddits' ? '#FFFFFF' : colors.textSecondary,
-              }}>
-              💬 Subreddits ({subreddits.length})
-            </Text>
-          </TouchableOpacity>
-        </View>
+        )}
 
         {/* Section Header */}
         <View style={styles.sectionHeaderRow}>
@@ -636,8 +585,6 @@ export const NotificationsScreen: React.FC = () => {
       subreddits.length,
       colors.border,
       colors.primary,
-      colors.surfaceSubtle,
-      colors.textSecondary,
       sources.length,
       searchQuery,
       filteredSources.length,
@@ -652,6 +599,19 @@ export const NotificationsScreen: React.FC = () => {
   );
 
   const listEmpty = useMemo(() => {
+    if (activeSegment === 'subreddits') {
+      if (subreddits.length === 0) {
+        return (
+          <View style={styles.card}>
+            <Text style={{ color: colors.textMuted, textAlign: 'center', padding: 8 }}>
+              No tracked subreddits yet. Follow subreddits in the Following tab to configure debate notifications.
+            </Text>
+          </View>
+        );
+      }
+      return undefined;
+    }
+
     if (sources.length === 0) {
       return (
         <View style={styles.card}>
@@ -696,7 +656,18 @@ export const NotificationsScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
     );
-  }, [sources.length, styles, colors.textMuted, searchQuery, muteFilter, isYouTubeConnected, syncing, handleSyncYouTube]);
+  }, [
+    activeSegment,
+    subreddits.length,
+    sources.length,
+    styles,
+    colors.textMuted,
+    searchQuery,
+    muteFilter,
+    isYouTubeConnected,
+    syncing,
+    handleSyncYouTube,
+  ]);
 
   if (loading) {
     return (
@@ -712,7 +683,9 @@ export const NotificationsScreen: React.FC = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Notification Settings</Text>
         <Text style={styles.headerSubtitle}>
-          Control push notification alerts for video summaries
+          {activeSegment === 'channels'
+            ? 'Control push notification alerts for video summaries'
+            : 'Control push notification alerts for Reddit debate discussions'}
         </Text>
       </View>
 

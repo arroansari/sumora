@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
+import { usePlatform } from '../../context/PlatformContext';
 import { videosApi, redditApi } from '../../services/api';
 import { VideoItem, RedditPostItem } from '../../types/models.types';
 import { createHomeStyles } from './HomeScreen.styles';
@@ -46,8 +47,8 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createHomeStyles(colors), [colors]);
 
-  // Dual Platform Horizon State
-  const [activePlatform, setActivePlatform] = useState<'YOUTUBE' | 'REDDIT'>('YOUTUBE');
+  // Dual Platform Horizon State (Synced Globally)
+  const { activePlatform, setActivePlatform } = usePlatform();
   const horizontalScrollRef = useRef<any>(null);
 
   // YouTube Feed State
@@ -171,14 +172,25 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     loadStoredData();
   }, [loadRedditFeed, loadStoredData]);
 
-  // Platform Horizon Switcher
-  const handlePlatformSwitch = useCallback((platform: 'YOUTUBE' | 'REDDIT') => {
-    setActivePlatform(platform);
+  // Sync horizontal scroll whenever activePlatform changes
+  useEffect(() => {
     horizontalScrollRef.current?.scrollTo({
-      x: platform === 'YOUTUBE' ? 0 : SCREEN_WIDTH,
-      animated: true,
+      x: activePlatform === 'YOUTUBE' ? 0 : SCREEN_WIDTH,
+      animated: false,
     });
-  }, []);
+  }, [activePlatform]);
+
+  // Platform Horizon Switcher
+  const handlePlatformSwitch = useCallback(
+    (platform: 'YOUTUBE' | 'REDDIT') => {
+      setActivePlatform(platform);
+      horizontalScrollRef.current?.scrollTo({
+        x: platform === 'YOUTUBE' ? 0 : SCREEN_WIDTH,
+        animated: true,
+      });
+    },
+    [setActivePlatform]
+  );
 
   // YouTube Actions
   const handleReadSummary = useCallback(
@@ -555,9 +567,13 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
+          contentOffset={{ x: activePlatform === 'YOUTUBE' ? 0 : SCREEN_WIDTH, y: 0 }}
           onMomentumScrollEnd={(e) => {
             const pageIndex = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-            setActivePlatform(pageIndex === 0 ? 'YOUTUBE' : 'REDDIT');
+            const newPlatform = pageIndex === 0 ? 'YOUTUBE' : 'REDDIT';
+            if (newPlatform !== activePlatform) {
+              setActivePlatform(newPlatform);
+            }
           }}
           style={{ flex: 1 }}>
           {/* PAGE 0: YouTube Video Activity Feed */}

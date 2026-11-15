@@ -25,6 +25,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
+import { usePlatform } from '../../context/PlatformContext';
 import { sourcesApi, integrationsApi, redditApi } from '../../services/api';
 import { TrackedSource } from '../../types/models.types';
 import { SearchBar } from '../../components/atoms/SearchBar';
@@ -318,8 +319,9 @@ export const FollowingScreen: React.FC = () => {
   const [newChannelName, setNewChannelName] = useState<string>('');
   const [adding, setAdding] = useState<boolean>(false);
 
-  // Platform Section: Channels vs Subreddits
-  const [platformSection, setPlatformSection] = useState<'channels' | 'subreddits'>('channels');
+  // Platform Section: derived automatically from activePlatform
+  const { activePlatform } = usePlatform();
+  const platformSection = activePlatform === 'REDDIT' ? 'subreddits' : 'channels';
   const [subreddits, setSubreddits] = useState<TrackedSource[]>([]);
   const [newSubredditInput, setNewSubredditInput] = useState<string>('');
   const [addingSubreddit, setAddingSubreddit] = useState<boolean>(false);
@@ -875,60 +877,6 @@ export const FollowingScreen: React.FC = () => {
             ? 'Manage subscribed channels for automatic summarization'
             : 'Track high-upvote debates and community consensus across Reddit'}
         </Text>
-
-        {/* Top Two-Segment Pill Switch: [ Channels (392) | Subreddits (Active Count) ] */}
-        <View
-          style={{
-            flexDirection: 'row',
-            backgroundColor: colors.surfaceSubtle,
-            borderRadius: 14,
-            padding: 3,
-            marginTop: 12,
-            borderWidth: 1.2,
-            borderColor: colors.border,
-          }}>
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              paddingVertical: 8,
-              borderRadius: 11,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: platformSection === 'channels' ? colors.primary : 'transparent',
-            }}
-            onPress={() => setPlatformSection('channels')}
-            activeOpacity={0.8}>
-            <Text
-              style={{
-                fontSize: 13,
-                fontWeight: '800',
-                color: platformSection === 'channels' ? '#FFFFFF' : colors.textSecondary,
-              }}>
-              ▶ Channels ({sources.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              paddingVertical: 8,
-              borderRadius: 11,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: platformSection === 'subreddits' ? '#FF4500' : 'transparent',
-            }}
-            onPress={() => setPlatformSection('subreddits')}
-            activeOpacity={0.8}>
-            <Text
-              style={{
-                fontSize: 13,
-                fontWeight: '800',
-                color: platformSection === 'subreddits' ? '#FFFFFF' : colors.textSecondary,
-              }}>
-              💬 Subreddits ({subreddits.filter((s) => s.isActive !== false).length})
-            </Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       {/* Manual Add Form */}
