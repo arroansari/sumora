@@ -4,6 +4,32 @@
 // and complete WCAG-compliant UI color tokens for high customer retention.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { ImageSourcePropType } from 'react-native';
+
+import headerRoyalAmethyst from '../assets/images/themes/header_royal_amethyst.png';
+import buttonRoyalAmethyst from '../assets/images/themes/button_royal_amethyst.png';
+import swatchRoyalAmethyst from '../assets/images/themes/swatch_royal_amethyst.png';
+
+import headerChampagneGold from '../assets/images/themes/header_champagne_gold.png';
+import buttonChampagneGold from '../assets/images/themes/button_champagne_gold.png';
+import swatchChampagneGold from '../assets/images/themes/swatch_champagne_gold.png';
+
+import headerEmeraldPrestige from '../assets/images/themes/header_emerald_prestige.png';
+import buttonEmeraldPrestige from '../assets/images/themes/button_emerald_prestige.png';
+import swatchEmeraldPrestige from '../assets/images/themes/swatch_emerald_prestige.png';
+
+import headerSunsetCashmere from '../assets/images/themes/header_sunset_cashmere.png';
+import buttonSunsetCashmere from '../assets/images/themes/button_sunset_cashmere.png';
+import swatchSunsetCashmere from '../assets/images/themes/swatch_sunset_cashmere.png';
+
+import headerSapphireCelestial from '../assets/images/themes/header_sapphire_celestial.png';
+import buttonSapphireCelestial from '../assets/images/themes/button_sapphire_celestial.png';
+import swatchSapphireCelestial from '../assets/images/themes/swatch_sapphire_celestial.png';
+
+import headerVelvetOrchid from '../assets/images/themes/header_velvet_orchid.png';
+import buttonVelvetOrchid from '../assets/images/themes/button_velvet_orchid.png';
+import swatchVelvetOrchid from '../assets/images/themes/swatch_velvet_orchid.png';
+
 export type AppThemeId =
   | 'royal_amethyst'
   | 'champagne_gold'
@@ -28,9 +54,9 @@ export interface AppThemeOption {
   gradientMid: string;
   gradientEnd: string;
   assets: {
-    header: any;
-    button: any;
-    swatch: any;
+    header: ImageSourcePropType;
+    button: ImageSourcePropType;
+    swatch: ImageSourcePropType;
   };
   primary: string;
   primaryDark: string;
@@ -52,9 +78,9 @@ export const APP_THEMES: AppThemeOption[] = [
     gradientMid: '#6D28D9',
     gradientEnd: '#2563EB',
     assets: {
-      header: require('../assets/images/themes/header_royal_amethyst.png'),
-      button: require('../assets/images/themes/button_royal_amethyst.png'),
-      swatch: require('../assets/images/themes/swatch_royal_amethyst.png'),
+      header: headerRoyalAmethyst,
+      button: buttonRoyalAmethyst,
+      swatch: swatchRoyalAmethyst,
     },
     primary: '#7C3AED',
     primaryDark: '#5B21B6',
@@ -74,9 +100,9 @@ export const APP_THEMES: AppThemeOption[] = [
     gradientMid: '#B45309',
     gradientEnd: '#F59E0B',
     assets: {
-      header: require('../assets/images/themes/header_champagne_gold.png'),
-      button: require('../assets/images/themes/button_champagne_gold.png'),
-      swatch: require('../assets/images/themes/swatch_champagne_gold.png'),
+      header: headerChampagneGold,
+      button: buttonChampagneGold,
+      swatch: swatchChampagneGold,
     },
     primary: '#D97706',
     primaryDark: '#92400E',
@@ -96,9 +122,9 @@ export const APP_THEMES: AppThemeOption[] = [
     gradientMid: '#047857',
     gradientEnd: '#10B981',
     assets: {
-      header: require('../assets/images/themes/header_emerald_prestige.png'),
-      button: require('../assets/images/themes/button_emerald_prestige.png'),
-      swatch: require('../assets/images/themes/swatch_emerald_prestige.png'),
+      header: headerEmeraldPrestige,
+      button: buttonEmeraldPrestige,
+      swatch: swatchEmeraldPrestige,
     },
     primary: '#059669',
     primaryDark: '#064E3B',
@@ -118,9 +144,9 @@ export const APP_THEMES: AppThemeOption[] = [
     gradientMid: '#E11D48',
     gradientEnd: '#F97316',
     assets: {
-      header: require('../assets/images/themes/header_sunset_cashmere.png'),
-      button: require('../assets/images/themes/button_sunset_cashmere.png'),
-      swatch: require('../assets/images/themes/swatch_sunset_cashmere.png'),
+      header: headerSunsetCashmere,
+      button: buttonSunsetCashmere,
+      swatch: swatchSunsetCashmere,
     },
     primary: '#E11D48',
     primaryDark: '#BE123C',
@@ -140,9 +166,9 @@ export const APP_THEMES: AppThemeOption[] = [
     gradientMid: '#1D4ED8',
     gradientEnd: '#0EA5E9',
     assets: {
-      header: require('../assets/images/themes/header_sapphire_celestial.png'),
-      button: require('../assets/images/themes/button_sapphire_celestial.png'),
-      swatch: require('../assets/images/themes/swatch_sapphire_celestial.png'),
+      header: headerSapphireCelestial,
+      button: buttonSapphireCelestial,
+      swatch: swatchSapphireCelestial,
     },
     primary: '#0284C7',
     primaryDark: '#0369A1',
@@ -162,9 +188,9 @@ export const APP_THEMES: AppThemeOption[] = [
     gradientMid: '#9333EA',
     gradientEnd: '#F43F5E',
     assets: {
-      header: require('../assets/images/themes/header_velvet_orchid.png'),
-      button: require('../assets/images/themes/button_velvet_orchid.png'),
-      swatch: require('../assets/images/themes/swatch_velvet_orchid.png'),
+      header: headerVelvetOrchid,
+      button: buttonVelvetOrchid,
+      swatch: swatchVelvetOrchid,
     },
     primary: '#9333EA',
     primaryDark: '#7E22CE',
