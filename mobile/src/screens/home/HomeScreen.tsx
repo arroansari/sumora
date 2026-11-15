@@ -14,6 +14,7 @@ import {
   ScrollView,
   Image,
   StyleSheet,
+  Share,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,6 +28,7 @@ import { GradientButton } from '../../components/atoms';
 
 const FAVORITES_STORAGE_KEY = 'sumora:favorite_channel_ids';
 const READ_VIDEOS_KEY = 'sumora:read_video_ids';
+const BOOKMARKS_STORAGE_KEY = 'sumora:bookmarked_video_ids';
 
 type FeedTab = 'all' | 'custom' | 'favorites' | 'completed';
 
@@ -34,10 +36,14 @@ interface FeedCardProps {
   item: VideoItem;
   styles: ReturnType<typeof createHomeStyles>;
   isFavoriteChannel?: boolean;
+  isBookmarked?: boolean;
   isCompletedView?: boolean;
   cardHeight?: number;
   onReadSummary: (videoId: string, title: string) => void;
   onWatchVideo: (videoUrl: string) => void;
+  onCopyTakeaways: (item: VideoItem) => void;
+  onToggleBookmark: (videoId: string, title: string) => void;
+  onShareVideo: (item: VideoItem) => void;
   onMarkDone?: (videoId: string, title: string) => void;
   onRestoreVideo?: (videoId: string) => void;
 }
@@ -64,10 +70,14 @@ const FeedItemCard = React.memo<FeedCardProps>(
     item,
     styles,
     isFavoriteChannel,
+    isBookmarked,
     isCompletedView,
     cardHeight,
     onReadSummary,
     onWatchVideo,
+    onCopyTakeaways,
+    onToggleBookmark,
+    onShareVideo,
     onMarkDone,
     onRestoreVideo,
   }) => {
@@ -216,9 +226,57 @@ const FeedItemCard = React.memo<FeedCardProps>(
             </Text>
 
             <View style={styles.channelRow}>
-              <Text style={styles.channelName}>{item.channelName || (isCustom ? 'Custom Link' : 'YouTube Creator')}</Text>
-              <Text style={styles.dot}>•</Text>
-              <Text style={styles.dateText}>{publishedFormatted}</Text>
+              <View style={styles.channelInfoCol}>
+                <Text
+                  style={styles.channelName}
+                  numberOfLines={1}
+                  ellipsizeMode="tail">
+                  {item.channelName || (isCustom ? 'Custom Link' : 'YouTube Creator')}
+                </Text>
+                <Text style={styles.dot}>•</Text>
+                <Text style={styles.dateText}>{publishedFormatted}</Text>
+              </View>
+
+              <View style={styles.utilityActionRow}>
+                <TouchableOpacity
+                  style={styles.utilityBtn}
+                  onPress={() => onCopyTakeaways(item)}
+                  activeOpacity={0.75}
+                  accessibilityLabel="Copy summary takeaways">
+                  <View style={styles.copyIconWrapper}>
+                    <View style={styles.copyBackBox} />
+                    <View style={styles.copyFrontBox} />
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.utilityBtn, isBookmarked && styles.utilityBtnActive]}
+                  onPress={() => onToggleBookmark(item.videoId, item.title)}
+                  activeOpacity={0.75}
+                  accessibilityLabel="Bookmark video summary">
+                  <View style={styles.bookmarkIconWrapper}>
+                    <View
+                      style={[
+                        styles.bookmarkRibbon,
+                        isBookmarked && styles.bookmarkRibbonActive,
+                      ]}
+                    />
+                    <View style={styles.bookmarkNotch} />
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.utilityBtn}
+                  onPress={() => onShareVideo(item)}
+                  activeOpacity={0.75}
+                  accessibilityLabel="Share video summary">
+                  <View style={styles.shareIconWrapper}>
+                    <View style={styles.shareArrowHead} />
+                    <View style={styles.shareArrowStem} />
+                    <View style={styles.shareTray} />
+                  </View>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* 60-Second Inshorts Key Takeaways */}
@@ -296,19 +354,24 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const [cardContainerHeight, setCardContainerHeight] = useState<number>(0);
   const [favoriteChannelIds, setFavoriteChannelIds] = useState<Set<string>>(new Set());
   const [readVideoIds, setReadVideoIds] = useState<Set<string>>(new Set());
+  const [bookmarkedVideoIds, setBookmarkedVideoIds] = useState<Set<string>>(new Set());
 
-  // Load user's starred favorite channels and completed/read video IDs
+  // Load user's starred favorite channels, read/completed video IDs, and bookmarks
   const loadStoredData = useCallback(async () => {
     try {
-      const [favStored, readStored] = await Promise.all([
+      const [favStored, readStored, bookmarkStored] = await Promise.all([
         AsyncStorage.getItem(FAVORITES_STORAGE_KEY),
         AsyncStorage.getItem(READ_VIDEOS_KEY),
+        AsyncStorage.getItem(BOOKMARKS_STORAGE_KEY),
       ]);
       if (favStored) {
         setFavoriteChannelIds(new Set(JSON.parse(favStored)));
       }
       if (readStored) {
         setReadVideoIds(new Set(JSON.parse(readStored)));
+      }
+      if (bookmarkStored) {
+        setBookmarkedVideoIds(new Set(JSON.parse(bookmarkStored)));
       }
     } catch {
       // ignore
@@ -462,6 +525,63 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     } catch { }
   }, []);
 
+  const handleToggleBookmark = useCallback(async (videoId: string, title: string) => {
+    try {
+      const stored = await AsyncStorage.getItem(BOOKMARKS_STORAGE_KEY);
+      const ids: string[] = stored ? JSON.parse(stored) : [];
+      let updated: string[];
+      const isAlready = ids.includes(videoId);
+      if (isAlready) {
+        updated = ids.filter((id) => id !== videoId);
+      } else {
+        updated = [...ids, videoId];
+      }
+      await AsyncStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(updated));
+      setBookmarkedVideoIds(new Set(updated));
+      if (!isAlready) {
+        Alert.alert('Saved to Bookmarks', `"${title}" has been saved for quick access.`);
+      }
+    } catch (err: any) {
+      console.warn('[HomeScreen] Bookmark toggle note:', err.message);
+    }
+  }, []);
+
+  const handleCopyTakeaways = useCallback((item: VideoItem) => {
+    const bullets = item.summary?.keyPoints && item.summary.keyPoints.length > 0
+      ? item.summary.keyPoints.slice(0, 4).map((p) => `• ${p.replace(/^[-•*]\s*/, '').trim()}`).join('\n')
+      : item.summary?.overview || item.description || 'Summary ready.';
+
+    const text = [
+      `📌 ${item.title}`,
+      `Channel: ${item.channelName || 'YouTube'}`,
+      `\n💡 60-Second Takeaways:\n${bullets}`,
+      item.videoUrl ? `\n🔗 Watch: ${item.videoUrl}` : '',
+      `\nDistilled by Sumora`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    Share.share({ message: text, title: item.title });
+  }, []);
+
+  const handleShareVideo = useCallback((item: VideoItem) => {
+    const overview = item.summary?.overview || item.description || '';
+    const text = [
+      `✨ Summary of "${item.title}":`,
+      overview ? `\n${overview}` : '',
+      item.videoUrl ? `\n🔗 Watch Video: ${item.videoUrl}` : '',
+      `\nDistilled by Sumora`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    Share.share({
+      message: text,
+      url: item.videoUrl,
+      title: item.title,
+    });
+  }, []);
+
   const keyExtractor = useCallback((item: VideoItem) => item.id || item.videoId, []);
 
   // Split videos into unread active feed vs completed archive
@@ -496,10 +616,14 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         item={item}
         styles={styles}
         isFavoriteChannel={favoriteChannelIds.has(item.channelId)}
+        isBookmarked={bookmarkedVideoIds.has(item.videoId)}
         isCompletedView={activeTab === 'completed'}
         cardHeight={cardContainerHeight}
         onReadSummary={handleReadSummary}
         onWatchVideo={handleWatchVideo}
+        onCopyTakeaways={handleCopyTakeaways}
+        onToggleBookmark={handleToggleBookmark}
+        onShareVideo={handleShareVideo}
         onMarkDone={handleMarkDone}
         onRestoreVideo={handleRestoreVideo}
       />
@@ -507,10 +631,14 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     [
       styles,
       favoriteChannelIds,
+      bookmarkedVideoIds,
       activeTab,
       cardContainerHeight,
       handleReadSummary,
       handleWatchVideo,
+      handleCopyTakeaways,
+      handleToggleBookmark,
+      handleShareVideo,
       handleMarkDone,
       handleRestoreVideo,
     ]
