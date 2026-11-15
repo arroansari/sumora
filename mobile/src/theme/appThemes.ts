@@ -134,3 +134,4 @@ export const DEFAULT_THEME_ID: AppThemeId = 'royal_violet';
 export function getThemeById(id: AppThemeId): AppThemeOption {
   return APP_THEMES.find((t) => t.id === id) ?? APP_THEMES[0];
 }
+

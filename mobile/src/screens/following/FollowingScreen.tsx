@@ -16,7 +16,6 @@ import {
   RefreshControl,
   ScrollView,
   Modal,
-  Image,
   StyleSheet,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
@@ -297,7 +296,7 @@ const ChannelGridCard = React.memo<ChannelGridCardProps>(
 // ─── Main Following Screen ───────────────────────────────────────────────────
 
 export const FollowingScreen: React.FC = () => {
-  const { colors } = useAppTheme();
+  const { colors, accentTheme } = useAppTheme();
   const styles = useMemo(() => createFollowingStyles(colors), [colors]);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -618,10 +617,20 @@ export const FollowingScreen: React.FC = () => {
                 onPress={() => handleChannelPress(item)}
                 activeOpacity={0.8}>
                 <View style={styles.gradientRingWrapper}>
-                  <Image
-                    source={require('../../assets/images/header_gradient.png')}
-                    style={StyleSheet.absoluteFill}
-                    resizeMode="cover"
+                  <View
+                    style={[
+                      StyleSheet.absoluteFill,
+                      { backgroundColor: accentTheme.gradientStart },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      StyleSheet.absoluteFill,
+                      {
+                        backgroundColor: accentTheme.gradientEnd,
+                        opacity: 0.5,
+                      },
+                    ]}
                   />
                   <View style={styles.avatarInnerGap}>
                     {item.thumbnailUrl ? (
@@ -764,6 +773,7 @@ export const FollowingScreen: React.FC = () => {
       sources.length,
       categoryCounts,
       prioritySources,
+      accentTheme,
       filteredSources.length,
       handleChannelPress,
     ]

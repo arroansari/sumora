@@ -10,6 +10,7 @@ import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import { VideoItem, SummaryStatus } from '../../../types/models.types';
 import { createHomeStyles } from '../HomeScreen.styles';
 import { GradientButton } from '../../../components/atoms';
+import { useAppTheme } from '../../../context/ThemeContext';
 
 export interface FeedCardProps {
   item: VideoItem;
@@ -60,6 +61,7 @@ export const FeedItemCard = React.memo<FeedCardProps>(
     onMarkDone,
     onRestoreVideo,
   }) => {
+    const { accentTheme } = useAppTheme();
     const publishedFormatted = item.publishedAt
       ? new Date(item.publishedAt).toLocaleDateString(undefined, {
         month: 'short',
@@ -166,12 +168,20 @@ export const FeedItemCard = React.memo<FeedCardProps>(
                 <View style={styles.statusBadgeShadowWrapper}>
                   <View style={styles.statusBadgeGradientWrapper}>
                     <View
-                      style={[StyleSheet.absoluteFill, styles.statusBadgeInnerClip]}
+                      style={[
+                        StyleSheet.absoluteFill,
+                        styles.statusBadgeInnerClip,
+                        { backgroundColor: accentTheme.gradientStart },
+                      ]}
                       pointerEvents="none">
-                      <Image
-                        source={require('../../../assets/images/button_gradient.png')}
-                        style={styles.fullSizeImage}
-                        resizeMode="cover"
+                      <View
+                        style={[
+                          StyleSheet.absoluteFill,
+                          {
+                            backgroundColor: accentTheme.gradientEnd,
+                            opacity: 0.45,
+                          },
+                        ]}
                       />
                     </View>
                     <Text style={styles.statusSparkle}>✦</Text>

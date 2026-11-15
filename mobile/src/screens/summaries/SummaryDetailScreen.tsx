@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Share,
   Alert,
-  Image,
   StyleSheet,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
@@ -30,7 +29,7 @@ type ViewMode = 'highlights' | 'deepdive';
 
 export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { videoId, videoTitle } = route.params;
-  const { colors } = useAppTheme();
+  const { colors, accentTheme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createSummaryDetailStyles(colors), [colors]);
 
@@ -240,12 +239,31 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* ── Curved Gradient Top Header Banner (Matching attached Prototype) ── */}
-      <View style={[styles.topHeaderGradient, { paddingTop: insets.top + 8 }]}>
-        <Image
-          source={require('../../assets/images/header_gradient.png')}
-          style={StyleSheet.absoluteFill}
-          resizeMode="cover"
+      {/* ── Curved Dynamic Gradient Top Header Banner ── */}
+      <View
+        style={[
+          styles.topHeaderGradient,
+          {
+            paddingTop: insets.top + 8,
+            shadowColor: accentTheme.primaryDark,
+          },
+        ]}>
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: accentTheme.gradientStart },
+          ]}
+          pointerEvents="none"
+        />
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: accentTheme.gradientEnd,
+              opacity: 0.42,
+            },
+          ]}
+          pointerEvents="none"
         />
         <View style={styles.topHeaderRow}>
           <TouchableOpacity
