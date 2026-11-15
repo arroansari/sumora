@@ -1,13 +1,14 @@
 import React, { useMemo } from 'react';
-import { View, Text, Switch, TouchableOpacity } from 'react-native';
+import { View, Text, Switch, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { Card } from '../../components/atoms';
+import { Card } from '../../components/atoms/Card';
+import { ThemeSwatchPicker } from '../../components/atoms/ThemeSwatchPicker';
 import { createProfileStyles } from './ProfileScreen.styles';
 
 export const ProfileScreen: React.FC = () => {
-  const { colors, isDark, toggleTheme } = useAppTheme();
+  const { colors, isDark, toggleTheme, accentThemeId, setAccentTheme, allThemes } = useAppTheme();
   const { user, logout } = useAuth();
   const styles = useMemo(() => createProfileStyles(colors), [colors]);
 
@@ -20,10 +21,15 @@ export const ProfileScreen: React.FC = () => {
         </Text>
       </View>
 
-      <View style={styles.container}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}>
+
+        {/* ── User Info Card ── */}
         <Card>
           <View style={styles.userRow}>
-            <View style={styles.avatar}>
+            <View style={[styles.avatar, { backgroundColor: colors.primary, shadowColor: colors.primary }]}>
               <Text style={styles.avatarText}>
                 {user?.email?.charAt(0).toUpperCase() || 'U'}
               </Text>
@@ -37,6 +43,7 @@ export const ProfileScreen: React.FC = () => {
           </View>
         </Card>
 
+        {/* ── Light / Dark Mode Toggle ── */}
         <Card>
           <View style={styles.settingRow}>
             <View style={styles.settingTextCol}>
@@ -44,12 +51,10 @@ export const ProfileScreen: React.FC = () => {
                 {isDark ? '🌙 Dark Mode' : '☀️ Light Mode'}
               </Text>
               <Text style={styles.settingDesc}>
-                {isDark
-                  ? 'Option 1: Dark Premium Editorial (Radiant Violet & Pitch Noir)'
-                  : 'Option 3: Vibrant Modern Intelligence (Violet & White)'}
+                {isDark ? 'Dark Premium Editorial' : 'Vibrant Modern Intelligence'}
               </Text>
             </View>
-            <View style={styles.switchContainer}>
+            <View style={[styles.switchContainer, { borderColor: colors.border, backgroundColor: colors.surfaceSubtle }]}>
               <Text style={styles.switchModeIcon}>{isDark ? '🌙' : '☀️'}</Text>
               <Switch
                 value={isDark}
@@ -62,6 +67,17 @@ export const ProfileScreen: React.FC = () => {
           </View>
         </Card>
 
+        {/* ── Colour / Accent Theme Section ── */}
+        <Card>
+          <ThemeSwatchPicker
+            themes={allThemes}
+            activeThemeId={accentThemeId}
+            onSelectTheme={setAccentTheme}
+            colors={colors}
+          />
+        </Card>
+
+        {/* ── Summarization Info Card ── */}
         <Card>
           <Text style={styles.sectionTitle}>Summarization Architecture</Text>
           <Text style={styles.prefHint}>
@@ -72,6 +88,7 @@ export const ProfileScreen: React.FC = () => {
           </Text>
         </Card>
 
+        {/* ── Sign Out ── */}
         <TouchableOpacity style={styles.logoutButton} onPress={logout}>
           <Text style={styles.logoutButtonText}>Sign Out</Text>
         </TouchableOpacity>
@@ -81,7 +98,7 @@ export const ProfileScreen: React.FC = () => {
             Sumora Mobile v1.0.0 (Bare React Native CLI)
           </Text>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };

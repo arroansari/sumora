@@ -148,3 +148,42 @@ export const darkColors = {
 
 export type ThemeColors = typeof lightColors;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// THEME-AWARE COLOR FACTORY
+// Merges the active AppThemeOption gradient tokens into the base palette so
+// every component that calls useAppTheme().colors gets the right accent colour.
+// ─────────────────────────────────────────────────────────────────────────────
+import type { AppThemeOption } from './appThemes';
+
+export function buildLightColors(theme: AppThemeOption): ThemeColors {
+  return {
+    ...lightColors,
+    primary: theme.primary,
+    primaryDark: theme.primaryDark,
+    primaryLight: theme.primaryLight,
+    secondary: theme.secondary,
+    accent: theme.accent,
+    tint: theme.tint,
+    badgeBg: theme.badgeBg,
+    badgeText: theme.badgeText,
+    gradientStart: theme.gradientStart,
+    gradientEnd: theme.gradientEnd,
+  };
+}
+
+export function buildDarkColors(theme: AppThemeOption): ThemeColors {
+  return {
+    ...darkColors,
+    primary: theme.primary,
+    primaryDark: theme.primaryDark,
+    primaryLight: theme.primaryLight,
+    secondary: theme.secondary,
+    accent: theme.accent,
+    tint: theme.tint,
+    badgeBg: theme.badgeBg,
+    badgeText: '#FFFFFF',
+    gradientStart: theme.gradientStart,
+    gradientEnd: theme.gradientEnd,
+  };
+}
+

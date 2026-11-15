@@ -5,13 +5,11 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
-  Image,
   ActivityIndicator,
   View,
   StyleProp,
 } from 'react-native';
-
-const buttonGradientSource = require('../../assets/images/button_gradient.png');
+import { useAppTheme } from '../../context/ThemeContext';
 
 interface GradientButtonProps {
   title: string;
@@ -34,32 +32,30 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
   icon,
   activeOpacity = 0.8,
 }) => {
-  const flattenedStyle = StyleSheet.flatten([styles.container, style]) || {};
-  const radius =
-    typeof flattenedStyle.borderRadius === 'number' ? flattenedStyle.borderRadius : 21;
+  const { accentTheme } = useAppTheme();
 
   return (
     <TouchableOpacity
       activeOpacity={activeOpacity}
       onPress={onPress}
       disabled={disabled || loading}
-      style={[styles.container, style]}>
-      {/* Dedicated clipping container so iOS clips the gradient to border radius without clipping outer shadows */}
+      style={[
+        styles.container,
+        {
+          backgroundColor: accentTheme.primary,
+          shadowColor: accentTheme.primaryDark,
+        },
+        style,
+      ]}>
+      {/* Two-stop gradient simulation: left half lighter, right half primary */}
       <View
         style={[
           StyleSheet.absoluteFill,
-          {
-            borderRadius: radius,
-            overflow: 'hidden',
-          },
+          styles.gradientOverlay,
+          { backgroundColor: accentTheme.gradientEnd, opacity: 0.45 },
         ]}
-        pointerEvents="none">
-        <Image
-          source={buttonGradientSource}
-          style={{ width: '100%', height: '100%' }}
-          resizeMode="cover"
-        />
-      </View>
+        pointerEvents="none"
+      />
       {loading ? (
         <ActivityIndicator color="#FFFFFF" size="small" />
       ) : (
@@ -79,11 +75,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
-    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.38,
     shadowRadius: 8,
     elevation: 5,
+    overflow: 'hidden',
+  },
+  gradientOverlay: {
+    borderRadius: 21,
   },
   text: {
     color: '#FFFFFF',

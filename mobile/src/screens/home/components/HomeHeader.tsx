@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { EdgeInsets } from 'react-native-safe-area-context';
+import { useAppTheme } from '../../../context/ThemeContext';
 import { createHomeStyles } from '../HomeScreen.styles';
 
 export interface HomeHeaderProps {
@@ -11,13 +12,29 @@ export interface HomeHeaderProps {
 
 export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
   ({ insets, styles, onSummarizePress }) => {
+    const { accentTheme } = useAppTheme();
+
     return (
       <View style={[styles.headerGradientWrapper, { paddingTop: insets.top + 6 }]}>
-        <Image
-          source={require('../../../assets/images/header_gradient.png')}
-          style={StyleSheet.absoluteFill}
-          resizeMode="cover"
+        {/* Dynamic gradient via two-layer View simulation */}
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: accentTheme.gradientStart },
+          ]}
+          pointerEvents="none"
         />
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: accentTheme.gradientEnd,
+              opacity: 0.42,
+            },
+          ]}
+          pointerEvents="none"
+        />
+
         <View style={styles.headerContent}>
           <View style={styles.headerLeftCol}>
             <Text style={styles.headerTitle}>Video Activity Feed</Text>
@@ -27,18 +44,16 @@ export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
           </View>
 
           <TouchableOpacity
-            style={styles.headerSummarizeBtn}
+            style={[
+              styles.headerSummarizeBtn,
+              {
+                backgroundColor: 'rgba(255,255,255,0.18)',
+                borderColor: 'rgba(255,255,255,0.35)',
+                borderWidth: 1,
+              },
+            ]}
             onPress={onSummarizePress}
             activeOpacity={0.85}>
-            <View
-              style={[StyleSheet.absoluteFill, styles.headerSummarizeInnerClip]}
-              pointerEvents="none">
-              <Image
-                source={require('../../../assets/images/button_gradient.png')}
-                style={styles.fullSizeImage}
-                resizeMode="cover"
-              />
-            </View>
             <Text style={styles.headerSparkleIcon}>✦</Text>
             <Text style={styles.headerSummarizeBtnText}>Summarize</Text>
           </TouchableOpacity>
@@ -47,4 +62,3 @@ export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
     );
   }
 );
-
