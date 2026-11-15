@@ -98,28 +98,19 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadStoredData();
-    }, [loadStoredData])
-  );
-
-  // Load initial YouTube feed
-  useEffect(() => {
-    let isMounted = true;
-    async function loadInitialFeed() {
-      try {
-        const res = await videosApi.getFeed(1, 40);
-        if (isMounted) setVideos(res?.videos || []);
-      } catch (err) {
-        console.warn('[HomeScreen] Could not fetch YouTube feed:', err);
-        if (isMounted) setVideos([]);
-      } finally {
-        if (isMounted) setLoading(false);
+  // Fetch YouTube feed
+  const loadYouTubeFeed = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
+    try {
+      const res = await videosApi.getFeed(1, 40);
+      if (res?.videos) {
+        setVideos(res.videos);
       }
+    } catch (err) {
+      console.warn('[HomeScreen] Could not fetch YouTube feed:', err);
+    } finally {
+      setLoading(false);
     }
-    loadInitialFeed();
-    return () => { isMounted = false; };
   }, []);
 
   // Fetch Reddit feed
@@ -145,17 +136,26 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     }
   }, [activeSubreddit]);
 
-  // Load Reddit posts when activeSubreddit changes or on initial platform switch
+  useFocusEffect(
+    useCallback(() => {
+      loadStoredData();
+      loadYouTubeFeed();
+      loadRedditFeed();
+    }, [loadStoredData, loadYouTubeFeed, loadRedditFeed])
+  );
+
+  // Load initial feeds on mount
   useEffect(() => {
+    loadYouTubeFeed(true);
     loadRedditFeed();
-  }, [loadRedditFeed]);
+  }, [loadYouTubeFeed, loadRedditFeed]);
 
   // YouTube Refresh
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       const favList = Array.from(favoriteChannelIds);
-      await videosApi.syncFeed(favList).catch(() => {});
+      await videosApi.syncFeed(favList).catch(() => { });
       const res = await videosApi.getFeed(1, 40);
       setVideos(res.videos);
       await loadStoredData();
@@ -222,7 +222,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
                 await AsyncStorage.setItem(READ_VIDEOS_KEY, JSON.stringify(ids));
                 setReadVideoIds(new Set(ids));
               }
-            } catch {}
+            } catch { }
           },
         },
       ]
@@ -239,7 +239,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         setReadVideoIds(new Set(updated));
       }
       Alert.alert('Restored', 'This video has been restored to your active Activity Feed.');
-    } catch {}
+    } catch { }
   }, []);
 
   const handleCopyTakeaways = useCallback((item: VideoItem) => {
@@ -277,7 +277,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         }
         await AsyncStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(updated));
         setBookmarkedVideoIds(new Set(updated));
-      } catch {}
+      } catch { }
     },
     []
   );
@@ -325,7 +325,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
       const updated = isBookmarked ? ids.filter((id) => id !== postId) : [...ids, postId];
       await AsyncStorage.setItem(BOOKMARKS_REDDIT_KEY, JSON.stringify(updated));
       setBookmarkedRedditIds(new Set(updated));
-    } catch {}
+    } catch { }
   }, []);
 
   const handleShareRedditThread = useCallback((item: RedditPostItem) => {
@@ -357,7 +357,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
                 await AsyncStorage.setItem(READ_REDDIT_KEY, JSON.stringify(ids));
                 setReadRedditIds(new Set(ids));
               }
-            } catch {}
+            } catch { }
           },
         },
       ]
@@ -374,7 +374,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         setReadRedditIds(new Set(updated));
       }
       Alert.alert('Restored', 'This discussion has been restored to your Reddit feed.');
-    } catch {}
+    } catch { }
   }, []);
 
   // Filter YouTube Videos
