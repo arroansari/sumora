@@ -563,9 +563,13 @@ export const FollowingScreen: React.FC = () => {
     [navigation]
   );
 
+  const channelSources = useMemo(() => {
+    return sources.filter((s) => (s.platform || 'youtube').toLowerCase() !== 'reddit');
+  }, [sources]);
+
   const prioritySources = useMemo(() => {
-    return sources.filter((s) => favoriteIds.includes(s.sourceId));
-  }, [sources, favoriteIds]);
+    return channelSources.filter((s) => favoriteIds.includes(s.sourceId));
+  }, [channelSources, favoriteIds]);
 
   // ── 2-Column Grid Filtering & Sorting (Option 3) ──────────────────────────
 
@@ -574,12 +578,12 @@ export const FollowingScreen: React.FC = () => {
 
     // 1. Filter by search query if any
     let list = query
-      ? sources.filter(
+      ? channelSources.filter(
           (s) =>
             s.sourceName.toLowerCase().includes(query) ||
             s.sourceId.toLowerCase().includes(query)
         )
-      : sources;
+      : channelSources;
 
     // 2. Filter by category
     if (selectedCategory === 'favorites') {
@@ -593,7 +597,7 @@ export const FollowingScreen: React.FC = () => {
 
     // 3. Sort
     return sortSources(list, sortFilter);
-  }, [sources, favoriteIds, deferredSearchQuery, selectedCategory, sortFilter]);
+  }, [channelSources, favoriteIds, deferredSearchQuery, selectedCategory, sortFilter]);
 
   // Sliced virtual window for FlatList (renders max 24 cards initially, batches seamlessly on scroll)
   const visibleSources = useMemo(() => {
@@ -630,17 +634,17 @@ export const FollowingScreen: React.FC = () => {
 
   // Category counts for pills
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: sources.length };
+    const counts: Record<string, number> = { all: channelSources.length };
     for (const cat of CATEGORIES) {
       counts[cat.id] = 0;
     }
-    for (const s of sources) {
+    for (const s of channelSources) {
       const isFav = favoriteIds.includes(s.sourceId);
       const catId = classifyChannel(s.sourceName, isFav);
       counts[catId] = (counts[catId] || 0) + 1;
     }
     return counts;
-  }, [sources, favoriteIds]);
+  }, [channelSources, favoriteIds]);
 
   const keyExtractor = useCallback((item: TrackedSource) => item.id, []);
 
@@ -778,7 +782,7 @@ export const FollowingScreen: React.FC = () => {
                 styles.categoryChipText,
                 selectedCategory === 'all' && styles.categoryChipTextActive,
               ]}>
-              All ({sources.length})
+              All ({channelSources.length})
             </Text>
           </TouchableOpacity>
 
@@ -828,7 +832,7 @@ export const FollowingScreen: React.FC = () => {
       searchQuery,
       sortFilter,
       selectedCategory,
-      sources.length,
+      channelSources.length,
       categoryCounts,
       prioritySources,
       accentTheme,
@@ -848,7 +852,7 @@ export const FollowingScreen: React.FC = () => {
             </Text>
             <View style={styles.countBadge}>
               <Text style={styles.countBadgeText}>
-                {platformSection === 'channels' ? sources.length : subreddits.length}
+                {platformSection === 'channels' ? channelSources.length : subreddits.length}
               </Text>
             </View>
           </View>
@@ -1010,7 +1014,7 @@ export const FollowingScreen: React.FC = () => {
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading tracked channels…</Text>
         </View>
-      ) : sources.length === 0 ? (
+      ) : channelSources.length === 0 ? (
         <View style={styles.centerContainer}>
           <Text style={{ fontSize: 44, marginBottom: 12 }}>📡</Text>
           <Text style={styles.emptyTitle}>No Channels Tracked</Text>
@@ -1107,7 +1111,7 @@ export const FollowingScreen: React.FC = () => {
                     styles.modalChipText,
                     selectedCategory === 'all' && styles.modalChipTextActive,
                   ]}>
-                  All Channels ({sources.length})
+                  All Channels ({channelSources.length})
                 </Text>
               </TouchableOpacity>
 
