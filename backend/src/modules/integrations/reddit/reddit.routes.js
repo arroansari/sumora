@@ -1,7 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const redditController = require('./reddit.controller');
-const { authenticate } = require('../../../middlewares/auth.middleware');
+const { authenticate, optionalAuthenticate } = require('../../../middlewares/auth.middleware');
+
+// Public / Callback OAuth Routes
+router.get('/connect', optionalAuthenticate, (req, res, next) =>
+  redditController.getConnectUrl(req, res, next)
+);
+router.get('/callback', (req, res, next) =>
+  redditController.handleOAuthCallback(req, res, next)
+);
 
 router.use(authenticate);
 

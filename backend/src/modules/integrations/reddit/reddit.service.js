@@ -1,6 +1,7 @@
 const prisma = require('../../../config/db');
 const redditClient = require('./redditClient');
 const summarizationService = require('../../ai/summarization.service');
+const { encrypt } = require('../../../utils/encryption.util');
 const { QUEUE_NAMES, getQueue } = require('../../../jobs');
 
 class RedditService {
@@ -271,6 +272,122 @@ class RedditService {
     }
 
     return summary;
+  }
+
+  /**
+   * Generates Reddit connect authorization URL
+   */
+  getConnectUrl(userId) {
+    return redditClient.getConnectUrl(userId);
+  }
+
+  /**
+   * Handles Reddit OAuth Authorization Code callback:
+   * 1. Exchanges auth code for access & refresh tokens
+   * 2. Encrypts tokens with AES-256-GCM
+   * 3. Upserts ConnectedAccount and PlatformToken
+   * 4. Fetches subscribed subreddits and syncs TrackedSources
+   * @param {string} userId
+   * @param {string} code
+   * @param {string} [redirectUri]
+   */
+  async handleRedditCallback(userId, code, redirectUri = null) {
+    const tokenData = await redditClient.exchangeAuthCode(code, redirectUri);
+    const profile = await redditClient.getUserProfile(tokenData.accessToken);
+
+    const encryptedAccessToken = encrypt(tokenData.accessToken);
+    const encryptedRefreshToken = tokenData.refreshToken ? encrypt(tokenData.refreshToken) : null;
+    const expiresAt = tokenData.expiresIn
+      ? new Date(Date.now() + tokenData.expiresIn * 1000)
+      : null;
+
+    // Upsert ConnectedAccount for Reddit
+    const connectedAccount = await prisma.connectedAccount.upsert({
+      where: {
+        userId_platform: {
+          userId,
+          platform: 'reddit',
+        },
+      },
+      create: {
+        userId,
+        platform: 'reddit',
+        platformUserId: profile.name,
+        status: 'active',
+        token: {
+          create: {
+            encryptedAccessToken,
+            encryptedRefreshToken,
+            expiresAt,
+          },
+        },
+      },
+      update: {
+        platformUserId: profile.name,
+        status: 'active',
+        token: {
+          upsert: {
+            create: {
+              encryptedAccessToken,
+              encryptedRefreshToken,
+              expiresAt,
+            },
+            update: {
+              encryptedAccessToken,
+              ...(encryptedRefreshToken && { encryptedRefreshToken }),
+              expiresAt,
+            },
+          },
+        },
+      },
+      include: {
+        token: false,
+      },
+    });
+
+    // Automatically sync subscribed subreddits
+    let subreddits = [];
+    try {
+      subreddits = await redditClient.getUserSubscribedSubreddits(tokenData.accessToken);
+      for (const sub of subreddits) {
+        const cleanSub = sub.name.toLowerCase();
+        await prisma.trackedSource.upsert({
+          where: {
+            userId_platform_sourceId: {
+              userId,
+              platform: 'reddit',
+              sourceId: cleanSub,
+            },
+          },
+          create: {
+            userId,
+            platform: 'reddit',
+            sourceId: cleanSub,
+            sourceName: `r/${sub.name}`,
+            thumbnailUrl: sub.iconImg || 'https://www.redditstatic.com/avatars/defaults/v2/avatar_default_1.png',
+            memberCount: sub.subscribers || 0,
+            isActive: true,
+            isPriority: false,
+          },
+          update: {
+            isActive: true,
+            memberCount: sub.subscribers || undefined,
+            thumbnailUrl: sub.iconImg || undefined,
+          },
+        });
+
+        // Trigger background sync for top posts in that subreddit
+        this.syncSubredditPosts(cleanSub, 5).catch(() => {});
+      }
+    } catch (subErr) {
+      console.warn('[RedditService] Subscribed subreddits auto-import warning:', subErr.message);
+    }
+
+    return {
+      connectedAccount,
+      profile,
+      importedSubredditsCount: subreddits.length,
+    };
   }
 }
 

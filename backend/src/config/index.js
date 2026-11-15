@@ -28,6 +28,7 @@ module.exports = {
   reddit: {
     clientId: process.env.REDDIT_CLIENT_ID || '',
     clientSecret: process.env.REDDIT_CLIENT_SECRET || '',
+    redirectUri: process.env.REDDIT_REDIRECT_URI || 'http://localhost:5000/api/auth/reddit/callback',
     userAgent: process.env.REDDIT_USER_AGENT || 'Sumora/1.0.0 (by /u/sumora_app)',
   },
   ai: {

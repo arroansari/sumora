@@ -62,3 +62,4 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 };
 
 export const usePlatform = (): PlatformContextValue => useContext(PlatformContext);
+

@@ -192,6 +192,143 @@ class RedditClient {
       };
     }
   }
+
+  /**
+   * Generates the Reddit OAuth authorization URL
+   * @param {string} userId - Current user ID to persist in state parameter
+   * @param {string} [customRedirectUri] - Optional override redirect URI
+   */
+  getConnectUrl(userId, customRedirectUri = null) {
+    const redirectUri = customRedirectUri || config.reddit.redirectUri || 'http://localhost:5000/api/auth/reddit/callback';
+    const stateObj = { userId: userId || 'anonymous', timestamp: Date.now() };
+    const state = Buffer.from(JSON.stringify(stateObj)).toString('base64');
+    const scope = 'identity,mysubreddits,read';
+    const clientId = this.clientId || 'MOCK_CLIENT_ID';
+
+    const url = `https://www.reddit.com/api/v1/authorize?client_id=${encodeURIComponent(
+      clientId
+    )}&response_type=code&state=${encodeURIComponent(state)}&redirect_uri=${encodeURIComponent(
+      redirectUri
+    )}&duration=permanent&scope=${encodeURIComponent(scope)}`;
+
+    return { url, state };
+  }
+
+  /**
+   * Exchanges authorization code for Reddit access and refresh tokens
+   * @param {string} code - OAuth authorization code
+   * @param {string} [customRedirectUri]
+   */
+  async exchangeAuthCode(code, customRedirectUri = null) {
+    const redirectUri = customRedirectUri || config.reddit.redirectUri || 'http://localhost:5000/api/auth/reddit/callback';
+    if (!this.clientId || !this.clientSecret) {
+      console.warn('[RedditClient] REDDIT_CLIENT_ID or REDDIT_CLIENT_SECRET missing, simulating development token exchange');
+      return {
+        accessToken: `reddit_dev_token_${Date.now()}`,
+        refreshToken: `reddit_dev_refresh_${Date.now()}`,
+        expiresIn: 3600,
+        scope: 'identity,mysubreddits,read',
+        tokenType: 'bearer',
+      };
+    }
+
+    const authHeader = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
+    const params = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri,
+    });
+
+    const response = await axios.post(
+      'https://www.reddit.com/api/v1/access_token',
+      params.toString(),
+      {
+        headers: {
+          Authorization: `Basic ${authHeader}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': this.userAgent,
+        },
+        timeout: 10000,
+      }
+    );
+
+    return {
+      accessToken: response.data.access_token,
+      refreshToken: response.data.refresh_token,
+      expiresIn: response.data.expires_in || 3600,
+      scope: response.data.scope,
+      tokenType: response.data.token_type,
+    };
+  }
+
+  /**
+   * Fetches authenticated user's Reddit profile details
+   * @param {string} userAccessToken
+   */
+  async getUserProfile(userAccessToken) {
+    if (!userAccessToken || userAccessToken.startsWith('reddit_dev_token')) {
+      return {
+        id: 'reddit_dev_user',
+        name: 'sumora_user',
+        iconImg: 'https://www.redditstatic.com/avatars/defaults/v2/avatar_default_2.png',
+        totalKarma: 1337,
+      };
+    }
+
+    const response = await axios.get('https://oauth.reddit.com/api/v1/me', {
+      headers: {
+        Authorization: `Bearer ${userAccessToken}`,
+        'User-Agent': this.userAgent,
+      },
+      timeout: 10000,
+    });
+
+    const data = response.data || {};
+    return {
+      id: data.id || 'reddit_user',
+      name: data.name || 'Reddit User',
+      iconImg: data.icon_img ? data.icon_img.split('?')[0] : null,
+      totalKarma: data.total_karma || 0,
+    };
+  }
+
+  /**
+   * Fetches the subreddits the authenticated user is subscribed to
+   * @param {string} userAccessToken
+   */
+  async getUserSubscribedSubreddits(userAccessToken) {
+    if (!userAccessToken || userAccessToken.startsWith('reddit_dev_token')) {
+      return [
+        { name: 'technology', title: 'Technology', subscribers: 16000000 },
+        { name: 'stocks', title: 'Stocks News & Debate', subscribers: 7000000 },
+        { name: 'artificial', title: 'Artificial Intelligence', subscribers: 850000 },
+      ];
+    }
+
+    try {
+      const response = await axios.get(
+        'https://oauth.reddit.com/subreddits/mine/subscriber?limit=100',
+        {
+          headers: {
+            Authorization: `Bearer ${userAccessToken}`,
+            'User-Agent': this.userAgent,
+          },
+          timeout: 10000,
+        }
+      );
+
+      const items = response.data?.data?.children || [];
+      return items.map((c) => ({
+        name: c.data.display_name,
+        title: c.data.title || c.data.display_name,
+        subscribers: c.data.subscribers || 0,
+        iconImg: c.data.community_icon ? c.data.community_icon.split('?')[0] : c.data.icon_img,
+      }));
+    } catch (err) {
+      console.warn('[RedditClient] Could not fetch subscribed subreddits:', err.message);
+      return [];
+    }
+  }
 }
 
 module.exports = new RedditClient();
