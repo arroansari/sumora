@@ -892,5 +892,45 @@ export const createHomeStyles = (colors: ThemeColors) =>
       fontWeight: '800',
       fontSize: 14,
     },
+    horizontalScrollContainer: {
+      flex: 1,
+    },
+    feedPage: {
+      height: '100%',
+    },
+    redditEmptyContainer: {
+      paddingHorizontal: 32,
+    },
+    redditEmptyIcon: {
+      fontSize: 36,
+      marginBottom: 12,
+    },
+    redditEmptyTitle: {
+      fontSize: 18,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
+      fontWeight: '800',
+      color: colors.textPrimary,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    redditEmptySubtitle: {
+      fontSize: 13.5,
+      color: colors.textMuted,
+      textAlign: 'center',
+      lineHeight: 20,
+      marginBottom: 20,
+    },
+    manageSubredditsBtn: {
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderRadius: 14,
+      backgroundColor: '#FF4500',
+    },
+    manageSubredditsBtnText: {
+      color: '#FFFFFF',
+      fontFamily: 'PlusJakartaSans-ExtraBold',
+      fontWeight: '800',
+      fontSize: 14,
+    },
   });
 

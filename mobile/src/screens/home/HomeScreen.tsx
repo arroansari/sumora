@@ -98,19 +98,28 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     }
   }, []);
 
-  // Fetch YouTube feed
-  const loadYouTubeFeed = useCallback(async (showSpinner = false) => {
-    if (showSpinner) setLoading(true);
-    try {
-      const res = await videosApi.getFeed(1, 40);
-      if (res?.videos) {
-        setVideos(res.videos);
+  useFocusEffect(
+    useCallback(() => {
+      loadStoredData();
+    }, [loadStoredData])
+  );
+
+  // Load initial YouTube feed
+  useEffect(() => {
+    let isMounted = true;
+    async function loadInitialFeed() {
+      try {
+        const res = await videosApi.getFeed(1, 40);
+        if (isMounted) setVideos(res?.videos || []);
+      } catch (err) {
+        console.warn('[HomeScreen] Could not fetch YouTube feed:', err);
+        if (isMounted) setVideos([]);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-    } catch (err) {
-      console.warn('[HomeScreen] Could not fetch YouTube feed:', err);
-    } finally {
-      setLoading(false);
     }
+    loadInitialFeed();
+    return () => { isMounted = false; };
   }, []);
 
   // Fetch Reddit feed
@@ -136,19 +145,10 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     }
   }, [activeSubreddit]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadStoredData();
-      loadYouTubeFeed();
-      loadRedditFeed();
-    }, [loadStoredData, loadYouTubeFeed, loadRedditFeed])
-  );
-
-  // Load initial feeds on mount
+  // Load Reddit posts when activeSubreddit changes or on initial platform switch
   useEffect(() => {
-    loadYouTubeFeed(true);
     loadRedditFeed();
-  }, [loadYouTubeFeed, loadRedditFeed]);
+  }, [loadRedditFeed]);
 
   // YouTube Refresh
   const handleRefresh = useCallback(async () => {
@@ -575,9 +575,9 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
               setActivePlatform(newPlatform);
             }
           }}
-          style={{ flex: 1 }}>
+          style={styles.horizontalScrollContainer}>
           {/* PAGE 0: YouTube Video Activity Feed */}
-          <View style={{ width: SCREEN_WIDTH, height: '100%' }}>
+          <View style={[{ width: SCREEN_WIDTH }, styles.feedPage]}>
             {loading ? (
               <View style={styles.centerContainer}>
                 <ActivityIndicator size="large" color={colors.primary} />
@@ -622,44 +622,25 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
           </View>
 
           {/* PAGE 1: Reddit Discussion Feed */}
-          <View style={{ width: SCREEN_WIDTH, height: '100%' }}>
+          <View style={[{ width: SCREEN_WIDTH }, styles.feedPage]}>
             {redditLoading ? (
               <View style={styles.centerContainer}>
                 <ActivityIndicator size="large" color="#FF4500" />
                 <Text style={styles.loadingText}>Loading community debates...</Text>
               </View>
             ) : displayedRedditPosts.length === 0 ? (
-              <View style={[styles.centerContainer, { paddingHorizontal: 32 }]}>
-                <Text style={{ fontSize: 36, marginBottom: 12 }}>💬</Text>
-                <Text
-                  style={{
-                    fontSize: 18,
-                    fontWeight: '800',
-                    color: colors.textPrimary,
-                    textAlign: 'center',
-                    marginBottom: 8,
-                  }}>
+              <View style={[styles.centerContainer, styles.redditEmptyContainer]}>
+                <Text style={styles.redditEmptyIcon}>💬</Text>
+                <Text style={styles.redditEmptyTitle}>
                   No Reddit Debates Yet
                 </Text>
-                <Text
-                  style={{
-                    fontSize: 13.5,
-                    color: colors.textMuted,
-                    textAlign: 'center',
-                    lineHeight: 20,
-                    marginBottom: 20,
-                  }}>
+                <Text style={styles.redditEmptySubtitle}>
                   Follow your favorite subreddits in the Following tab to distill high-upvote community discussions.
                 </Text>
                 <TouchableOpacity
-                  style={{
-                    paddingHorizontal: 20,
-                    paddingVertical: 12,
-                    borderRadius: 14,
-                    backgroundColor: '#FF4500',
-                  }}
+                  style={styles.manageSubredditsBtn}
                   onPress={() => navigation.navigate('Following')}>
-                  <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 14 }}>
+                  <Text style={styles.manageSubredditsBtnText}>
                     Manage Subreddits
                   </Text>
                 </TouchableOpacity>
