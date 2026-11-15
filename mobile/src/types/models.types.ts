@@ -63,6 +63,50 @@ export interface TrackedSource {
   sourceId: string;
   sourceName: string;
   thumbnailUrl?: string | null;
+  memberCount?: number;
+  isActive?: boolean;
+  isPriority?: boolean;
+  createdAt: string;
+}
+
+export interface RedditSummary {
+  id?: string;
+  postId: string;
+  consensus: string;
+  keyTakeaways: string[];
+  takeaways?: string[];
+  contrarianViews: string[];
+  fullSummary: string;
+  aiProvider?: string;
+  modelName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RedditPostItem {
+  id: string;
+  externalId: string;
+  subreddit: string;
+  title: string;
+  author: string;
+  permalink: string;
+  url?: string;
+  score: number;
+  commentCount: number;
+  selftext?: string;
+  publishedAt: string;
+  summary?: RedditSummary | null;
+}
+
+export interface TrackedSubreddit {
+  id: string;
+  platform: 'reddit';
+  sourceId: string;
+  sourceName: string;
+  thumbnailUrl?: string | null;
+  memberCount?: number;
+  isActive: boolean;
+  isPriority?: boolean;
   createdAt: string;
 }
 

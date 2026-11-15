@@ -87,6 +87,7 @@ export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
   const initialThumbTopRef = useRef(0);
   const textScaleRef = useRef(textScale);
   textScaleRef.current = textScale;
+  const trackRef = useRef<any>(null);
 
   const panResponder = useMemo(
     () =>
@@ -99,13 +100,27 @@ export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
         onPanResponderGrant: (evt) => {
           setIsDragging(true);
           showTooltip();
-          // Support tapping or dragging anywhere along the track
-          const tapY = evt.nativeEvent.locationY;
-          const targetThumbTop = Math.max(0, Math.min(SLIDER_RANGE, tapY - THUMB_HEIGHT / 2));
-          initialThumbTopRef.current = targetThumbTop;
-          const newRatio = 1 - targetThumbTop / SLIDER_RANGE;
-          const newScale = MIN_TEXT_SCALE + newRatio * (MAX_TEXT_SCALE - MIN_TEXT_SCALE);
-          onChangeScale(Math.round(newScale * 100) / 100);
+
+          // Anchor drag to the current thumb position
+          const currentNormalized = (textScaleRef.current - MIN_TEXT_SCALE) / (MAX_TEXT_SCALE - MIN_TEXT_SCALE);
+          const currentThumbTop = (1 - currentNormalized) * SLIDER_RANGE;
+          initialThumbTopRef.current = currentThumbTop;
+
+          // Check if tap was on track to jump directly
+          if (trackRef.current?.measure && evt.nativeEvent.pageY) {
+            trackRef.current.measure((_x: number, _y: number, _w: number, _h: number, _pageX: number, pageY: number) => {
+              if (pageY > 0 && evt.nativeEvent.pageY) {
+                const tapYOnTrack = evt.nativeEvent.pageY - pageY;
+                const targetThumbTop = Math.max(0, Math.min(SLIDER_RANGE, tapYOnTrack - THUMB_HEIGHT / 2));
+                if (Math.abs(targetThumbTop - currentThumbTop) > 18) {
+                  initialThumbTopRef.current = targetThumbTop;
+                  const newRatio = 1 - targetThumbTop / SLIDER_RANGE;
+                  const newScale = MIN_TEXT_SCALE + newRatio * (MAX_TEXT_SCALE - MIN_TEXT_SCALE);
+                  onChangeScale(Math.round(newScale * 100) / 100);
+                }
+              }
+            });
+          }
         },
         onPanResponderMove: (_evt, gestureState) => {
           // As finger moves down (+dy), thumb moves down and scale decreases
@@ -229,7 +244,11 @@ export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
         </TouchableOpacity>
 
         {/* Vertical Track Area */}
-        <View style={styles.trackContainer} {...panResponder.panHandlers}>
+        <View
+          ref={trackRef}
+          collapsable={false}
+          style={styles.trackContainer}
+          {...panResponder.panHandlers}>
           {/* Background Groove */}
           <View
             pointerEvents="none"

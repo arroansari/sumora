@@ -15,7 +15,7 @@ import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
-import { videosApi } from '../../services/api';
+import { videosApi, redditApi } from '../../services/api';
 import { VideoItem, VideoSummary, SummaryStatus } from '../../types/models.types';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation.types';
@@ -29,7 +29,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'SummaryDetail'>;
 type ViewMode = 'highlights' | 'deepdive';
 
 export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { videoId, videoTitle } = route.params;
+  const { videoId, videoTitle, isReddit, redditItem } = route.params;
   const { colors, accentTheme, textScale, setTextScale, resetTextScale } = useAppTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createSummaryDetailStyles(colors, textScale), [colors, textScale]);
@@ -152,6 +152,78 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     let isMounted = true;
 
     async function loadInitialData() {
+      if (isReddit) {
+        try {
+          const redditSummary = await redditApi.getPostSummary(videoId);
+          if (!isMounted) return;
+          const sub = redditItem?.subreddit ? `r/${redditItem.subreddit}` : 'Reddit';
+          setVideo({
+            id: videoId,
+            videoId,
+            channelId: sub,
+            channelName: sub,
+            title: videoTitle || redditItem?.title || 'Reddit Community Debate',
+            videoUrl: redditItem?.permalink?.startsWith('http')
+              ? redditItem.permalink
+              : `https://www.reddit.com${redditItem?.permalink || ''}`,
+            publishedAt: redditItem?.publishedAt || new Date().toISOString(),
+            transcriptStatus: 'completed',
+            summaryStatus: 'completed',
+          });
+          setSummary({
+            videoId,
+            overview: redditSummary.consensus || 'Community consensus established across top discussions.',
+            keyPoints: redditSummary.keyTakeaways || [],
+            importantConcepts: (redditSummary.contrarianViews || []).map((cv: string) => ({
+              concept: 'Key Skepticism',
+              explanation: cv,
+            })),
+            detailedSummary: redditSummary.fullSummary || redditSummary.consensus || '',
+            conclusion: redditSummary.fullSummary || redditSummary.consensus || '',
+            topicsCovered: [redditItem?.subreddit || 'reddit', 'community debate'],
+            aiProvider: 'Reddit Debate Grounded Engine',
+          });
+          setStatus('completed');
+        } catch (err: any) {
+          console.warn('[SummaryDetail] Reddit load note:', err.message);
+          if (!isMounted) return;
+          const sub = redditItem?.subreddit ? `r/${redditItem.subreddit}` : 'Reddit';
+          setVideo({
+            id: videoId,
+            videoId,
+            channelId: sub,
+            channelName: sub,
+            title: videoTitle || redditItem?.title || 'Reddit Community Debate',
+            videoUrl: redditItem?.permalink || 'https://www.reddit.com',
+            publishedAt: redditItem?.publishedAt || new Date().toISOString(),
+            transcriptStatus: 'completed',
+            summaryStatus: 'completed',
+          });
+          setSummary({
+            videoId,
+            overview: redditItem?.summary?.consensus || 'Community consensus on this debate thread.',
+            keyPoints: redditItem?.summary?.keyTakeaways || [
+              'Community Consensus: Majority perspective shared by commenters.',
+              'Top Skepticism: Counterarguments and edge-case concerns.',
+              'Key Facts & Impact: Practical background knowledge.',
+              'Community Verdict: Overall summary of the discussion.',
+            ],
+            importantConcepts: (redditItem?.summary?.contrarianViews || []).map((cv: string) => ({
+              concept: 'Key Skepticism',
+              explanation: cv,
+            })),
+            detailedSummary: redditItem?.summary?.fullSummary || redditItem?.selftext || '',
+            conclusion: redditItem?.summary?.fullSummary || '',
+            topicsCovered: [redditItem?.subreddit || 'reddit', 'debate'],
+            aiProvider: 'Reddit Debate Engine',
+          });
+          setStatus('completed');
+        } finally {
+          if (isMounted) setLoading(false);
+        }
+        return;
+      }
+
       try {
         const videoData = await videosApi.getVideo(videoId);
         if (!isMounted) return;
@@ -191,6 +263,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         pollTimerRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId, startPolling]);
 
   const handleShare = useCallback(() => {
@@ -295,7 +368,14 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           {/* 2. Video Title */}
-          <Text style={styles.title}>
+          <Text
+            style={[
+              styles.title,
+              {
+                fontSize: Math.round(21 * textScale),
+                lineHeight: Math.round(28 * textScale),
+              },
+            ]}>
             {video?.title || videoTitle || 'Video Summary'}
           </Text>
 
@@ -394,7 +474,14 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                       <Text style={styles.heroBadgeText}>TL;DR</Text>
                     </View>
                   </View>
-                  <Text style={styles.heroBodyText}>
+                  <Text
+                    style={[
+                      styles.heroBodyText,
+                      {
+                        fontSize: Math.round(15.5 * textScale),
+                        lineHeight: Math.round(25 * textScale),
+                      },
+                    ]}>
                     {summary.overview}
                   </Text>
                 </View>
@@ -413,7 +500,14 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                               {index < 9 ? `0${index + 1}` : `${index + 1}`}
                             </Text>
                           </View>
-                          <Text style={styles.takeawayText}>
+                          <Text
+                            style={[
+                              styles.takeawayText,
+                              {
+                                fontSize: Math.round(14.5 * textScale),
+                                lineHeight: Math.round(22 * textScale),
+                              },
+                            ]}>
                             {point}
                           </Text>
                         </View>
@@ -430,11 +524,24 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     </View>
                     {summary.importantConcepts.map((item, index) => (
                       <View key={index} style={styles.conceptItem}>
-                        <Text style={styles.conceptTitle}>
+                        <Text
+                          style={[
+                            styles.conceptTitle,
+                            {
+                              fontSize: Math.round(14.5 * textScale),
+                            },
+                          ]}>
                           {item.concept || String(item)}
                         </Text>
                         {item.explanation && (
-                          <Text style={styles.conceptExplanation}>
+                          <Text
+                            style={[
+                              styles.conceptExplanation,
+                              {
+                                fontSize: Math.round(13.5 * textScale),
+                                lineHeight: Math.round(20 * textScale),
+                              },
+                            ]}>
                             {item.explanation}
                           </Text>
                         )}
@@ -454,7 +561,14 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     <View style={styles.sectionHeadingRow}>
                       <Text style={styles.sectionHeading}>📝 Detailed Story</Text>
                     </View>
-                    <Text style={styles.bodyText}>
+                    <Text
+                      style={[
+                        styles.bodyText,
+                        {
+                          fontSize: Math.round(15 * textScale),
+                          lineHeight: Math.round(24 * textScale),
+                        },
+                      ]}>
                       {summary.detailedSummary}
                     </Text>
                   </View>
@@ -466,7 +580,14 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     <View style={styles.sectionHeadingRow}>
                       <Text style={styles.sectionHeading}>🏁 Final Verdict</Text>
                     </View>
-                    <Text style={styles.bodyText}>
+                    <Text
+                      style={[
+                        styles.bodyText,
+                        {
+                          fontSize: Math.round(15 * textScale),
+                          lineHeight: Math.round(24 * textScale),
+                        },
+                      ]}>
                       {summary.conclusion}
                     </Text>
                   </View>

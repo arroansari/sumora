@@ -8,10 +8,22 @@ export interface HomeHeaderProps {
   insets: EdgeInsets;
   styles: ReturnType<typeof createHomeStyles>;
   onSummarizePress: () => void;
+  title?: string;
+  subtitle?: string;
+  activePlatform?: 'YOUTUBE' | 'REDDIT';
+  onPlatformSwitch?: (platform: 'YOUTUBE' | 'REDDIT') => void;
 }
 
 export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
-  ({ insets, styles, onSummarizePress }) => {
+  ({
+    insets,
+    styles,
+    onSummarizePress,
+    title = 'Video Activity Feed',
+    subtitle = 'Distilled summaries from followed channels & links',
+    activePlatform = 'YOUTUBE',
+    onPlatformSwitch,
+  }) => {
     const { accentTheme } = useAppTheme();
 
     return (
@@ -25,9 +37,61 @@ export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
 
         <View style={styles.headerContent}>
           <View style={styles.headerLeftCol}>
-            <Text style={styles.headerTitle}>Video Activity Feed</Text>
+            {/* Platform Horizon Switcher Tabs */}
+            {onPlatformSwitch && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.16)',
+                  borderRadius: 16,
+                  padding: 2,
+                  marginBottom: 6,
+                  alignSelf: 'flex-start',
+                }}>
+                <TouchableOpacity
+                  onPress={() => onPlatformSwitch('YOUTUBE')}
+                  activeOpacity={0.8}
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 3,
+                    borderRadius: 14,
+                    backgroundColor: activePlatform === 'YOUTUBE' ? '#FFFFFF' : 'transparent',
+                  }}>
+                  <Text
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: '800',
+                      color: activePlatform === 'YOUTUBE' ? '#4F46E5' : 'rgba(255, 255, 255, 0.85)',
+                    }}>
+                    ▶ YouTube
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => onPlatformSwitch('REDDIT')}
+                  activeOpacity={0.8}
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 3,
+                    borderRadius: 14,
+                    backgroundColor: activePlatform === 'REDDIT' ? '#FFFFFF' : 'transparent',
+                  }}>
+                  <Text
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: '800',
+                      color: activePlatform === 'REDDIT' ? '#FF4500' : 'rgba(255, 255, 255, 0.85)',
+                    }}>
+                    💬 Reddit
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <Text style={styles.headerTitle}>{title}</Text>
             <Text style={styles.headerSubtitle} numberOfLines={2}>
-              Distilled summaries from followed channels & links
+              {subtitle}
             </Text>
           </View>
 

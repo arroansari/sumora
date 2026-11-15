@@ -76,16 +76,27 @@ export const FeedEmptyState: React.FC<FeedEmptyStateProps> = React.memo(
         ) : (
           <>
             <Text style={styles.emptyIconLarge}>📺</Text>
-            <Text style={styles.emptyTitle}>All Caught Up!</Text>
-            <Text style={styles.emptySubtitle}>
-              You have completed all video summaries in your active feed.
+            <Text style={styles.emptyTitle}>
+              {completedCount > 0 ? 'All Caught Up!' : 'No Video Summaries Yet'}
             </Text>
-            {completedCount > 0 && (
+            <Text style={styles.emptySubtitle}>
+              {completedCount > 0
+                ? 'You have completed all video summaries in your active feed.'
+                : 'Follow channels in the Following tab to distill video summaries into your feed.'}
+            </Text>
+            {completedCount > 0 ? (
               <TouchableOpacity
                 style={styles.connectButton}
                 onPress={() => onBrowseAll()}
                 activeOpacity={0.8}>
                 <Text style={styles.connectButtonText}>View Completed Archive ({completedCount})</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.connectButton}
+                onPress={onExploreChannels}
+                activeOpacity={0.8}>
+                <Text style={styles.connectButtonText}>Explore Followed Channels</Text>
               </TouchableOpacity>
             )}
           </>

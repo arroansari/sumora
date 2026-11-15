@@ -15,6 +15,26 @@ class MockAIProvider extends BaseAIProvider {
   }
 
   async generateStructuredJson({ prompt }) {
+    // If Reddit debate prompt, return 4-part consensus format
+    if (prompt.includes('Reddit') || prompt.includes('consensus') || prompt.includes('takeaways')) {
+      return {
+        consensus:
+          'The community largely agrees on the transformative potential of this initiative while emphasizing the need for realistic execution standards.',
+        takeaways: [
+          'Community Consensus: Majority perspective confirms substantial long-term value and operational benefits.',
+          'Top Skepticism: Key pushback centers around unverified edge cases and historical project delays.',
+          'Key Facts & Impact: Discussion highlights empirical benchmarks and real-world deployment challenges.',
+          'Community Verdict: Cautious optimism with ongoing demand for open benchmarks and independent verification.',
+        ],
+        contrarianViews: [
+          'Unresolved regulatory scrutiny could stall mass adoption.',
+          'High initial transition costs for legacy infrastructure.',
+        ],
+        fullSummary:
+          'This community thread analyzed the primary developments and trade-offs. While the majority of commenters agreed on the upside, vocal dissent from experienced contributors stressed critical implementation barriers that must be resolved.',
+      };
+    }
+
     // If chunk prompt, return intermediate format
     if (prompt.includes('SECTION TRANSCRIPT:')) {
       return {

@@ -64,19 +64,23 @@ class WorkerManager {
       const { createTranscriptWorker } = require('./workers/transcript.worker');
       const { createSummarizationWorker } = require('./workers/summarization.worker');
       const { createNotificationWorker } = require('./workers/notification.worker');
+      const { createRedditSyncWorker } = require('./workers/reddit-sync.worker');
+      const { createRedditSummaryWorker } = require('./workers/reddit-summary.worker');
 
       const transcriptWorker = createTranscriptWorker();
       const summarizationWorker = createSummarizationWorker();
       const notificationWorker = createNotificationWorker();
+      const redditSyncWorker = createRedditSyncWorker();
+      const redditSummaryWorker = createRedditSummaryWorker();
 
       // Attach error handlers so worker errors never reach the process
-      [transcriptWorker, summarizationWorker, notificationWorker].forEach((w) => {
+      [transcriptWorker, summarizationWorker, notificationWorker, redditSyncWorker, redditSummaryWorker].forEach((w) => {
         w.on('error', (err) => {
           console.warn(`[WorkerManager] Worker error (non-fatal):`, err.message);
         });
       });
 
-      this.workers.push(transcriptWorker, summarizationWorker, notificationWorker);
+      this.workers.push(transcriptWorker, summarizationWorker, notificationWorker, redditSyncWorker, redditSummaryWorker);
       this.isRunning = true;
       console.log(`[WorkerManager] ${this.workers.length} workers active`);
     } catch (error) {

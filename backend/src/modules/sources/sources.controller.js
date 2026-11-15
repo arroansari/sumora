@@ -3,7 +3,8 @@ const sourcesService = require('./sources.service');
 class SourcesController {
   async listSources(req, res, next) {
     try {
-      const sources = await sourcesService.listTrackedSources(req.user.id);
+      const { platform } = req.query;
+      const sources = await sourcesService.listTrackedSources(req.user.id, { platform });
       res.status(200).json({
         success: true,
         data: sources,

@@ -4,11 +4,18 @@ const webSubService = require('../integrations/youtube/websub.service');
 class SourcesService {
   /**
    * Retrieves all tracked sources/channels for a user.
+   * Defaults to 'youtube' to ensure separation between channels and subreddits.
    * @param {string} userId
+   * @param {object} [options]
+   * @param {string} [options.platform]
    */
-  async listTrackedSources(userId) {
+  async listTrackedSources(userId, { platform = 'youtube' } = {}) {
+    const where = { userId };
+    if (platform && platform !== 'all') {
+      where.platform = { in: [platform.toLowerCase(), platform.toUpperCase()] };
+    }
     return prisma.trackedSource.findMany({
-      where: { userId },
+      where,
       orderBy: { createdAt: 'desc' },
     });
   }

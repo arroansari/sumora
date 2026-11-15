@@ -1,6 +1,7 @@
 const express = require('express');
 const integrationsController = require('./integrations.controller');
-const { authenticate } = require('../../middlewares/auth.middleware');
+const { redditController } = require('./reddit');
+const { authenticate, optionalAuthenticate } = require('../../middlewares/auth.middleware');
 
 const router = express.Router();
 
@@ -17,6 +18,16 @@ router.get('/youtube/connect', authenticate, (req, res, next) =>
 // YouTube OAuth callback (receives state/code, optional token in auth header or state)
 router.get('/youtube/callback', (req, res, next) =>
   integrationsController.handleYouTubeCallback(req, res, next)
+);
+
+// Initiate Reddit OAuth connection
+router.get('/reddit/connect', optionalAuthenticate, (req, res, next) =>
+  redditController.getConnectUrl(req, res, next)
+);
+
+// Reddit OAuth callback
+router.get('/reddit/callback', (req, res, next) =>
+  redditController.handleOAuthCallback(req, res, next)
 );
 
 // Re-sync YouTube subscriptions & channel profile thumbnails

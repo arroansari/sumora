@@ -15,22 +15,17 @@ import FastImage from '@d11/react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
-import { preferencesApi, sourcesApi, integrationsApi } from '../../services/api';
+import { usePlatform } from '../../context/PlatformContext';
+import { preferencesApi, sourcesApi, integrationsApi, redditApi } from '../../services/api';
 import { NotificationPreference, TrackedSource } from '../../types/models.types';
 import { SearchBar } from '../../components/atoms/SearchBar';
-import { FilterPills, FilterPillOption } from '../../components/atoms/FilterPills';
+import { FilterPillOption } from '../../components/atoms/FilterPills';
 import { createNotificationsStyles } from './NotificationsScreen.styles';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type MuteFilter = 'all' | 'active' | 'muted';
 type SortFilter = 'newest' | 'oldest' | 'a_z' | 'z_a';
-
-const MUTE_FILTER_OPTIONS: FilterPillOption<MuteFilter>[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Active', value: 'active' },
-  { label: 'Muted', value: 'muted' },
-];
 
 const SORT_OPTIONS: FilterPillOption<SortFilter>[] = [
   { label: 'Newest First', value: 'newest' },
@@ -130,14 +125,86 @@ const ChannelNotificationRow = React.memo<ChannelNotificationRowProps>(
   }
 );
 
+// ─── SubredditNotificationRow ────────────────────────────────────────────────
+
+interface SubredditNotificationRowProps {
+  subreddit: TrackedSource;
+  isRedditEnabled: boolean;
+  isMuted: boolean;
+  styles: ReturnType<typeof createNotificationsStyles>;
+  colors: ReturnType<typeof useAppTheme>['colors'];
+  onToggleMute: (id: string) => void;
+}
+
+const SubredditNotificationRow = React.memo<SubredditNotificationRowProps>(
+  ({ subreddit, isRedditEnabled, isMuted, styles, colors, onToggleMute }) => {
+    const isNotifying = isRedditEnabled && !isMuted;
+
+    return (
+      <View style={styles.channelCard}>
+        <View style={styles.toggleRow}>
+          <View style={styles.channelLeft}>
+            <View
+              style={[
+                styles.channelAvatar,
+                { backgroundColor: '#FF4500' },
+                !isNotifying && styles.channelAvatarMuted,
+              ]}>
+              <Text
+                style={[
+                  styles.channelAvatarText,
+                  { color: '#FFFFFF' },
+                  !isNotifying && styles.channelAvatarTextMuted,
+                ]}>
+                r/
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.channelTitle} numberOfLines={1}>
+                {subreddit.sourceName}
+              </Text>
+              <View style={styles.statusRow}>
+                <View
+                  style={[
+                    styles.statusDot,
+                    { backgroundColor: isNotifying ? '#10B981' : colors.textMuted },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.channelStatus,
+                    { color: isNotifying ? '#10B981' : colors.textMuted },
+                  ]}>
+                  {isNotifying ? 'Debate alerts active' : 'Muted'}
+                </Text>
+              </View>
+            </View>
+          </View>
+          <Switch
+            value={!isMuted}
+            onValueChange={() => onToggleMute(subreddit.sourceId)}
+            disabled={!isRedditEnabled}
+            trackColor={{ false: colors.border, true: '#FF4500' }}
+            thumbColor="#FFFFFF"
+          />
+        </View>
+      </View>
+    );
+  }
+);
+
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export const NotificationsScreen: React.FC = () => {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createNotificationsStyles(colors), [colors]);
 
+  const { activePlatform } = usePlatform();
+  const activeSegment = activePlatform === 'REDDIT' ? 'subreddits' : 'channels';
   const [preferences, setPreferences] = useState<NotificationPreference[]>([]);
   const [sources, setSources] = useState<TrackedSource[]>([]);
+  const [subreddits, setSubreddits] = useState<TrackedSource[]>([]);
+  const [mutedSubreddits, setMutedSubreddits] = useState<Record<string, boolean>>({});
   const [isYouTubeConnected, setIsYouTubeConnected] = useState<boolean>(false);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -150,14 +217,16 @@ export const NotificationsScreen: React.FC = () => {
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
 
   const fetchNotificationData = useCallback(async () => {
-    const [prefs, channels, accounts] = await Promise.all([
+    const [prefs, channels, accounts, subs] = await Promise.all([
       preferencesApi.get().catch(() => []),
       sourcesApi.list().catch(() => []),
       integrationsApi.list().catch(() => []),
+      redditApi.listSources().catch(() => []),
     ]);
     return {
       prefs,
       channels,
+      subreddits: subs,
       ytConnected: accounts.some((a) => a.platform === 'youtube' && a.status === 'active'),
     };
   }, []);
@@ -168,10 +237,11 @@ export const NotificationsScreen: React.FC = () => {
 
       async function loadNotificationData() {
         try {
-          const { prefs, channels, ytConnected } = await fetchNotificationData();
+          const { prefs, channels, subreddits: subs, ytConnected } = await fetchNotificationData();
           if (isMounted) {
             setPreferences(prefs);
             setSources(channels);
+            setSubreddits(subs);
             setIsYouTubeConnected(ytConnected);
           }
         } catch (err: any) {
@@ -194,11 +264,12 @@ export const NotificationsScreen: React.FC = () => {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const { prefs, channels, ytConnected } = await fetchNotificationData();
+      const { prefs, channels, subreddits: subs, ytConnected } = await fetchNotificationData();
       setPreferences(prefs);
       setSources(channels);
+      setSubreddits(subs);
       setIsYouTubeConnected(ytConnected);
-    } catch (err: any) {
+    } catch {
       console.warn('[NotificationsScreen] Refresh failed');
     } finally {
       setRefreshing(false);
@@ -224,6 +295,9 @@ export const NotificationsScreen: React.FC = () => {
 
   const isYouTubeEnabled =
     preferences.find((p) => p.platform === 'youtube')?.enabled ?? true;
+
+  const isRedditEnabled =
+    preferences.find((p) => p.platform === 'reddit')?.enabled ?? true;
 
   const filteredSources = useMemo(() => {
     const query = deferredSearchQuery.trim().toLowerCase();
@@ -282,6 +356,28 @@ export const NotificationsScreen: React.FC = () => {
     }
   }, []);
 
+  const handleToggleGlobalReddit = useCallback(async (value: boolean) => {
+    try {
+      setPreferences((prev) => {
+        const exists = prev.some((p) => p.platform === 'reddit');
+        if (exists) {
+          return prev.map((p) => (p.platform === 'reddit' ? { ...p, enabled: value } : p));
+        }
+        return [...prev, { id: 'reddit_pref', platform: 'reddit', enabled: value }];
+      });
+      await preferencesApi.update({ platform: 'reddit', enabled: value });
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to update Reddit preference.');
+    }
+  }, []);
+
+  const handleToggleSubredditMute = useCallback((subId: string) => {
+    setMutedSubreddits((prev) => ({
+      ...prev,
+      [subId]: !prev[subId],
+    }));
+  }, []);
+
   const handleToggleChannelMute = useCallback((channelId: string) => {
     setMutedChannels((prev) => ({
       ...prev,
@@ -309,7 +405,6 @@ export const NotificationsScreen: React.FC = () => {
     [sources, mutedChannels]
   );
 
-  const allMuted = mutedCount === sources.length && sources.length > 0;
   const anyMuted = mutedCount > 0;
   const activeCount = sources.length - mutedCount;
   const hasActiveFilter = muteFilter !== 'all' || sortFilter !== 'newest';
@@ -319,56 +414,107 @@ export const NotificationsScreen: React.FC = () => {
   const keyExtractor = useCallback((item: TrackedSource) => item.id, []);
 
   const renderItem = useCallback(
-    ({ item }: ListRenderItemInfo<TrackedSource>) => (
-      <ChannelNotificationRow
-        channel={item}
-        isYouTubeEnabled={isYouTubeEnabled}
-        isMuted={Boolean(mutedChannels[item.sourceId])}
-        styles={styles}
-        colors={colors}
-        onToggleMute={handleToggleChannelMute}
-      />
-    ),
-    [isYouTubeEnabled, mutedChannels, styles, colors, handleToggleChannelMute]
+    ({ item }: ListRenderItemInfo<TrackedSource>) => {
+      if (activeSegment === 'subreddits') {
+        return (
+          <SubredditNotificationRow
+            subreddit={item}
+            isRedditEnabled={isRedditEnabled}
+            isMuted={Boolean(mutedSubreddits[item.sourceId])}
+            styles={styles}
+            colors={colors}
+            onToggleMute={handleToggleSubredditMute}
+          />
+        );
+      }
+      return (
+        <ChannelNotificationRow
+          channel={item}
+          isYouTubeEnabled={isYouTubeEnabled}
+          isMuted={Boolean(mutedChannels[item.sourceId])}
+          styles={styles}
+          colors={colors}
+          onToggleMute={handleToggleChannelMute}
+        />
+      );
+    },
+    [
+      activeSegment,
+      isRedditEnabled,
+      mutedSubreddits,
+      isYouTubeEnabled,
+      mutedChannels,
+      styles,
+      colors,
+      handleToggleSubredditMute,
+      handleToggleChannelMute,
+    ]
   );
 
   const listHeader = useMemo(
     () => (
       <View>
-        {/* Compact Master Global Toggle */}
-        <View style={styles.masterCard}>
-          <View style={styles.masterLeft}>
-            <View style={styles.masterIconBadge}>
-              <Text style={styles.masterIconText}>▶</Text>
+        {activeSegment === 'channels' ? (
+          /* Compact Master Global Toggle: YouTube */
+          <View style={styles.masterCard}>
+            <View style={styles.masterLeft}>
+              <View style={styles.masterIconBadge}>
+                <Text style={styles.masterIconText}>▶</Text>
+              </View>
+              <View style={styles.masterTextGroup}>
+                <Text style={styles.masterTitle}>YouTube Video Alerts</Text>
+                <Text style={styles.masterSubtitle} numberOfLines={1}>
+                  {isYouTubeEnabled
+                    ? 'Push notifications enabled for new uploads'
+                    : 'All notifications paused'}
+                </Text>
+              </View>
             </View>
-            <View style={styles.masterTextGroup}>
-              <Text style={styles.masterTitle}>YouTube Summaries</Text>
-              <Text style={styles.masterSubtitle} numberOfLines={1}>
-                {isYouTubeEnabled
-                  ? 'Push notifications enabled for new uploads'
-                  : 'All notifications paused'}
-              </Text>
-            </View>
+            <Switch
+              value={isYouTubeEnabled}
+              onValueChange={handleToggleGlobalYouTube}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#FFFFFF"
+            />
           </View>
-          <Switch
-            value={isYouTubeEnabled}
-            onValueChange={handleToggleGlobalYouTube}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor="#FFFFFF"
-          />
-        </View>
-
-        {/* Channel Section Header */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Channel Notifications</Text>
-          {sources.length > 0 && (
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{sources.length}</Text>
+        ) : (
+          /* Master Global Toggle: Reddit */
+          <View style={styles.masterCard}>
+            <View style={styles.masterLeft}>
+              <View style={[styles.masterIconBadge, { backgroundColor: '#FF4500' }]}>
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '900' }}>r/</Text>
+              </View>
+              <View style={styles.masterTextGroup}>
+                <Text style={styles.masterTitle}>Reddit Discussion Alerts</Text>
+                <Text style={styles.masterSubtitle} numberOfLines={1}>
+                  {isRedditEnabled
+                    ? 'Push alerts for top community debates'
+                    : 'All Reddit alerts paused'}
+                </Text>
+              </View>
             </View>
-          )}
+            <Switch
+              value={isRedditEnabled}
+              onValueChange={handleToggleGlobalReddit}
+              trackColor={{ false: colors.border, true: '#FF4500' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+        )}
+
+        {/* Section Header */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>
+            {activeSegment === 'channels' ? 'Channel Notifications' : 'Subreddit Debate Notifications'}
+          </Text>
+          <View style={styles.countBadge}>
+            <Text style={styles.countBadgeText}>
+              {activeSegment === 'channels' ? sources.length : subreddits.length}
+            </Text>
+          </View>
         </View>
 
-        {sources.length > 0 && (
+        {activeSegment === 'channels' && sources.length > 0 && (
           <>
             {/* Search bar + Filters modal button */}
             <View style={styles.searchRow}>
@@ -432,7 +578,11 @@ export const NotificationsScreen: React.FC = () => {
     [
       styles,
       isYouTubeEnabled,
+      isRedditEnabled,
       handleToggleGlobalYouTube,
+      handleToggleGlobalReddit,
+      activeSegment,
+      subreddits.length,
       colors.border,
       colors.primary,
       sources.length,
@@ -442,7 +592,6 @@ export const NotificationsScreen: React.FC = () => {
       muteFilter,
       sortFilter,
       activeCount,
-      mutedCount,
       anyMuted,
       handleMuteAll,
       handleUnmuteAll,
@@ -450,6 +599,19 @@ export const NotificationsScreen: React.FC = () => {
   );
 
   const listEmpty = useMemo(() => {
+    if (activeSegment === 'subreddits') {
+      if (subreddits.length === 0) {
+        return (
+          <View style={styles.card}>
+            <Text style={{ color: colors.textMuted, textAlign: 'center', padding: 8 }}>
+              No tracked subreddits yet. Follow subreddits in the Following tab to configure debate notifications.
+            </Text>
+          </View>
+        );
+      }
+      return undefined;
+    }
+
     if (sources.length === 0) {
       return (
         <View style={styles.card}>
@@ -494,7 +656,18 @@ export const NotificationsScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
     );
-  }, [sources.length, styles, colors.textMuted, searchQuery, muteFilter, isYouTubeConnected, syncing, handleSyncYouTube]);
+  }, [
+    activeSegment,
+    subreddits.length,
+    sources.length,
+    styles,
+    colors.textMuted,
+    searchQuery,
+    muteFilter,
+    isYouTubeConnected,
+    syncing,
+    handleSyncYouTube,
+  ]);
 
   if (loading) {
     return (
@@ -510,12 +683,14 @@ export const NotificationsScreen: React.FC = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Notification Settings</Text>
         <Text style={styles.headerSubtitle}>
-          Control push notification alerts for video summaries
+          {activeSegment === 'channels'
+            ? 'Control push notification alerts for video summaries'
+            : 'Control push notification alerts for Reddit debate discussions'}
         </Text>
       </View>
 
       <FlatList
-        data={filteredSources}
+        data={activeSegment === 'channels' ? filteredSources : subreddits}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         ListHeaderComponent={listHeader}

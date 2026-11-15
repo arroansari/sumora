@@ -14,7 +14,12 @@ export type RootTabParamList = {
 export type RootStackParamList = {
   Auth: undefined;
   MainTabs: undefined;
-  SummaryDetail: { videoId: string; videoTitle?: string };
+  SummaryDetail: {
+    videoId: string;
+    videoTitle?: string;
+    isReddit?: boolean;
+    redditItem?: any;
+  };
   ChannelDetail: {
     channelId: string;
     channelName: string;
