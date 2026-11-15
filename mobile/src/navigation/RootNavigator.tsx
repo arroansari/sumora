@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { Linking, View, ActivityIndicator } from 'react-native';
-import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, NavigationContainerRef, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation.types';
 import { TabNavigator } from './TabNavigator';
@@ -52,9 +52,7 @@ function processOAuthUrl(
   url: string,
   navigationRef: React.RefObject<NavigationContainerRef<RootStackParamList> | null>
 ) {
-  if (!url || !url.startsWith('sumora://oauth/callback')) {
-    return;
-  }
+  if (!url) return;
 
   try {
     // Parse query params from the deep-link
@@ -65,23 +63,44 @@ function processOAuthUrl(
       if (key) params[decodeURIComponent(key)] = decodeURIComponent(val || '');
     });
 
-    const success = params['success'] === 'true';
-
-    if (success && navigationRef.current?.isReady()) {
-      // Navigate to the ConnectedAccounts tab so it can re-fetch the account list
-      navigationRef.current.navigate('MainTabs', { screen: 'ConnectedAccounts' } as any);
+    if (url.startsWith('sumora://oauth/callback')) {
+      const success = params['success'] === 'true';
+      if (success && navigationRef.current?.isReady()) {
+        navigationRef.current.navigate('MainTabs', { screen: 'ConnectedAccounts' } as any);
+      }
+    } else if (url.startsWith('sumora://summary')) {
+      const videoId = params['videoId'] || '';
+      const videoTitle = params['title'] || 'Video Summary';
+      if (navigationRef.current?.isReady() && videoId) {
+        navigationRef.current.navigate('SummaryDetail', { videoId, videoTitle });
+      }
     }
-
-    // ConnectedAccountsScreen subscribes to Linking events too — it will refresh regardless
   } catch (err) {
-    console.warn('[RootNavigator] Error processing OAuth deep-link:', err);
+    console.warn('[RootNavigator] Error processing deep-link:', err);
   }
 }
 
 export const RootNavigator: React.FC = () => {
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const { isAuthenticated, isRestoring } = useAuth();
   const navigationRef = useRef<NavigationContainerRef<RootStackParamList> | null>(null);
+
+  const navTheme = useMemo(() => {
+    const base = isDark ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      dark: isDark,
+      colors: {
+        ...base.colors,
+        primary: colors.primary,
+        background: colors.background,
+        card: colors.surface,
+        text: colors.textPrimary,
+        border: colors.border,
+        notification: colors.primary,
+      },
+    };
+  }, [isDark, colors]);
 
   useOAuthDeepLink(navigationRef);
 
@@ -94,7 +113,7 @@ export const RootNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer ref={navigationRef} theme={navTheme}>
       <Stack.Navigator
         screenOptions={{
           headerStyle: { backgroundColor: colors.surface },
@@ -114,7 +133,7 @@ export const RootNavigator: React.FC = () => {
             <Stack.Screen
               name="SummaryDetail"
               component={SummaryDetailScreen}
-              options={{ title: 'AI Summary Details', headerBackTitle: 'Feed' }}
+              options={{ headerShown: false }}
             />
             <Stack.Screen
               name="ChannelDetail"

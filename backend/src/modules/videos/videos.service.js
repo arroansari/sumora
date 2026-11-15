@@ -103,6 +103,8 @@ class VideosService {
               id: true,
               overview: true,
               keyPoints: true,
+              conclusion: true,
+              importantConcepts: true,
               aiProvider: true,
               modelName: true,
               createdAt: true,

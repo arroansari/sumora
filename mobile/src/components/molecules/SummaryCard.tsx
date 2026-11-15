@@ -37,7 +37,7 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({ summary, onPress }) =>
           {summary.headline}
         </Text>
 
-        <View style={styles.pointsContainer}>
+        <View style={[styles.pointsContainer, { borderTopColor: colors.border }]}>
           {summary.keyPoints.slice(0, 2).map((pt: string, idx: number) => (
             <View key={idx} style={styles.bulletRow}>
               <Text style={[styles.bullet, { color: colors.primary }]}>•</Text>

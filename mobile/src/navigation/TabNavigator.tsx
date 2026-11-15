@@ -30,6 +30,7 @@ export const TabNavigator: React.FC = () => {
 
   return (
     <Tab.Navigator
+      initialRouteName="Home"
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
