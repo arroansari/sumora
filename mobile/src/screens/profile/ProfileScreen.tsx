@@ -21,7 +21,7 @@ export const ProfileScreen: React.FC = () => {
     resetTextScale,
   } = useAppTheme();
   const { user, logout } = useAuth();
-  const styles = useMemo(() => createProfileStyles(colors), [colors]);
+  const styles = useMemo(() => createProfileStyles(colors, textScale), [colors, textScale]);
 
   const percentage = Math.round(textScale * 100);
 
@@ -95,6 +95,7 @@ export const ProfileScreen: React.FC = () => {
             activeThemeId={accentThemeId}
             onSelectTheme={setAccentTheme}
             colors={colors}
+            textScale={textScale}
           />
         </Card>
 
@@ -113,6 +114,7 @@ export const ProfileScreen: React.FC = () => {
                 { backgroundColor: accentTheme.badgeBg },
               ]}>
               <Text
+                allowFontScaling={false}
                 style={[
                   styles.textScaleBadgeText,
                   { color: accentTheme.badgeText },
@@ -142,6 +144,7 @@ export const ProfileScreen: React.FC = () => {
                   onPress={() => setTextScale(preset.value)}
                   activeOpacity={0.75}>
                   <Text
+                    allowFontScaling={false}
                     style={[
                       styles.presetPillText,
                       active && [
@@ -165,13 +168,7 @@ export const ProfileScreen: React.FC = () => {
                 borderColor: colors.borderSubtle,
               },
             ]}>
-            <Text
-              style={{
-                fontSize: Math.round(15 * textScale),
-                lineHeight: Math.round(23 * textScale),
-                color: colors.textPrimary,
-                fontFamily: 'PlusJakartaSans-Medium',
-              }}>
+            <Text style={styles.previewBodyText}>
               Sumora distills complex video knowledge into concise, grounded takeaways designed for maximum visual retention and deep intellect.
             </Text>
           </View>
@@ -182,21 +179,21 @@ export const ProfileScreen: React.FC = () => {
               style={styles.stepperBtn}
               onPress={() => setTextScale((prev) => Math.max(0.8, Math.round((prev - 0.05) * 100) / 100))}
               activeOpacity={0.75}>
-              <Text style={styles.stepperBtnText}>A- Smaller</Text>
+              <Text allowFontScaling={false} style={styles.stepperBtnText}>A- Smaller</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.stepperBtn, { backgroundColor: accentTheme.badgeBg, borderColor: accentTheme.badgeBg }]}
               onPress={resetTextScale}
               activeOpacity={0.75}>
-              <Text style={[styles.stepperBtnText, { color: accentTheme.badgeText }]}>100% Reset</Text>
+              <Text allowFontScaling={false} style={[styles.stepperBtnText, { color: accentTheme.badgeText }]}>100% Reset</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.stepperBtn}
               onPress={() => setTextScale((prev) => Math.min(1.4, Math.round((prev + 0.05) * 100) / 100))}
               activeOpacity={0.75}>
-              <Text style={styles.stepperBtnText}>A+ Larger</Text>
+              <Text allowFontScaling={false} style={styles.stepperBtnText}>A+ Larger</Text>
             </TouchableOpacity>
           </View>
         </Card>

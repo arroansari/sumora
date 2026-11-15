@@ -74,7 +74,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (storedScale) {
           const parsed = parseFloat(storedScale);
           if (!isNaN(parsed) && parsed >= MIN_TEXT_SCALE && parsed <= MAX_TEXT_SCALE) {
-            setTextScaleState(Math.round(parsed * 100) / 100);
+            const clean = Math.round(parsed * 100) / 100;
+            (globalThis as any).__SUMORA_TEXT_SCALE__ = clean;
+            setTextScaleState(clean);
           }
         }
       })
@@ -95,12 +97,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setTextScaleState((prev) => {
       const nextRaw = typeof action === 'function' ? action(prev) : action;
       const clamped = Math.max(MIN_TEXT_SCALE, Math.min(MAX_TEXT_SCALE, Math.round(nextRaw * 100) / 100));
+      (globalThis as any).__SUMORA_TEXT_SCALE__ = clamped;
       AsyncStorage.setItem(TEXT_SCALE_KEY, clamped.toString()).catch(() => {});
       return clamped;
     });
   }, []);
 
   const resetTextScale = useCallback(() => {
+    (globalThis as any).__SUMORA_TEXT_SCALE__ = DEFAULT_TEXT_SCALE;
     setTextScaleState(DEFAULT_TEXT_SCALE);
     AsyncStorage.setItem(TEXT_SCALE_KEY, DEFAULT_TEXT_SCALE.toString()).catch(() => {});
   }, []);

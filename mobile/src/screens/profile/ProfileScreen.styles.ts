@@ -1,8 +1,11 @@
 import { StyleSheet } from 'react-native';
 import { ThemeColors } from '../../theme/colors';
 
-export const createProfileStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
+export const createProfileStyles = (colors: ThemeColors, scale: number = 1.0) => {
+  const fs = (size: number) => Math.round(size * scale);
+  const lh = (lineHeight: number) => Math.round(lineHeight * scale);
+
+  return StyleSheet.create({
     safeArea: {
       flex: 1,
       backgroundColor: colors.background,
@@ -16,17 +19,18 @@ export const createProfileStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surface,
     },
     headerTitle: {
-      fontSize: 26,
+      fontSize: fs(26),
+      lineHeight: lh(32),
       fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
       letterSpacing: -0.4,
     },
     headerSubtitle: {
-      fontSize: 13,
+      fontSize: fs(13),
       marginTop: 4,
       color: colors.textSecondary,
-      lineHeight: 18,
+      lineHeight: lh(18),
     },
     container: {
       paddingHorizontal: 16,
@@ -61,14 +65,14 @@ export const createProfileStyles = (colors: ThemeColors) =>
       flex: 1,
     },
     userName: {
-      fontSize: 19,
+      fontSize: fs(19),
       fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
       letterSpacing: -0.3,
     },
     userEmail: {
-      fontSize: 13,
+      fontSize: fs(13),
       color: colors.textMuted,
       marginTop: 3,
     },
@@ -96,18 +100,18 @@ export const createProfileStyles = (colors: ThemeColors) =>
       fontSize: 16,
     },
     settingTitle: {
-      fontSize: 16,
+      fontSize: fs(16),
       fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
       color: colors.textPrimary,
     },
     settingDesc: {
-      fontSize: 12,
+      fontSize: fs(12),
       color: colors.textMuted,
       marginTop: 2,
     },
     sectionTitle: {
-      fontSize: 16,
+      fontSize: fs(16),
       fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
@@ -186,8 +190,8 @@ export const createProfileStyles = (colors: ThemeColors) =>
     },
     prefHint: {
       marginTop: 5,
-      fontSize: 13,
-      lineHeight: 18,
+      fontSize: fs(13),
+      lineHeight: lh(18),
       color: colors.textMuted,
     },
     logoutButton: {
@@ -202,18 +206,25 @@ export const createProfileStyles = (colors: ThemeColors) =>
     },
     logoutButtonText: {
       color: colors.danger,
-      fontSize: 15,
+      fontSize: fs(15),
       fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
+    },
+    previewBodyText: {
+      fontSize: fs(15),
+      lineHeight: lh(23),
+      color: colors.textPrimary,
+      fontFamily: 'PlusJakartaSans-Medium',
     },
     footer: {
       marginTop: 20,
       marginBottom: 8,
     },
     footerText: {
-      fontSize: 12,
+      fontSize: fs(12),
       color: colors.textMuted,
       textAlign: 'center',
     },
   });
+};
 

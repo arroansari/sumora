@@ -32,7 +32,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { videoId, videoTitle } = route.params;
   const { colors, accentTheme, textScale, setTextScale, resetTextScale } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const styles = useMemo(() => createSummaryDetailStyles(colors), [colors]);
+  const styles = useMemo(() => createSummaryDetailStyles(colors, textScale), [colors, textScale]);
 
   const [video, setVideo] = useState<VideoItem | null>(null);
   const [summary, setSummary] = useState<VideoSummary | null>(null);
@@ -43,6 +43,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('highlights');
   const [copied, setCopied] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
+  const [isScaleVisible, setIsScaleVisible] = useState<boolean>(false);
 
   useEffect(() => {
     async function checkCompleted() {
@@ -262,19 +263,16 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.backButtonText}>‹ Back</Text>
           </TouchableOpacity>
           <Text style={styles.topHeaderTitle}>Summary</Text>
-          <View style={{ width: 72 }} />
+          <TouchableOpacity
+            style={styles.headerScaleButton}
+            onPress={() => setIsScaleVisible((prev) => !prev)}
+            activeOpacity={0.75}>
+            <Text allowFontScaling={false} style={styles.headerScaleText}>
+              Aa {Math.round(textScale * 100)}%
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
-
-      {/* ── Floating Dynamic Luxury Text Scaling Scrollbar ── */}
-      <TextScaleScrollbar
-        textScale={textScale}
-        onChangeScale={setTextScale}
-        onResetScale={resetTextScale}
-        accentTheme={accentTheme}
-        colors={colors}
-        style={{ top: insets.top + 64 }}
-      />
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
@@ -297,14 +295,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           {/* 2. Video Title */}
-          <Text
-            style={[
-              styles.title,
-              {
-                fontSize: Math.round(21 * textScale),
-                lineHeight: Math.round(27 * textScale),
-              },
-            ]}>
+          <Text style={styles.title}>
             {video?.title || videoTitle || 'Video Summary'}
           </Text>
 
@@ -403,14 +394,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                       <Text style={styles.heroBadgeText}>TL;DR</Text>
                     </View>
                   </View>
-                  <Text
-                    style={[
-                      styles.heroBodyText,
-                      {
-                        fontSize: Math.round(15.5 * textScale),
-                        lineHeight: Math.round(24 * textScale),
-                      },
-                    ]}>
+                  <Text style={styles.heroBodyText}>
                     {summary.overview}
                   </Text>
                 </View>
@@ -429,14 +413,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                               {index < 9 ? `0${index + 1}` : `${index + 1}`}
                             </Text>
                           </View>
-                          <Text
-                            style={[
-                              styles.takeawayText,
-                              {
-                                fontSize: Math.round(15 * textScale),
-                                lineHeight: Math.round(22 * textScale),
-                              },
-                            ]}>
+                          <Text style={styles.takeawayText}>
                             {point}
                           </Text>
                         </View>
@@ -453,25 +430,11 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     </View>
                     {summary.importantConcepts.map((item, index) => (
                       <View key={index} style={styles.conceptItem}>
-                        <Text
-                          style={[
-                            styles.conceptTitle,
-                            {
-                              fontSize: Math.round(14.5 * textScale),
-                              lineHeight: Math.round(20 * textScale),
-                            },
-                          ]}>
+                        <Text style={styles.conceptTitle}>
                           {item.concept || String(item)}
                         </Text>
                         {item.explanation && (
-                          <Text
-                            style={[
-                              styles.conceptExplanation,
-                              {
-                                fontSize: Math.round(13.5 * textScale),
-                                lineHeight: Math.round(21 * textScale),
-                              },
-                            ]}>
+                          <Text style={styles.conceptExplanation}>
                             {item.explanation}
                           </Text>
                         )}
@@ -491,14 +454,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     <View style={styles.sectionHeadingRow}>
                       <Text style={styles.sectionHeading}>📝 Detailed Story</Text>
                     </View>
-                    <Text
-                      style={[
-                        styles.bodyText,
-                        {
-                          fontSize: Math.round(14.5 * textScale),
-                          lineHeight: Math.round(23 * textScale),
-                        },
-                      ]}>
+                    <Text style={styles.bodyText}>
                       {summary.detailedSummary}
                     </Text>
                   </View>
@@ -510,14 +466,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     <View style={styles.sectionHeadingRow}>
                       <Text style={styles.sectionHeading}>🏁 Final Verdict</Text>
                     </View>
-                    <Text
-                      style={[
-                        styles.bodyText,
-                        {
-                          fontSize: Math.round(14.5 * textScale),
-                          lineHeight: Math.round(23 * textScale),
-                        },
-                      ]}>
+                    <Text style={styles.bodyText}>
                       {summary.conclusion}
                     </Text>
                   </View>
@@ -609,6 +558,19 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
       </View>
     </ScrollView>
+
+    {/* ── Dynamic Luxury Text Scaling Scrollbar Dropdown ── */}
+    <TextScaleScrollbar
+      textScale={textScale}
+      onChangeScale={setTextScale}
+      onResetScale={resetTextScale}
+      accentTheme={accentTheme}
+      colors={colors}
+      expanded={isScaleVisible}
+      onClose={() => setIsScaleVisible(false)}
+      showFloatingTrigger={false}
+      style={{ top: insets.top + 70, right: 18 }}
+    />
   </View>
   );
 };

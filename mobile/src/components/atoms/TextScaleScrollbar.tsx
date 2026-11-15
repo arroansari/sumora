@@ -26,6 +26,9 @@ interface TextScaleScrollbarProps {
   colors: ThemeColors;
   style?: StyleProp<ViewStyle>;
   initialExpanded?: boolean;
+  expanded?: boolean;
+  onClose?: () => void;
+  showFloatingTrigger?: boolean;
 }
 
 export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
@@ -36,11 +39,23 @@ export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
   colors,
   style,
   initialExpanded = false,
+  expanded,
+  onClose,
+  showFloatingTrigger = true,
 }) => {
-  const [isExpanded, setIsExpanded] = useState<boolean>(initialExpanded);
+  const [internalExpanded, setInternalExpanded] = useState<boolean>(initialExpanded);
+  const isExpanded = typeof expanded === 'boolean' ? expanded : internalExpanded;
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const tooltipFadeAnim = useRef(new Animated.Value(0)).current;
   const hideTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleClose = useCallback(() => {
+    if (onClose) {
+      onClose();
+    } else {
+      setInternalExpanded(false);
+    }
+  }, [onClose]);
 
   // Compute thumb position: top is MAX_TEXT_SCALE (1.4), bottom is MIN_TEXT_SCALE (0.8)
   const normalized = (textScale - MIN_TEXT_SCALE) / (MAX_TEXT_SCALE - MIN_TEXT_SCALE);
@@ -69,27 +84,38 @@ export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
     }, delay);
   }, [tooltipFadeAnim]);
 
-  const updateScaleFromY = useCallback((y: number) => {
-    const clampedY = Math.max(0, Math.min(SLIDER_RANGE, y));
-    const ratio = 1 - clampedY / SLIDER_RANGE;
-    const newScale = MIN_TEXT_SCALE + ratio * (MAX_TEXT_SCALE - MIN_TEXT_SCALE);
-    onChangeScale(Math.round(newScale * 100) / 100);
-  }, [onChangeScale]);
+  const initialThumbTopRef = useRef(0);
+  const textScaleRef = useRef(textScale);
+  textScaleRef.current = textScale;
 
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
         onMoveShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponderCapture: () => true,
+        onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: (evt) => {
           setIsDragging(true);
           showTooltip();
-          const locationY = evt.nativeEvent.locationY;
-          updateScaleFromY(locationY - THUMB_HEIGHT / 2);
+          // Support tapping or dragging anywhere along the track
+          const tapY = evt.nativeEvent.locationY;
+          const targetThumbTop = Math.max(0, Math.min(SLIDER_RANGE, tapY - THUMB_HEIGHT / 2));
+          initialThumbTopRef.current = targetThumbTop;
+          const newRatio = 1 - targetThumbTop / SLIDER_RANGE;
+          const newScale = MIN_TEXT_SCALE + newRatio * (MAX_TEXT_SCALE - MIN_TEXT_SCALE);
+          onChangeScale(Math.round(newScale * 100) / 100);
         },
-        onPanResponderMove: (evt) => {
-          const locationY = evt.nativeEvent.locationY;
-          updateScaleFromY(locationY - THUMB_HEIGHT / 2);
+        onPanResponderMove: (_evt, gestureState) => {
+          // As finger moves down (+dy), thumb moves down and scale decreases
+          const newThumbTop = Math.max(
+            0,
+            Math.min(SLIDER_RANGE, initialThumbTopRef.current + gestureState.dy)
+          );
+          const newRatio = 1 - newThumbTop / SLIDER_RANGE;
+          const newScale = MIN_TEXT_SCALE + newRatio * (MAX_TEXT_SCALE - MIN_TEXT_SCALE);
+          onChangeScale(Math.round(newScale * 100) / 100);
         },
         onPanResponderRelease: () => {
           setIsDragging(false);
@@ -100,7 +126,7 @@ export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
           scheduleHideTooltip(1000);
         },
       }),
-    [showTooltip, scheduleHideTooltip, updateScaleFromY]
+    [showTooltip, scheduleHideTooltip, onChangeScale]
   );
 
   const handleStepUp = () => {
@@ -133,8 +159,11 @@ export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
 
   const percentage = Math.round(textScale * 100);
 
-  // If collapsed: display sleek floating pill
+  // If collapsed: display sleek floating pill if requested
   if (!isExpanded) {
+    if (!showFloatingTrigger) {
+      return null;
+    }
     return (
       <View style={[styles.floatingContainer, style]} pointerEvents="box-none">
         <TouchableOpacity
@@ -147,15 +176,15 @@ export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
             },
           ]}
           onPress={() => {
-            setIsExpanded(true);
+            setInternalExpanded(true);
             showTooltip();
             scheduleHideTooltip(2500);
           }}
           activeOpacity={0.85}>
           <View style={[styles.pillIconBox, { backgroundColor: accentTheme.badgeBg }]}>
-            <Text style={[styles.pillIconText, { color: accentTheme.badgeText }]}>Aa</Text>
+            <Text allowFontScaling={false} style={[styles.pillIconText, { color: accentTheme.badgeText }]}>Aa</Text>
           </View>
-          <Text style={[styles.collapsedPillText, { color: colors.textPrimary }]}>
+          <Text allowFontScaling={false} style={[styles.collapsedPillText, { color: colors.textPrimary }]}>
             {percentage}%
           </Text>
         </TouchableOpacity>
@@ -179,9 +208,9 @@ export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
         <View style={styles.cardHeader}>
           <TouchableOpacity
             style={styles.closeBtn}
-            onPress={() => setIsExpanded(false)}
+            onPress={handleClose}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={[styles.closeBtnText, { color: colors.textMuted }]}>✕</Text>
+            <Text allowFontScaling={false} style={[styles.closeBtnText, { color: colors.textMuted }]}>✕</Text>
           </TouchableOpacity>
         </View>
 
@@ -196,13 +225,14 @@ export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
           onPress={handleStepUp}
           activeOpacity={0.7}
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-          <Text style={[styles.stepButtonText, { color: accentTheme.badgeText }]}>A+</Text>
+          <Text allowFontScaling={false} style={[styles.stepButtonText, { color: accentTheme.badgeText }]}>A+</Text>
         </TouchableOpacity>
 
         {/* Vertical Track Area */}
         <View style={styles.trackContainer} {...panResponder.panHandlers}>
           {/* Background Groove */}
           <View
+            pointerEvents="none"
             style={[
               styles.groove,
               {
@@ -225,6 +255,7 @@ export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
 
           {/* Tick mark at 100% (Default) */}
           <View
+            pointerEvents="none"
             style={[
               styles.tickMarkDefault,
               {
@@ -238,6 +269,7 @@ export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
 
           {/* Draggable Dynamic Gradient Thumb */}
           <View
+            pointerEvents="none"
             style={[
               styles.thumbWrapper,
               {
@@ -266,11 +298,11 @@ export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
             ]}
             pointerEvents={isDragging ? 'none' : 'auto'}>
             <TouchableOpacity onPress={handleReset} activeOpacity={0.8}>
-              <Text style={[styles.tooltipText, { color: colors.background }]}>
+              <Text allowFontScaling={false} style={[styles.tooltipText, { color: colors.background }]}>
                 {percentage}%
               </Text>
               {percentage !== 100 && (
-                <Text style={[styles.tooltipResetSub, { color: accentTheme.primaryLight }]}>
+                <Text allowFontScaling={false} style={[styles.tooltipResetSub, { color: accentTheme.primaryLight }]}>
                   tap to reset
                 </Text>
               )}
@@ -289,7 +321,7 @@ export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
           onPress={handleStepDown}
           activeOpacity={0.7}
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-          <Text style={[styles.stepButtonText, { color: accentTheme.badgeText }]}>A-</Text>
+          <Text allowFontScaling={false} style={[styles.stepButtonText, { color: accentTheme.badgeText }]}>A-</Text>
         </TouchableOpacity>
       </View>
     </View>

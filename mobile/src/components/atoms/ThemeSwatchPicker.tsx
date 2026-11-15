@@ -8,10 +8,14 @@ interface ThemeSwatchPickerProps {
   activeThemeId: string;
   onSelectTheme: (id: AppThemeOption['id']) => void;
   colors: ThemeColors;
+  textScale?: number;
 }
 
 export const ThemeSwatchPicker: React.FC<ThemeSwatchPickerProps> = React.memo(
-  ({ themes, activeThemeId, onSelectTheme, colors }) => {
+  ({ themes, activeThemeId, onSelectTheme, colors, textScale = 1.0 }) => {
+    const fs = (size: number) => Math.round(size * textScale);
+    const lh = (height: number) => Math.round(height * textScale);
+
     const activeTheme = useMemo(
       () => themes.find((t) => t.id === activeThemeId) || themes[0],
       [themes, activeThemeId]
@@ -20,17 +24,17 @@ export const ThemeSwatchPicker: React.FC<ThemeSwatchPickerProps> = React.memo(
     return (
       <View style={styles.wrapper}>
         <View style={styles.headerRow}>
-          <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textPrimary, fontSize: fs(16) }]}>
             Executive Palette
           </Text>
           <View style={[styles.activePill, { backgroundColor: activeTheme.primary + '18' }]}>
-            <Text style={[styles.activePillText, { color: activeTheme.primary }]}>
+            <Text style={[styles.activePillText, { color: activeTheme.primary, fontSize: fs(11.5) }]}>
               {activeTheme.label}
             </Text>
           </View>
         </View>
 
-        <Text style={[styles.sectionSub, { color: colors.textMuted }]}>
+        <Text style={[styles.sectionSub, { color: colors.textMuted, fontSize: fs(12), lineHeight: lh(17) }]}>
           Psychology-tailored luxury gradients crafted for reading endurance & deep focus
         </Text>
 
@@ -78,14 +82,14 @@ export const ThemeSwatchPicker: React.FC<ThemeSwatchPickerProps> = React.memo(
                   <Text
                     style={[
                       styles.swatchTitle,
-                      { color: isActive ? theme.primary : colors.textPrimary },
+                      { color: isActive ? theme.primary : colors.textPrimary, fontSize: fs(11.5) },
                       isActive && styles.swatchTitleActive,
                     ]}
                     numberOfLines={1}>
                     {theme.label}
                   </Text>
                   <Text
-                    style={[styles.swatchTagline, { color: colors.textMuted }]}
+                    style={[styles.swatchTagline, { color: colors.textMuted, fontSize: fs(9.5) }]}
                     numberOfLines={1}>
                     {theme.tagline}
                   </Text>
@@ -108,11 +112,11 @@ export const ThemeSwatchPicker: React.FC<ThemeSwatchPickerProps> = React.memo(
             ]}>
             <View style={styles.psychologyHeader}>
               <Text style={styles.psychologyIcon}>✦</Text>
-              <Text style={[styles.psychologyTitle, { color: activeTheme.primary }]}>
+              <Text style={[styles.psychologyTitle, { color: activeTheme.primary, fontSize: fs(12.5) }]}>
                 {activeTheme.tagline}
               </Text>
             </View>
-            <Text style={[styles.psychologyDesc, { color: colors.textSecondary }]}>
+            <Text style={[styles.psychologyDesc, { color: colors.textSecondary, fontSize: fs(11.5), lineHeight: lh(17) }]}>
               {activeTheme.psychology}
             </Text>
           </View>
