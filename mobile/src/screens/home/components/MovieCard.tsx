@@ -263,13 +263,16 @@ export const MovieCard = React.memo<MovieCardProps>(
                   style={styles.readButtonLavender}
                   onPress={() => onReadReview(item)}
                   activeOpacity={0.8}>
-                  <Text style={styles.readButtonTextLavender}>Read Review</Text>
+                  <Text style={styles.readButtonTextLavender} numberOfLines={1}>
+                    Read Review
+                  </Text>
                 </TouchableOpacity>
 
                 <GradientButton
                   title="Watch Trailer"
                   onPress={handleWatchTrailer}
                   style={styles.watchGradientBtn}
+                  textStyle={{ fontSize: 13, letterSpacing: -0.2 }}
                 />
 
                 {isCompletedView ? (

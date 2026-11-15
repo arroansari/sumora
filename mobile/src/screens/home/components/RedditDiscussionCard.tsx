@@ -281,7 +281,9 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
                   style={styles.readButtonLavender}
                   onPress={() => onReadSummary(item.externalId, item.title, item)}
                   activeOpacity={0.8}>
-                  <Text style={styles.readButtonTextLavender}>Read Summary</Text>
+                  <Text style={styles.readButtonTextLavender} numberOfLines={1}>
+                    Read Summary
+                  </Text>
                 </TouchableOpacity>
 
                 <GradientButton

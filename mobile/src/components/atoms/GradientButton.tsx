@@ -70,7 +70,7 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
       {loading ? (
         <ActivityIndicator color="#FFFFFF" size="small" />
       ) : (
-        <Text style={[styles.text, textStyle]}>
+        <Text style={[styles.text, textStyle]} numberOfLines={1}>
           {icon ? `${icon} ` : ''}
           {title}
         </Text>

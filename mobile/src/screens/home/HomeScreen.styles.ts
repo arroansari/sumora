@@ -756,7 +756,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
     },
     actionsRow: {
       flexDirection: 'row',
-      gap: 10,
+      gap: 8,
       marginTop: 4,
     },
     readButton: {
@@ -773,9 +773,10 @@ export const createHomeStyles = (colors: ThemeColors) =>
       elevation: 4,
     },
     readButtonLavender: {
-      flex: 1.2,
+      flex: 1.05,
       height: 40,
       borderRadius: 20,
+      paddingHorizontal: 4,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'rgba(124, 58, 237, 0.08)',
@@ -786,12 +787,13 @@ export const createHomeStyles = (colors: ThemeColors) =>
       color: colors.primary,
       fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
-      fontSize: 13.5,
+      fontSize: 12.5,
     },
     watchGradientBtn: {
-      flex: 0.9,
+      flex: 1.15,
       height: 40,
       borderRadius: 20,
+      paddingHorizontal: 4,
     },
     readButtonText: {
       color: '#FFFFFF',
@@ -816,9 +818,9 @@ export const createHomeStyles = (colors: ThemeColors) =>
       color: colors.textPrimary,
     },
     doneButton: {
-      paddingHorizontal: 14,
-      height: 42,
-      borderRadius: 21,
+      paddingHorizontal: 11,
+      height: 40,
+      borderRadius: 20,
       backgroundColor: colors.successBg,
       borderWidth: 1,
       borderColor: colors.success + '40',
@@ -826,7 +828,7 @@ export const createHomeStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
     },
     doneButtonText: {
-      fontSize: 12.5,
+      fontSize: 12,
       fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.success,
