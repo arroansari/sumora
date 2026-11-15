@@ -19,6 +19,9 @@ import {
   Image,
   StyleSheet,
   Switch,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -867,7 +870,7 @@ export const FollowingScreen: React.FC = () => {
                 styles.toggleAddButtonText,
                 (platformSection === 'channels' ? showAddForm : showAddSubredditModal) && styles.toggleAddButtonTextActive,
               ]}>
-              {platformSection === 'channels' ? (showAddForm ? '✕ Close' : '+ Add') : '+ Add Subreddit'}
+              {platformSection === 'channels' ? (showAddForm ? '✕ Close' : '+ Add') : '+ Add'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1183,8 +1186,13 @@ export const FollowingScreen: React.FC = () => {
         transparent
         animationType="slide"
         onRequestClose={() => setShowAddSubredditModal(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalContent, { paddingBottom: 24 }]}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}>
+          <TouchableWithoutFeedback onPress={() => setShowAddSubredditModal(false)}>
+            <View style={StyleSheet.absoluteFill} />
+          </TouchableWithoutFeedback>
+          <View style={[styles.modalContent, { paddingBottom: 32 }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>💬 Track a Subreddit</Text>
               <TouchableOpacity
@@ -1206,6 +1214,7 @@ export const FollowingScreen: React.FC = () => {
               onChangeText={setNewSubredditInput}
               autoCapitalize="none"
               autoCorrect={false}
+              autoFocus
             />
 
             <TouchableOpacity
@@ -1219,7 +1228,7 @@ export const FollowingScreen: React.FC = () => {
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

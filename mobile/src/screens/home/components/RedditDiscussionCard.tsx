@@ -113,6 +113,9 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
       return points.slice(0, 4);
     }, [item.summary, item.selftext, item.title, item.subreddit, formattedScore]);
 
+    const cleanSubreddit = useMemo(() => (item.subreddit || '').replace(/^r\//i, ''), [item.subreddit]);
+    const cleanAuthor = useMemo(() => (item.author || '').replace(/^u\//i, ''), [item.author]);
+
     const handleOpenThread = () => {
       const url = item.permalink.startsWith('http')
         ? item.permalink
@@ -129,39 +132,41 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
       <View style={[styles.cardPageSlot, cardDynamicHeightStyle]}>
         <View style={[styles.card, styles.cardInDeck]}>
           {/* Top Visual Community Banner */}
-          <View style={[styles.thumbnailContainer, { backgroundColor: '#1E1B4B' }]}>
+          <View style={[styles.thumbnailContainer, { height: 114, backgroundColor: '#0F172A' }]}>
             <View style={StyleSheet.absoluteFill}>
               <View
                 style={{
                   flex: 1,
                   backgroundColor: '#0F172A',
-                  padding: 16,
+                  paddingHorizontal: 14,
+                  paddingTop: 10,
+                  paddingBottom: 8,
                   justifyContent: 'center',
                 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                   <View
                     style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
+                      width: 28,
+                      height: 28,
+                      borderRadius: 14,
                       backgroundColor: '#FF4500',
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}>
-                    <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>r/</Text>
+                    <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '800' }}>r/</Text>
                   </View>
-                  <View>
-                    <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '800' }}>
-                      r/{item.subreddit}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }} numberOfLines={1}>
+                      r/{cleanSubreddit}
                     </Text>
-                    <Text style={{ color: '#94A3B8', fontSize: 11.5, fontWeight: '500' }}>
-                      u/{item.author} • {publishedFormatted}
+                    <Text style={{ color: '#94A3B8', fontSize: 11, fontWeight: '500' }} numberOfLines={1}>
+                      u/{cleanAuthor} • {publishedFormatted}
                     </Text>
                   </View>
                 </View>
                 <Text
-                  style={{ color: '#E2E8F0', fontSize: 13, lineHeight: 18 }}
-                  numberOfLines={2}>
+                  style={{ color: '#CBD5E1', fontSize: 12, lineHeight: 16 }}
+                  numberOfLines={1}>
                   {item.selftext || `Discussion thread with ${formattedComments} community replies.`}
                 </Text>
               </View>

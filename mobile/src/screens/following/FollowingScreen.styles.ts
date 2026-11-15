@@ -27,11 +27,11 @@ export const createFollowingStyles = (colors: ThemeColors) =>
       flex: 1,
     },
     headerTitle: {
-      fontSize: 24,
+      fontSize: 21,
       fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: colors.textPrimary,
-      letterSpacing: -0.3,
+      letterSpacing: -0.4,
     },
     countBadge: {
       paddingHorizontal: 10,

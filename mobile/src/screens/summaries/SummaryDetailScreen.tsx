@@ -368,7 +368,14 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
 
           {/* 2. Video Title */}
-          <Text style={styles.title}>
+          <Text
+            style={[
+              styles.title,
+              {
+                fontSize: Math.round(21 * textScale),
+                lineHeight: Math.round(28 * textScale),
+              },
+            ]}>
             {video?.title || videoTitle || 'Video Summary'}
           </Text>
 
@@ -467,7 +474,14 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                       <Text style={styles.heroBadgeText}>TL;DR</Text>
                     </View>
                   </View>
-                  <Text style={styles.heroBodyText}>
+                  <Text
+                    style={[
+                      styles.heroBodyText,
+                      {
+                        fontSize: Math.round(15.5 * textScale),
+                        lineHeight: Math.round(25 * textScale),
+                      },
+                    ]}>
                     {summary.overview}
                   </Text>
                 </View>
@@ -486,7 +500,14 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                               {index < 9 ? `0${index + 1}` : `${index + 1}`}
                             </Text>
                           </View>
-                          <Text style={styles.takeawayText}>
+                          <Text
+                            style={[
+                              styles.takeawayText,
+                              {
+                                fontSize: Math.round(14.5 * textScale),
+                                lineHeight: Math.round(22 * textScale),
+                              },
+                            ]}>
                             {point}
                           </Text>
                         </View>
@@ -503,11 +524,24 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     </View>
                     {summary.importantConcepts.map((item, index) => (
                       <View key={index} style={styles.conceptItem}>
-                        <Text style={styles.conceptTitle}>
+                        <Text
+                          style={[
+                            styles.conceptTitle,
+                            {
+                              fontSize: Math.round(14.5 * textScale),
+                            },
+                          ]}>
                           {item.concept || String(item)}
                         </Text>
                         {item.explanation && (
-                          <Text style={styles.conceptExplanation}>
+                          <Text
+                            style={[
+                              styles.conceptExplanation,
+                              {
+                                fontSize: Math.round(13.5 * textScale),
+                                lineHeight: Math.round(20 * textScale),
+                              },
+                            ]}>
                             {item.explanation}
                           </Text>
                         )}
@@ -527,7 +561,14 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     <View style={styles.sectionHeadingRow}>
                       <Text style={styles.sectionHeading}>📝 Detailed Story</Text>
                     </View>
-                    <Text style={styles.bodyText}>
+                    <Text
+                      style={[
+                        styles.bodyText,
+                        {
+                          fontSize: Math.round(15 * textScale),
+                          lineHeight: Math.round(24 * textScale),
+                        },
+                      ]}>
                       {summary.detailedSummary}
                     </Text>
                   </View>
@@ -539,7 +580,14 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     <View style={styles.sectionHeadingRow}>
                       <Text style={styles.sectionHeading}>🏁 Final Verdict</Text>
                     </View>
-                    <Text style={styles.bodyText}>
+                    <Text
+                      style={[
+                        styles.bodyText,
+                        {
+                          fontSize: Math.round(15 * textScale),
+                          lineHeight: Math.round(24 * textScale),
+                        },
+                      ]}>
                       {summary.conclusion}
                     </Text>
                   </View>
