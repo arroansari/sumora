@@ -295,8 +295,8 @@ class SummarizationService {
     try {
       let rawAiResponse;
       try {
-        rawAiResponse = await provider.generateSummary(prompt, {
-          temperature: 0.2,
+        rawAiResponse = await provider.generateStructuredJson({
+          prompt,
           systemInstruction: SYSTEM_INSTRUCTION_REDDIT,
         });
       } catch (err) {

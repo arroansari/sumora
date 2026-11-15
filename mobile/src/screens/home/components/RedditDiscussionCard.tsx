@@ -67,8 +67,10 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
 
     const takeawayBullets = useMemo(() => {
       const points: string[] = [];
-      if (item.summary?.keyTakeaways && Array.isArray(item.summary.keyTakeaways)) {
-        item.summary.keyTakeaways.forEach((p) => {
+      const rawList =
+        (item.summary as any)?.takeaways || item.summary?.keyTakeaways;
+      if (rawList && Array.isArray(rawList)) {
+        rawList.forEach((p: string) => {
           const cleaned = p.replace(/^[-•*]\s*/, '').trim();
           if (cleaned && !points.includes(cleaned)) {
             points.push(cleaned);

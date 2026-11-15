@@ -74,6 +74,7 @@ export interface RedditSummary {
   postId: string;
   consensus: string;
   keyTakeaways: string[];
+  takeaways?: string[];
   contrarianViews: string[];
   fullSummary: string;
   aiProvider?: string;

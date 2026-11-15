@@ -1,5 +1,6 @@
 const prisma = require('../../../config/db');
 const redditClient = require('./redditClient');
+const publicRedditService = require('./redditService');
 const summarizationService = require('../../ai/summarization.service');
 const { encrypt } = require('../../../utils/encryption.util');
 const { QUEUE_NAMES, getQueue } = require('../../../jobs');
@@ -127,14 +128,14 @@ class RedditService {
    */
   async syncSubredditPosts(subreddit, limit = 10) {
     const cleanSub = subreddit.replace(/^r\//i, '').trim();
-    console.log(`[RedditService] Syncing top posts from r/${cleanSub}...`);
+    console.log(`[RedditService] Syncing top posts from r/${cleanSub} using public Reddit .json service...`);
 
     let posts = [];
     try {
-      posts = await redditClient.fetchTopPosts(cleanSub, 'day', limit);
+      posts = await publicRedditService.getTopDailyPosts(cleanSub, limit);
     } catch (err) {
-      console.warn(`[RedditService] Fetch posts failed for r/${cleanSub}:`, err.message);
-      return [];
+      console.warn(`[RedditService] Fetch posts notice for r/${cleanSub}:`, err.message);
+      posts = await redditClient.fetchTopPosts(cleanSub, 'day', limit).catch(() => []);
     }
 
     const savedPosts = [];
@@ -144,20 +145,20 @@ class RedditService {
           where: { externalId: post.externalId },
           create: {
             externalId: post.externalId,
-            subreddit: post.subreddit,
+            subreddit: cleanSub.toLowerCase(),
             title: post.title,
             author: post.author,
             permalink: post.permalink,
-            url: post.url,
-            score: post.score,
-            commentCount: post.commentCount,
-            selftext: post.selftext,
-            publishedAt: post.publishedAt,
+            url: post.url || post.permalink,
+            score: post.upvotes ?? post.score ?? 0,
+            commentCount: post.commentCount ?? 0,
+            selftext: post.selftext || '',
+            publishedAt: post.publishedAt || new Date(),
           },
           update: {
-            score: post.score,
-            commentCount: post.commentCount,
-            selftext: post.selftext,
+            score: post.upvotes ?? post.score ?? 0,
+            commentCount: post.commentCount ?? 0,
+            selftext: post.selftext || '',
           },
         });
         savedPosts.push(saved);
@@ -168,13 +169,17 @@ class RedditService {
         });
 
         if (!existingSummary) {
-          // Fetch top comments & generate summary
-          const comments = await redditClient.fetchThreadComments(cleanSub, post.postId, 15);
+          // Fetch top comments & generate AI summary
+          let comments = await publicRedditService.getThreadComments(cleanSub, post.externalId, 20);
+          if (!comments || comments.length === 0) {
+            comments = await redditClient.fetchThreadComments(cleanSub, post.externalId, 15).catch(() => []);
+          }
+
           await summarizationService.generateRedditSummary({
             postId: post.externalId,
             title: post.title,
             author: post.author,
-            subreddit: post.subreddit,
+            subreddit: cleanSub,
             selftext: post.selftext,
             comments,
           });
@@ -225,20 +230,43 @@ class RedditService {
       }),
     ]);
 
-    // If no posts exist yet in DB for active subreddits, trigger background sync and return starter items
-    if (posts.length === 0 && activeSubreddits.length > 0) {
-      for (const sub of activeSubreddits.slice(0, 2)) {
+    let returnedPosts = posts;
+    // If no posts exist yet in DB for active subreddits, ingest immediately so user gets live feed
+    if (returnedPosts.length === 0 && activeSubreddits.length > 0) {
+      await this.syncSubredditPosts(activeSubreddits[0], 5).catch(() => {});
+      returnedPosts = await prisma.redditPost.findMany({
+        where,
+        include: { summary: true },
+        orderBy: { publishedAt: 'desc' },
+        skip,
+        take: limit,
+      });
+      // also kick off background sync for the rest
+      for (const sub of activeSubreddits.slice(1)) {
         this.syncSubredditPosts(sub, 5).catch(() => {});
       }
     }
 
+    const formattedPosts = returnedPosts.map((p) => {
+      const summary = p.summary
+        ? {
+            ...p.summary,
+            takeaways: p.summary.keyTakeaways || [],
+          }
+        : null;
+      return {
+        ...p,
+        summary,
+      };
+    });
+
     return {
-      posts,
+      posts: formattedPosts,
       pagination: {
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit) || 1,
+        total: Math.max(total, formattedPosts.length),
+        totalPages: Math.ceil(Math.max(total, formattedPosts.length) / limit) || 1,
       },
     };
   }
