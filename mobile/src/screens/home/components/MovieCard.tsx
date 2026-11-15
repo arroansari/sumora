@@ -8,6 +8,7 @@ import {
   Linking,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
+import { SpaceIcon } from '../../../components/atoms/SpaceIcon';
 import { ContentPostItem } from '../../../types/models.types';
 import { createHomeStyles } from '../HomeScreen.styles';
 import { GradientButton } from '../../../components/atoms';
@@ -131,6 +132,8 @@ export const MovieCard = React.memo<MovieCardProps>(
 
               <View
                 style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
                   backgroundColor: 'rgba(255, 255, 255, 0.2)',
                   paddingHorizontal: 8,
                   paddingVertical: 3,
@@ -138,8 +141,9 @@ export const MovieCard = React.memo<MovieCardProps>(
                   borderWidth: 0.5,
                   borderColor: 'rgba(255, 255, 255, 0.4)',
                 }}>
+                <SpaceIcon space="TMDB" size={13} style={{ marginRight: 4 }} />
                 <Text style={{ fontSize: 10, fontWeight: '800', color: '#FFFFFF' }}>
-                  🎬 Cinema
+                  Cinema
                 </Text>
               </View>
             </View>

@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SpaceType } from '../../../types/models.types';
+import { SpaceIcon } from '../../../components/atoms/SpaceIcon';
 
 export interface SpaceOption {
   id: SpaceType;
@@ -109,13 +110,7 @@ export const SpaceSwitcherModal: React.FC<SpaceSwitcherModalProps> = ({
                         styles.spaceCard,
                         isSelected && styles.spaceCardActive,
                       ]}>
-                      <View
-                        style={[
-                          styles.iconWrapper,
-                          { backgroundColor: `${space.accentColor}18` },
-                        ]}>
-                        <Text style={styles.iconText}>{space.icon}</Text>
-                      </View>
+                      <SpaceIcon space={space.id} size={42} style={{ marginRight: 12 }} />
 
                       <View style={styles.spaceInfo}>
                         <View style={styles.spaceTitleRow}>

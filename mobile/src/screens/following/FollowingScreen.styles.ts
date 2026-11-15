@@ -474,6 +474,8 @@ export const createFollowingStyles = (colors: ThemeColors) =>
       marginBottom: 16,
     },
     modalChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
       paddingHorizontal: 12,
       paddingVertical: 9,
       borderRadius: 10,
@@ -540,9 +542,11 @@ export const createFollowingStyles = (colors: ThemeColors) =>
       marginBottom: 6,
     },
     categoryChip: {
-      paddingHorizontal: 13,
-      paddingVertical: 8,
-      borderRadius: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 11,
+      paddingVertical: 7,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surfaceSubtle,

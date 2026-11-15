@@ -25,7 +25,7 @@ import {
   RedditDiscussionCard,
   MovieCard,
   BookCard,
-  SpaceSwitcherModal,
+  Space3DDeckModal,
   HomeHeader,
   HomeFilterBar,
   FeedEmptyState,
@@ -1057,8 +1057,8 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         )}
       </View>
 
-      {/* ── Universal Space Switcher Modal ── */}
-      <SpaceSwitcherModal
+      {/* ── 3D Perspective Space Deck Modal (Cover Flow) ── */}
+      <Space3DDeckModal
         visible={showSpaceSwitcherModal}
         activeSpace={activeSpace}
         onSelectSpace={(space) => {

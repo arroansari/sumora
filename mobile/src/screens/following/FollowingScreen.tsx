@@ -33,6 +33,7 @@ import { sourcesApi, integrationsApi, redditApi } from '../../services/api';
 import { TrackedSource } from '../../types/models.types';
 import { SearchBar } from '../../components/atoms/SearchBar';
 import { FilterPillOption } from '../../components/atoms/FilterPills';
+import { CategorySquircleIcon } from '../../components/atoms/CategorySquircleIcon';
 import { createFollowingStyles } from './FollowingScreen.styles';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -241,8 +242,9 @@ const ChannelGridCard = React.memo<ChannelGridCardProps>(
         <View style={styles.gridCardTopRow}>
           {category ? (
             <View style={styles.gridCategoryBadge}>
+              <CategorySquircleIcon category={category.id} size={14} style={{ marginRight: 4 }} />
               <Text style={styles.gridCategoryText} numberOfLines={1}>
-                {category.icon} {category.label.split(' ')[0]}
+                {category.label.split(' ')[0]}
               </Text>
             </View>
           ) : (
@@ -777,6 +779,7 @@ export const FollowingScreen: React.FC = () => {
               selectedCategory === 'all' && styles.categoryChipActive,
             ]}
             onPress={() => setSelectedCategory('all')}>
+            <CategorySquircleIcon category="all" size={17} style={{ marginRight: 6 }} />
             <Text
               style={[
                 styles.categoryChipText,
@@ -796,12 +799,13 @@ export const FollowingScreen: React.FC = () => {
                 key={cat.id}
                 style={[styles.categoryChip, isActive && styles.categoryChipActive]}
                 onPress={() => setSelectedCategory(cat.id)}>
+                <CategorySquircleIcon category={cat.id} size={17} style={{ marginRight: 6 }} />
                 <Text
                   style={[
                     styles.categoryChipText,
                     isActive && styles.categoryChipTextActive,
                   ]}>
-                  {cat.icon} {cat.label} ({count})
+                  {cat.label} ({count})
                 </Text>
               </TouchableOpacity>
             );
@@ -810,11 +814,14 @@ export const FollowingScreen: React.FC = () => {
 
         {/* 2-Column Grid Section Header */}
         <View style={styles.gridSectionHeaderRow}>
-          <Text style={styles.gridSectionTitle}>
-            {selectedCategory === 'all'
-              ? `All Channels (${filteredSources.length})`
-              : `${CATEGORIES.find((c) => c.id === selectedCategory)?.icon || ''} ${CATEGORIES.find((c) => c.id === selectedCategory)?.label || 'Channels'} (${filteredSources.length})`}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <CategorySquircleIcon category={selectedCategory} size={16} style={{ marginRight: 6 }} />
+            <Text style={styles.gridSectionTitle}>
+              {selectedCategory === 'all'
+                ? `All Channels (${filteredSources.length})`
+                : `${CATEGORIES.find((c) => c.id === selectedCategory)?.label || 'Channels'} (${filteredSources.length})`}
+            </Text>
+          </View>
           <Text style={styles.gridSectionSub}>
             {sortFilter === 'newest'
               ? 'Newest'
@@ -1126,12 +1133,13 @@ export const FollowingScreen: React.FC = () => {
                     style={[styles.modalChip, isActive && styles.modalChipActive]}
                     onPress={() => setSelectedCategory(cat.id)}
                     activeOpacity={0.75}>
+                    <CategorySquircleIcon category={cat.id} size={17} style={{ marginRight: 6 }} />
                     <Text
                       style={[
                         styles.modalChipText,
                         isActive && styles.modalChipTextActive,
                       ]}>
-                      {cat.icon} {cat.label} ({count})
+                      {cat.label} ({count})
                     </Text>
                   </TouchableOpacity>
                 );

@@ -6,4 +6,6 @@ export * from './FilterPills';
 export * from './GradientButton';
 export * from './ThemeSwatchPicker';
 export * from './TextScaleScrollbar';
+export * from './SpaceIcon';
+export * from './CategorySquircleIcon';
 

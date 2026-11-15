@@ -3,6 +3,7 @@ export * from './RedditDiscussionCard';
 export * from './MovieCard';
 export * from './BookCard';
 export * from './SpaceSwitcherModal';
+export { Space3DDeckModal } from '../../../components/spaces/Space3DDeckModal';
 export * from './HomeHeader';
 export * from './HomeFilterBar';
 export * from './FeedEmptyState';

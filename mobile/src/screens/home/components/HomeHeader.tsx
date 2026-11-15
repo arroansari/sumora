@@ -4,6 +4,7 @@ import { EdgeInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../../context/ThemeContext';
 import { createHomeStyles } from '../HomeScreen.styles';
 import { SpaceType } from '../../../types/models.types';
+import { SpaceIcon } from '../../../components/atoms/SpaceIcon';
 
 export interface HomeHeaderProps {
   insets: EdgeInsets;
@@ -63,7 +64,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
                   borderWidth: 1,
                   borderColor: 'rgba(255, 255, 255, 0.35)',
                 }}>
-                <Text style={{ fontSize: 12, marginRight: 5 }}>{currentConfig.icon}</Text>
+                <SpaceIcon space={activeSpace} size={18} style={{ marginRight: 6 }} />
                 <Text
                   style={{
                     fontSize: 11.5,
