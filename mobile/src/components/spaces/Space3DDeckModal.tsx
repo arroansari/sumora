@@ -136,8 +136,6 @@ export const Space3DDeckModal: React.FC<Space3DDeckModalProps> = ({
     [activeIndex, onSelectSpace, onClose]
   );
 
-  const activeGlowColor = SPACE_DECK_ITEMS[activeIndex]?.glowColor || '#8B5CF6';
-
   return (
     <Modal
       visible={visible}
@@ -146,17 +144,6 @@ export const Space3DDeckModal: React.FC<Space3DDeckModalProps> = ({
       onRequestClose={onClose}>
       <StatusBar barStyle="light-content" />
       <View style={styles.modalBackdrop}>
-        {/* Soft Ambient Radial Center Glow matching active card */}
-        <View
-          style={[
-            styles.ambientGlow,
-            {
-              backgroundColor: activeGlowColor,
-            },
-          ]}
-          pointerEvents="none"
-        />
-
         {/* ── Top Bar ── */}
         <View style={styles.topBar}>
           <View style={{ width: 36 }} />
@@ -254,11 +241,13 @@ export const Space3DDeckModal: React.FC<Space3DDeckModalProps> = ({
                           { rotateY },
                         ],
                         opacity,
-                        borderColor: item.glowColor,
-                        shadowColor: item.glowColor,
-                        shadowOpacity: isFocused ? 0.95 : 0.5,
-                        shadowRadius: isFocused ? 26 : 14,
-                        elevation: isFocused ? 24 : 10,
+                        borderColor: isFocused ? item.glowColor : 'rgba(255, 255, 255, 0.12)',
+                        borderWidth: isFocused ? 1.5 : 1,
+                        shadowColor: '#000000',
+                        shadowOpacity: isFocused ? 0.40 : 0.20,
+                        shadowRadius: isFocused ? 16 : 8,
+                        shadowOffset: { width: 0, height: 8 },
+                        elevation: isFocused ? 10 : 4,
                       },
                     ]}>
                     <TouchableWithoutFeedback
@@ -332,17 +321,6 @@ export const Space3DDeckModal: React.FC<Space3DDeckModalProps> = ({
                             ))}
                           </View>
                         </View>
-
-                        {/* Focused Neon Inner Glow */}
-                        {isFocused && (
-                          <View
-                            style={[
-                              styles.focusedBorderHighlight,
-                              { borderColor: item.glowColor },
-                            ]}
-                            pointerEvents="none"
-                          />
-                        )}
                       </View>
                     </TouchableWithoutFeedback>
                   </Animated.View>
@@ -391,15 +369,6 @@ const styles = StyleSheet.create({
     paddingTop: 54,
     paddingBottom: 36,
   },
-  ambientGlow: {
-    position: 'absolute',
-    top: SCREEN_HEIGHT * 0.22,
-    left: SCREEN_WIDTH * 0.15,
-    width: SCREEN_WIDTH * 0.70,
-    height: SCREEN_HEIGHT * 0.44,
-    borderRadius: SCREEN_WIDTH * 0.35,
-    opacity: 0.22,
-  },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -434,7 +403,7 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     borderRadius: 22,
-    borderWidth: 2,
+    borderWidth: 1,
     backgroundColor: '#120E24',
     shadowOffset: { width: 0, height: 8 },
     position: 'relative',
