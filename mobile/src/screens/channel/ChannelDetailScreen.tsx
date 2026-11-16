@@ -25,7 +25,7 @@ import { createChannelDetailStyles } from './ChannelDetailScreen.styles';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChannelDetail'>;
 
-type DateRange = 'today' | 'yesterday' | 'week' | 'month' | 'custom' | 'custom_range';
+type DateRange = 'popular' | 'today' | 'yesterday' | 'week' | 'month' | 'custom' | 'custom_range';
 
 interface DateBounds {
   from: string;
@@ -95,8 +95,9 @@ function getDateBounds(range: DateRange, customBounds: DateBounds | null): DateB
     }
     case 'custom_range':
       return customBounds;
+    case 'popular':
     case 'custom':
-      return null; // All time
+      return null; // All time or popular
   }
 }
 
@@ -203,7 +204,7 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange>('custom');
+  const [dateRange, setDateRange] = useState<DateRange>('popular');
   const [customBounds, setCustomBounds] = useState<DateBounds | null>(null);
   const [customLabel, setCustomLabel] = useState<string>('📅 Custom');
   const [selectedPresetDays, setSelectedPresetDays] = useState<number | null>(null);
@@ -220,6 +221,9 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const fetchVideos = useCallback(
     async (range: DateRange, boundsOverride?: DateBounds | null) => {
+      if (range === 'popular') {
+        return videosApi.getPopularVideos(channelId, 10);
+      }
       const bounds = boundsOverride !== undefined ? boundsOverride : getDateBounds(range, customBounds);
       const data = await videosApi.getFeed(1, 50, {
         channelId,
@@ -359,15 +363,14 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const dateOptions = useMemo<FilterPillOption<DateRange>[]>(
     () => [
-      { label: 'All Time', value: 'custom' },
+      { label: '🔥 Top 10 Popular', value: 'popular' },
+      { label: 'Latest Uploads', value: 'custom' },
+      { label: 'This Month', value: 'month' },
+      { label: 'This Week', value: 'week' },
       {
         label: dateRange === 'custom_range' ? customLabel : '📅 Custom',
         value: 'custom_range',
       },
-      { label: 'This Month', value: 'month' },
-      { label: 'This Week', value: 'week' },
-      { label: 'Yesterday', value: 'yesterday' },
-      { label: 'Today', value: 'today' },
     ],
     [dateRange, customLabel]
   );
@@ -457,6 +460,8 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={styles.resultCount}>
             {searchQuery
               ? `${filteredVideos.length} matching "${searchQuery}"`
+              : dateRange === 'popular'
+              ? `🔥 Top ${videos.length} Most Popular Videos`
               : `${videos.length} video${videos.length !== 1 ? 's' : ''}`}
           </Text>
         )}

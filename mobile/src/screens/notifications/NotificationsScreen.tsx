@@ -371,11 +371,15 @@ export const NotificationsScreen: React.FC = () => {
 
   // Individual Mute Handlers
   const handleToggleChannelMute = useCallback((channelId: string) => {
-    setMutedChannels((prev) => ({
-      ...prev,
-      [channelId]: !prev[channelId],
-    }));
-  }, []);
+    setMutedChannels((prev) => {
+      const currentSource = sources.find((s) => s.sourceId === channelId);
+      const currentlyMuted = prev[channelId] !== undefined ? prev[channelId] : currentSource?.isActive === false;
+      return {
+        ...prev,
+        [channelId]: !currentlyMuted,
+      };
+    });
+  }, [sources]);
 
   const handleToggleSubredditMute = useCallback((subredditId: string) => {
     setMutedSubreddits((prev) => ({
@@ -429,6 +433,18 @@ export const NotificationsScreen: React.FC = () => {
     }
   }, [activeSpace, mutedBooks, mutedCinema, mutedSubreddits, mutedChannels]);
 
+  // Resolves mute status: actively tracked channels have alerts ON by default,
+  // while inactive/untracked channels are muted by default.
+  const getIsMuted = useCallback(
+    (item: TrackedSource) => {
+      const explicit = currentMutedRecord[item.sourceId];
+      if (explicit !== undefined) return explicit;
+      if (item.isActive === false) return true;
+      return false;
+    },
+    [currentMutedRecord]
+  );
+
   const filteredItems = useMemo(() => {
     const query = deferredSearchQuery.trim().toLowerCase();
 
@@ -437,48 +453,48 @@ export const NotificationsScreen: React.FC = () => {
       : currentDomainItems;
 
     if (muteFilter === 'active') {
-      result = result.filter((c) => !currentMutedRecord[c.sourceId]);
+      result = result.filter((c) => !getIsMuted(c));
     } else if (muteFilter === 'muted') {
-      result = result.filter((c) => Boolean(currentMutedRecord[c.sourceId]));
+      result = result.filter((c) => getIsMuted(c));
     }
 
     const copy = [...result];
-    switch (sortFilter) {
-      case 'a_z':
-        copy.sort((a, b) =>
-          a.sourceName.localeCompare(b.sourceName, undefined, { sensitivity: 'base' })
-        );
-        break;
-      case 'z_a':
-        copy.sort((a, b) =>
-          b.sourceName.localeCompare(a.sourceName, undefined, { sensitivity: 'base' })
-        );
-        break;
-      case 'oldest':
-        copy.sort(
-          (a, b) =>
-            new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime()
-        );
-        break;
-      case 'newest':
-      default:
-        copy.sort(
-          (a, b) =>
-            new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-        );
-        break;
-    }
+    copy.sort((a, b) => {
+      // 1. Actively tracked channels with Alerts Active come FIRST at the top!
+      const aMuted = getIsMuted(a);
+      const bMuted = getIsMuted(b);
+      if (!aMuted && bMuted) return -1;
+      if (aMuted && !bMuted) return 1;
+
+      // 2. Priority channels float to the top among active channels
+      if (Boolean(a.isPriority) !== Boolean(b.isPriority)) {
+        return a.isPriority ? -1 : 1;
+      }
+
+      // 3. Secondary user sort
+      switch (sortFilter) {
+        case 'a_z':
+          return a.sourceName.localeCompare(b.sourceName, undefined, { sensitivity: 'base' });
+        case 'z_a':
+          return b.sourceName.localeCompare(a.sourceName, undefined, { sensitivity: 'base' });
+        case 'oldest':
+          return new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime();
+        case 'newest':
+        default:
+          return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
+      }
+    });
 
     return copy;
-  }, [currentDomainItems, deferredSearchQuery, muteFilter, currentMutedRecord, sortFilter]);
+  }, [currentDomainItems, deferredSearchQuery, muteFilter, getIsMuted, sortFilter]);
 
-  const mutedCount = useMemo(
-    () => currentDomainItems.filter((s) => Boolean(currentMutedRecord[s.sourceId])).length,
-    [currentDomainItems, currentMutedRecord]
+  const activeCount = useMemo(
+    () => currentDomainItems.filter((s) => !getIsMuted(s)).length,
+    [currentDomainItems, getIsMuted]
   );
 
+  const mutedCount = currentDomainItems.length - activeCount;
   const anyMuted = mutedCount > 0;
-  const activeCount = currentDomainItems.length - mutedCount;
   const hasActiveFilter = muteFilter !== 'all' || sortFilter !== 'newest';
 
   const handleMuteAll = useCallback(() => {
@@ -613,7 +629,7 @@ export const NotificationsScreen: React.FC = () => {
         <ChannelNotificationRow
           channel={item}
           isYouTubeEnabled={isYouTubeEnabled}
-          isMuted={Boolean(mutedChannels[item.sourceId])}
+          isMuted={getIsMuted(item)}
           styles={styles}
           colors={colors}
           onToggleMute={handleToggleChannelMute}
@@ -633,6 +649,7 @@ export const NotificationsScreen: React.FC = () => {
       handleToggleSubredditMute,
       isYouTubeEnabled,
       mutedChannels,
+      getIsMuted,
       handleToggleChannelMute,
       styles,
       colors,

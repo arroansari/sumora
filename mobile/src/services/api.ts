@@ -157,6 +157,13 @@ export const sourcesApi = {
       method: 'DELETE',
     });
   },
+
+  toggle: async (id: string): Promise<TrackedSource> => {
+    const res = await request<{ data: TrackedSource }>(`/sources/${id}/toggle`, {
+      method: 'POST',
+    });
+    return res.data;
+  },
 };
 
 // Videos & Summaries API
@@ -164,7 +171,7 @@ export const videosApi = {
   getFeed: async (
     page = 1,
     limit = 20,
-    opts: { channelId?: string; from?: string; to?: string; search?: string } = {}
+    opts: { channelId?: string; from?: string; to?: string; search?: string; sort?: string } = {}
   ): Promise<{ videos: VideoItem[]; totalPages: number }> => {
     const params = new URLSearchParams({
       page: String(page),
@@ -174,6 +181,7 @@ export const videosApi = {
     if (opts.from)      params.set('from', opts.from);
     if (opts.to)        params.set('to', opts.to);
     if (opts.search)    params.set('search', opts.search);
+    if (opts.sort)      params.set('sort', opts.sort);
 
     const res = await request<{ data: VideoItem[]; pagination: { totalPages: number } }>(
       `/videos?${params.toString()}`
@@ -182,6 +190,23 @@ export const videosApi = {
       videos: res.data,
       totalPages: res.pagination?.totalPages || 1,
     };
+  },
+
+  getPopularVideos: async (channelId: string, limit = 10): Promise<VideoItem[]> => {
+    try {
+      const res = await request<{ data: VideoItem[] }>(
+        `/videos/channel/${encodeURIComponent(channelId)}/popular?limit=${limit}`
+      );
+      if (res?.data && res.data.length > 0) return res.data;
+    } catch {}
+
+    try {
+      const feed = await videosApi.getFeed(1, limit, { channelId, sort: 'popular' });
+      if (feed?.videos && feed.videos.length > 0) return feed.videos;
+    } catch {}
+
+    const fallback = await videosApi.getFeed(1, limit, { channelId });
+    return fallback.videos;
   },
 
   getVideo: async (videoId: string): Promise<VideoItem> => {

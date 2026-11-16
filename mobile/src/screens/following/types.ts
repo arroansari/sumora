@@ -12,6 +12,7 @@ export const SORT_OPTIONS: FilterPillOption<SortFilter>[] = [
 
 export type CategoryId =
   | 'all'
+  | 'active'
   | 'favorites'
   | 'tech'
   | 'business'
@@ -33,6 +34,12 @@ export interface CategoryConfig {
 }
 
 export const CATEGORIES: CategoryConfig[] = [
+  {
+    id: 'active',
+    label: 'Active Tracked',
+    icon: '⚡',
+    matcher: /(?:)/,
+  },
   {
     id: 'favorites',
     label: 'Favorites (Priority)',
@@ -132,7 +139,7 @@ export function getCategoryForChannel(sourceName: string): CategoryConfig | null
   if (cached !== undefined) return cached;
 
   for (const cat of CATEGORIES) {
-    if (cat.id === 'favorites' || cat.id === 'other') continue;
+    if (cat.id === 'favorites' || cat.id === 'active' || cat.id === 'other') continue;
     if (cat.matcher.test(sourceName)) {
       categoryCache.set(sourceName, cat);
       return cat;

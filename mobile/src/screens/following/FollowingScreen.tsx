@@ -50,10 +50,25 @@ import {
 export * from './types';
 
 const FAVORITES_STORAGE_KEY = 'sumora:favorite_channel_ids';
+const ACTIVE_TRACKED_KEY = 'sumora:active_channel_ids';
 const SYNC_DONE_KEY = 'sumora:yt_thumb_sync_done';
 const TRACKED_BOOKS_STORAGE_KEY = 'sumora:tracked_book_authors';
 const TRACKED_CINEMA_STORAGE_KEY = 'sumora:tracked_cinema_sources';
 const PAGE_SIZE = 24;
+const MAX_ACTIVE_TRACKING = 30;
+
+const GRADIENT_STEPS = [
+  '#6C47FF',
+  '#6355FF',
+  '#5967FF',
+  '#4D7DFE',
+  '#3F92FD',
+  '#2EA7FC',
+  '#1DBBFA',
+  '#0ACDF8',
+  '#00DDF6',
+  '#00EAF4',
+];
 
 const DEFAULT_BOOK_SOURCES: TrackedSource[] = [
   { id: 'b1', platform: 'books', sourceId: 'james-clear', sourceName: 'James Clear', isActive: true, memberCount: 4, createdAt: '2026-01-01' },
@@ -92,7 +107,7 @@ export const FollowingScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [sortFilter, setSortFilter] = useState<SortFilter>('newest');
-  const [selectedCategory, setSelectedCategory] = useState<CategoryId>('all');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId>('active');
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
   const [newChannelId, setNewChannelId] = useState<string>('');
@@ -167,7 +182,47 @@ export const FollowingScreen: React.FC = () => {
             redditApi.listSources().catch(() => []),
           ]);
           if (isMounted) {
-            setSources(data);
+            // Read stored favorites & stored active channels
+            let favs: string[] = [];
+            let storedActive: string[] | null = null;
+            try {
+              const [rawFavs, rawActive] = await Promise.all([
+                AsyncStorage.getItem(FAVORITES_STORAGE_KEY),
+                AsyncStorage.getItem(ACTIVE_TRACKED_KEY),
+              ]);
+              if (rawFavs) favs = JSON.parse(rawFavs);
+              if (rawActive) storedActive = JSON.parse(rawActive);
+            } catch {}
+
+            const activeYoutube = data.filter(
+              (s: TrackedSource) => s.platform !== 'reddit' && s.isActive !== false
+            );
+
+            if (storedActive && Array.isArray(storedActive) && storedActive.length > 0) {
+              const activeSet = new Set(storedActive);
+              const sanitized = data.map((s: TrackedSource) => {
+                if (s.platform === 'reddit') return s;
+                return { ...s, isActive: activeSet.has(s.id) || activeSet.has(s.sourceId) };
+              });
+              setSources(sanitized);
+            } else if (activeYoutube.length > MAX_ACTIVE_TRACKING) {
+              const favSet = new Set(favs);
+              const sanitized = data.map((s: TrackedSource) => {
+                if (s.platform === 'reddit') return s;
+                const shouldBeActive =
+                  favSet.size > 0
+                    ? favSet.has(s.sourceId)
+                    : activeYoutube.slice(0, 5).some((a: TrackedSource) => a.id === s.id);
+                return { ...s, isActive: shouldBeActive };
+              });
+              setSources(sanitized);
+              const initialActive = sanitized
+                .filter((s: TrackedSource) => s.platform !== 'reddit' && s.isActive)
+                .map((s: TrackedSource) => s.id);
+              AsyncStorage.setItem(ACTIVE_TRACKED_KEY, JSON.stringify(initialActive)).catch(() => {});
+            } else {
+              setSources(data);
+            }
             setSubreddits(subs);
             setIsYouTubeConnected(
               accounts.some((a) => a.platform === 'youtube' && a.status === 'active')
@@ -224,38 +279,108 @@ export const FollowingScreen: React.FC = () => {
     setRefreshing(true);
     try {
       const data = await sourcesApi.list();
-      setSources(data);
+      let storedActive: string[] | null = null;
+      try {
+        const raw = await AsyncStorage.getItem(ACTIVE_TRACKED_KEY);
+        if (raw) storedActive = JSON.parse(raw);
+      } catch {}
+
+      if (storedActive && Array.isArray(storedActive) && storedActive.length > 0) {
+        const activeSet = new Set(storedActive);
+        const sanitized = data.map((s: TrackedSource) => {
+          if (s.platform === 'reddit') return s;
+          return { ...s, isActive: activeSet.has(s.id) || activeSet.has(s.sourceId) };
+        });
+        setSources(sanitized);
+      } else {
+        const activeYoutube = data.filter(
+          (s: TrackedSource) => s.platform !== 'reddit' && s.isActive !== false
+        );
+        if (activeYoutube.length > MAX_ACTIVE_TRACKING) {
+          const favSet = new Set(favoriteIds);
+          const sanitized = data.map((s: TrackedSource) => {
+            if (s.platform === 'reddit') return s;
+            const shouldBeActive =
+              favSet.size > 0
+                ? favSet.has(s.sourceId)
+                : activeYoutube.slice(0, 5).some((a: TrackedSource) => a.id === s.id);
+            return { ...s, isActive: shouldBeActive };
+          });
+          setSources(sanitized);
+        } else {
+          setSources(data);
+        }
+      }
     } catch {} finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [favoriteIds]);
 
   const handleToggleTracking = useCallback(
-    (source: TrackedSource) => {
-      Alert.alert(
-        'Stop Tracking Channel?',
-        `Pause automatic summarization for "${source.sourceName}"? You can re-enable anytime.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Stop Tracking',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await sourcesApi.remove(source.sourceId);
-                setSources((prev) => prev.filter((s) => s.sourceId !== source.sourceId));
-                if (favoriteIds.includes(source.sourceId)) {
-                  handleToggleFavorite(source);
+    async (source: TrackedSource) => {
+      const isCurrentlyActive = source.isActive !== false;
+
+      if (isCurrentlyActive) {
+        Alert.alert(
+          'Pause AI Tracking?',
+          `Pause automatic AI summarization for "${source.sourceName}"? This frees up 1 tracking slot.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Pause Tracking',
+              style: 'default',
+              onPress: async () => {
+                const nextSources = sources.map((s) =>
+                  s.id === source.id ? { ...s, isActive: false } : s
+                );
+                setSources(nextSources);
+
+                const activeIds = nextSources
+                  .filter((s) => s.platform !== 'reddit' && s.isActive !== false)
+                  .map((s) => s.id);
+                await AsyncStorage.setItem(ACTIVE_TRACKED_KEY, JSON.stringify(activeIds)).catch(() => {});
+
+                try {
+                  await sourcesApi.toggle(source.id);
+                } catch (err: any) {
+                  // Silently preserve local preference if backend is pending server restart
+                  console.warn('[handleToggleTracking] Backend toggle pending server restart:', err.message);
                 }
-              } catch (err: any) {
-                Alert.alert('Error', err.message || 'Could not update channel.');
-              }
+              },
             },
-          },
-        ]
-      );
+          ]
+        );
+      } else {
+        const currentActiveCount = sources.filter(
+          (s) => s.platform !== 'reddit' && s.isActive !== false
+        ).length;
+
+        if (currentActiveCount >= MAX_ACTIVE_TRACKING) {
+          Alert.alert(
+            'Tracking Limit Reached',
+            `You are actively tracking ${currentActiveCount} of ${MAX_ACTIVE_TRACKING} channels. Please pause an existing active channel before adding "${source.sourceName}".`
+          );
+          return;
+        }
+
+        const nextSources = sources.map((s) =>
+          s.id === source.id ? { ...s, isActive: true } : s
+        );
+        setSources(nextSources);
+
+        const activeIds = nextSources
+          .filter((s) => s.platform !== 'reddit' && s.isActive !== false)
+          .map((s) => s.id);
+        await AsyncStorage.setItem(ACTIVE_TRACKED_KEY, JSON.stringify(activeIds)).catch(() => {});
+
+        try {
+          await sourcesApi.toggle(source.id);
+        } catch (err: any) {
+          console.warn('[handleToggleTracking] Backend toggle pending server restart:', err.message);
+        }
+      }
     },
-    [favoriteIds, handleToggleFavorite]
+    [sources]
   );
 
   const handleAddManualChannel = useCallback(async () => {
@@ -453,6 +578,11 @@ export const FollowingScreen: React.FC = () => {
     [channelSources, favoriteIds]
   );
 
+  const activeTrackedCount = useMemo(
+    () => channelSources.filter((s) => s.isActive !== false).length,
+    [channelSources]
+  );
+
   const filteredSources = useMemo(() => {
     let list = channelSources;
     if (deferredSearchQuery.trim()) {
@@ -463,7 +593,9 @@ export const FollowingScreen: React.FC = () => {
           s.sourceId.toLowerCase().includes(q)
       );
     }
-    if (selectedCategory === 'favorites') {
+    if (selectedCategory === 'active') {
+      list = list.filter((s) => s.isActive !== false);
+    } else if (selectedCategory === 'favorites') {
       list = list.filter((s) => favoriteIds.includes(s.sourceId));
     } else if (selectedCategory !== 'all') {
       list = list.filter((s) => {
@@ -508,9 +640,14 @@ export const FollowingScreen: React.FC = () => {
   }, [visibleSources.length, filteredSources.length, colors.primary, styles]);
 
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: channelSources.length };
+    const counts: Record<string, number> = {
+      all: channelSources.length,
+      active: channelSources.filter((s) => s.isActive !== false).length,
+    };
     for (const cat of CATEGORIES) {
-      counts[cat.id] = 0;
+      if (cat.id !== 'all' && cat.id !== 'active') {
+        counts[cat.id] = 0;
+      }
     }
     for (const s of channelSources) {
       const isFav = favoriteIds.includes(s.sourceId);
@@ -548,6 +685,44 @@ export const FollowingScreen: React.FC = () => {
           }
           onChannelPress={handleChannelPress}
         />
+
+        {/* Active AI Tracking Quota Card */}
+        {(() => {
+          const quotaPercent = Math.round((activeTrackedCount / MAX_ACTIVE_TRACKING) * 100);
+          const fillWidthPct = Math.max(18, Math.min(100, quotaPercent));
+
+          return (
+            <View style={styles.quotaCard}>
+              <View style={styles.quotaCardHeader}>
+                <View style={styles.quotaCardTitleRow}>
+                  <Text style={styles.quotaCardTitle}>⚡ Active AI Tracking Slots</Text>
+                </View>
+                <View style={styles.quotaCardCountBadge}>
+                  <Text style={styles.quotaCardCountText}>
+                    {activeTrackedCount} of {MAX_ACTIVE_TRACKING} Active
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.quotaTrack}>
+                <View style={[styles.quotaFill, { width: `${fillWidthPct}%` }]}>
+                  <View style={styles.gradientFillContainer}>
+                    {GRADIENT_STEPS.map((color, idx) => (
+                      <View key={idx} style={{ flex: 1, backgroundColor: color }} />
+                    ))}
+                  </View>
+                  <Text style={styles.quotaPercentText}>
+                    {quotaPercent}%
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.quotaSubText}>
+                Automated AI transcripts & digests run only for Active channels to ensure fast, high-signal summaries.
+              </Text>
+            </View>
+          );
+        })()}
 
         {/* Search Bar + Filter Button Row */}
         <View style={styles.searchBarRow}>
@@ -616,6 +791,7 @@ export const FollowingScreen: React.FC = () => {
       prioritySources,
       filteredSources.length,
       handleChannelPress,
+      activeTrackedCount,
     ]
   );
 
@@ -647,12 +823,12 @@ export const FollowingScreen: React.FC = () => {
       default:
         return {
           title: 'Tracked Channels',
-          subtitle: 'Manage subscribed channels for automatic summarization',
+          subtitle: 'Select key channels for automated AI summaries & push alerts',
           count: channelSources.length,
           color: colors.primary,
         };
     }
-  }, [activeSpace, bookSources.length, cinemaSources.length, subreddits.length, channelSources.length, colors.primary]);
+  }, [activeSpace, bookSources.length, cinemaSources.length, subreddits.length, channelSources.length, activeTrackedCount, colors.primary]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>

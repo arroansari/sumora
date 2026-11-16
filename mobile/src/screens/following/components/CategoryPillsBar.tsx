@@ -43,7 +43,7 @@ export const CategoryPillsBar: React.FC<CategoryPillsBarProps> = ({
 
       {CATEGORIES.map((cat) => {
         const count = categoryCounts[cat.id] || 0;
-        if (count === 0 && cat.id !== 'favorites') return null;
+        if (count === 0 && cat.id !== 'favorites' && cat.id !== 'active') return null;
         const isActive = selectedCategory === cat.id;
 
         return (

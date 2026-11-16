@@ -6,7 +6,7 @@ export interface FollowingHeaderProps {
   styles: ReturnType<typeof createFollowingStyles>;
   title: string;
   subtitle: string;
-  count: number;
+  count: number | string;
   isAddActive: boolean;
   onToggleAdd: () => void;
   badgeColor?: string;
@@ -26,8 +26,8 @@ export const FollowingHeader: React.FC<FollowingHeaderProps> = ({
   return (
     <View style={styles.header}>
       <View style={styles.headerTopRow}>
-        <View style={[styles.headerTitleGroup, { marginRight: 10 }]}>
-          <Text style={[styles.headerTitle, { flexShrink: 1 }]} numberOfLines={1}>
+        <View style={styles.headerTitleGroup}>
+          <Text style={styles.headerTitle} numberOfLines={1}>
             {title}
           </Text>
           <View style={[styles.countBadge, badgeColor ? { backgroundColor: badgeColor } : undefined]}>

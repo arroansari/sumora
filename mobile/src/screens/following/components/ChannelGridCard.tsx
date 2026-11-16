@@ -18,6 +18,7 @@ export interface ChannelGridCardProps {
 export const ChannelGridCard = React.memo<ChannelGridCardProps>(
   ({ item, isFavorite, styles, onToggle, onToggleFavorite, onPress }) => {
     const category = getCategoryForChannel(item.sourceName);
+    const isActivelyTracked = item.isActive !== false;
 
     return (
       <TouchableOpacity
@@ -75,12 +76,14 @@ export const ChannelGridCard = React.memo<ChannelGridCardProps>(
           Tap to view ›
         </Text>
 
-        {/* Bottom: Tracking Pill Button */}
+        {/* Bottom: Tracking Pill Button with Active vs. Inactive styling */}
         <TouchableOpacity
-          style={styles.gridTrackingBtn}
+          style={isActivelyTracked ? styles.gridTrackingBtn : styles.gridTrackingBtnInactive}
           onPress={() => onToggle(item)}
           activeOpacity={0.75}>
-          <Text style={styles.gridTrackingText}>Tracking ✓</Text>
+          <Text style={isActivelyTracked ? styles.gridTrackingText : styles.gridTrackingTextInactive}>
+            {isActivelyTracked ? '⚡ Tracking Active' : '+ Track Channel'}
+          </Text>
         </TouchableOpacity>
       </TouchableOpacity>
     );
