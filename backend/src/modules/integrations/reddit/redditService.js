@@ -149,7 +149,7 @@ class RedditService {
       },
     ];
 
-    return fallbackList.slice(0, limit).map((d) => ({
+    return fallbackList.slice(0, limit).map((d, idx) => ({
       externalId: d.id,
       title: d.title,
       author: d.author.startsWith('u/') ? d.author : `u/${d.author}`,
@@ -158,7 +158,7 @@ class RedditService {
       upvotes: d.upvotes,
       commentCount: d.commentCount,
       selftext: d.selftext || '',
-      publishedAt: new Date(),
+      publishedAt: new Date(Date.now() - (idx + 1) * 3 * 3600000),
     }));
   }
 

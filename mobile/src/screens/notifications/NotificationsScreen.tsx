@@ -668,7 +668,7 @@ export const NotificationsScreen: React.FC = () => {
             space="REDDIT"
             item={item}
             isMasterEnabled={isRedditEnabled}
-            isMuted={Boolean(mutedSubreddits[item.sourceId])}
+            isMuted={getIsMuted(item)}
             themeColor="#FF4500"
             styles={styles}
             colors={colors}

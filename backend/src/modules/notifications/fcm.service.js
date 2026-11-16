@@ -114,6 +114,63 @@ class FCMService {
       };
     }
 
+    /**
+     * Builds standardized push notification payload for Reddit community debates.
+     * @param {object} params
+     * @param {string} params.subreddit - e.g. "technology"
+     * @param {string} params.postTitle
+     * @param {string} params.postId
+     * @param {boolean} [params.isReady=true]
+     */
+    buildRedditNotificationPayload({ subreddit, postTitle, postId, isReady = true }) {
+      const cleanSub = subreddit.replace(/^r\//i, '').trim();
+      const title = isReady
+        ? `Hot debate in r/${cleanSub}. Key takeaways ready!`
+        : `Trending discussion in r/${cleanSub}.`;
+
+      const body = `"${postTitle.slice(0, 70)}" - Tap to explore community consensus.`;
+
+      return {
+        notification: {
+          title,
+          body,
+        },
+        data: {
+          postId: String(postId),
+          videoId: String(postId), // backward-compatible for universal mobile navigators
+          subreddit: cleanSub,
+          platform: 'reddit',
+          type: isReady ? 'reddit_summary_ready' : 'reddit_summary_processing',
+          click_action: 'OPEN_REDDIT_DETAIL',
+        },
+        apns: {
+          headers: {
+            'apns-priority': '10',
+            'apns-push-type': 'alert',
+          },
+          payload: {
+            aps: {
+              alert: {
+                title,
+                body,
+              },
+              sound: 'default',
+              badge: 1,
+              contentAvailable: true,
+            },
+          },
+        },
+        android: {
+          priority: 'high',
+          notification: {
+            sound: 'default',
+            channelId: 'sumora_summaries',
+            priority: 'high',
+          },
+        },
+      };
+    }
+
   /**
    * Dispatches push notifications to a list of device tokens.
    * Dispatches push notifications to a list of device tokens, automatically pruning

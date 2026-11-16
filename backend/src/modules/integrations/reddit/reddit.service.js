@@ -127,11 +127,17 @@ class RedditService {
   }
 
   /**
-   * Sync top posts for a subreddit and generate debate summaries
+   * Sync top posts for a subreddit at $0 upfront cost (lazy summarization).
+   * Posts are indexed in PostgreSQL. AI debate summaries are generated on-demand
+   * when a user requests or views the post.
+   * @param {string} subreddit
+   * @param {number} [limit=10]
+   * @param {Object} [opts]
+   * @param {boolean} [opts.triggerSummary=false]
    */
-  async syncSubredditPosts(subreddit, limit = 10) {
+  async syncSubredditPosts(subreddit, limit = 10, { triggerSummary = false } = {}) {
     const cleanSub = subreddit.replace(/^r\//i, '').trim();
-    console.log(`[RedditService] Syncing top posts from r/${cleanSub} using public Reddit .json service...`);
+    console.log(`[RedditService] Syncing top posts from r/${cleanSub} (lazy summarization enabled)...`);
 
     let posts = [];
     try {
@@ -166,26 +172,27 @@ class RedditService {
         });
         savedPosts.push(saved);
 
-        // Check if summary already exists
-        const existingSummary = await prisma.redditSummary.findUnique({
-          where: { postId: post.externalId },
-        });
-
-        if (!existingSummary) {
-          // Fetch top comments & generate AI summary
-          let comments = await publicRedditService.getThreadComments(cleanSub, post.externalId, 20);
-          if (!comments || comments.length === 0) {
-            comments = await redditClient.fetchThreadComments(cleanSub, post.externalId, 15).catch(() => []);
-          }
-
-          await summarizationService.generateRedditSummary({
-            postId: post.externalId,
-            title: post.title,
-            author: post.author,
-            subreddit: cleanSub,
-            selftext: post.selftext,
-            comments,
+        // Zero-Cost Lazy Summarization: Only summarize if explicitly requested
+        if (triggerSummary) {
+          const existingSummary = await prisma.redditSummary.findUnique({
+            where: { postId: post.externalId },
           });
+
+          if (!existingSummary) {
+            let comments = await publicRedditService.getThreadComments(cleanSub, post.externalId, 20);
+            if (!comments || comments.length === 0) {
+              comments = await redditClient.fetchThreadComments(cleanSub, post.externalId, 15).catch(() => []);
+            }
+
+            await summarizationService.generateRedditSummary({
+              postId: post.externalId,
+              title: post.title,
+              author: post.author,
+              subreddit: cleanSub,
+              selftext: post.selftext,
+              comments,
+            });
+          }
         }
       } catch (postErr) {
         console.warn(`[RedditService] Error processing post ${post.externalId}:`, postErr.message);
@@ -204,6 +211,14 @@ class RedditService {
     // Check tracked subreddits
     const tracked = await this.listTrackedSubreddits(userId);
     const activeSubreddits = tracked.filter((s) => s.isActive).map((s) => s.sourceId.toLowerCase());
+
+    // Isolation Guard: If no specific subreddit is requested and all subreddits are muted/inactive, return empty feed
+    if ((!subreddit || subreddit === 'all') && activeSubreddits.length === 0) {
+      return {
+        posts: [],
+        pagination: { page, limit, total: 0, totalPages: 0 },
+      };
+    }
 
     const where = {};
 
@@ -300,9 +315,64 @@ class RedditService {
         selftext: post.selftext,
         comments,
       });
+
+      this.notifySubredditDebate(post.subreddit, post).catch(() => {});
     }
 
     return summary;
+  }
+
+  /**
+   * Dispatches push notifications to users actively tracking the subreddit
+   * with Reddit debate alerts enabled.
+   */
+  async notifySubredditDebate(subreddit, post) {
+    try {
+      const fcmService = require('../../notifications/fcm.service');
+      const cleanSub = subreddit.replace(/^r\//i, '').toLowerCase().trim();
+
+      const activeTrackers = await prisma.trackedSource.findMany({
+        where: {
+          platform: 'reddit',
+          sourceId: cleanSub,
+          isActive: true,
+        },
+        select: { userId: true },
+      });
+
+      if (!activeTrackers.length) return;
+      const userIds = activeTrackers.map((t) => t.userId);
+
+      const prefs = await prisma.notificationPreference.findMany({
+        where: {
+          userId: { in: userIds },
+          platform: 'reddit',
+        },
+      });
+      const disabledUserIds = new Set(prefs.filter((p) => !p.enabled).map((p) => p.userId));
+      const eligibleUserIds = userIds.filter((uid) => !disabledUserIds.has(uid));
+
+      if (!eligibleUserIds.length) return;
+
+      const devices = await prisma.deviceToken.findMany({
+        where: { userId: { in: eligibleUserIds } },
+        select: { deviceToken: true },
+      });
+
+      if (!devices.length) return;
+      const tokens = devices.map((d) => d.deviceToken);
+
+      const payload = fcmService.buildRedditNotificationPayload({
+        subreddit: cleanSub,
+        postTitle: post.title,
+        postId: post.externalId,
+        isReady: true,
+      });
+
+      await fcmService.sendToDevices(tokens, payload);
+    } catch (err) {
+      console.warn('[RedditService] Push dispatch warning:', err.message);
+    }
   }
 
   /**
@@ -376,13 +446,22 @@ class RedditService {
       },
     });
 
-    // Automatically sync subscribed subreddits
+    // Automatically sync subscribed subreddits with active quota safeguard (max 15 active)
     let subreddits = [];
     try {
       subreddits = await redditClient.getUserSubscribedSubreddits(tokenData.accessToken);
+
+      const MAX_DEFAULT_ACTIVE = 15;
+      const existingActiveCount = await prisma.trackedSource.count({
+        where: { userId, platform: 'reddit', isActive: true },
+      });
+      let remainingActiveSlots = Math.max(0, MAX_DEFAULT_ACTIVE - existingActiveCount);
+
       for (const sub of subreddits) {
         const cleanSub = sub.name.toLowerCase();
-        await prisma.trackedSource.upsert({
+        const willBeActive = remainingActiveSlots > 0;
+
+        const createdOrUpdated = await prisma.trackedSource.upsert({
           where: {
             userId_platform_sourceId: {
               userId,
@@ -397,18 +476,21 @@ class RedditService {
             sourceName: `r/${sub.name}`,
             thumbnailUrl: sub.iconImg || 'https://www.redditstatic.com/avatars/defaults/v2/avatar_default_1.png',
             memberCount: sub.subscribers || 0,
-            isActive: true,
+            isActive: willBeActive,
             isPriority: false,
           },
           update: {
-            isActive: true,
+            sourceName: `r/${sub.name}`,
             memberCount: sub.subscribers || undefined,
-            thumbnailUrl: sub.iconImg || undefined,
+            ...(sub.iconImg ? { thumbnailUrl: sub.iconImg } : {}),
           },
         });
 
-        // Trigger background sync for top posts in that subreddit
-        this.syncSubredditPosts(cleanSub, 5).catch(() => {});
+        if (willBeActive && createdOrUpdated.isActive) {
+          remainingActiveSlots--;
+          // Only index initial feed for active subreddits at $0 cost
+          this.syncSubredditPosts(cleanSub, 5, { triggerSummary: false }).catch(() => {});
+        }
       }
     } catch (subErr) {
       console.warn('[RedditService] Subscribed subreddits auto-import warning:', subErr.message);
