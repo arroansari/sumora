@@ -76,6 +76,33 @@ class FCMService {
         type: isReady ? 'summary_ready' : 'summary_processing',
         click_action: 'OPEN_SUMMARY_DETAIL',
       },
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'sumora_summaries',
+          sound: 'default',
+          priority: 'high',
+          defaultSound: true,
+          defaultVibrateTimings: true,
+        },
+      },
+      apns: {
+        headers: {
+          'apns-priority': '10',
+          'apns-push-type': 'alert',
+        },
+        payload: {
+          aps: {
+            alert: {
+              title,
+              body,
+            },
+            badge: 1,
+            sound: 'default',
+            contentAvailable: true,
+          },
+        },
+      },
     };
   }
 

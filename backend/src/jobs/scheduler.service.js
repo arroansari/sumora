@@ -10,6 +10,38 @@ class SchedulerService {
     this.isRunning = false;
     // Default interval: 6 hours (21,600,000 ms)
     this.intervalMs = parseInt(process.env.FEED_SYNC_INTERVAL_MS, 10) || 6 * 60 * 60 * 1000;
+    // Track WebSub lease renewals (5 days threshold before 10-day expiration)
+    this.webSubRenewals = new Map();
+    this.RENEWAL_THRESHOLD_MS = 5 * 24 * 60 * 60 * 1000;
+  }
+
+  /**
+   * Automatically renews WebSub hub subscriptions for tracked YouTube channels
+   * every 5 days, well before Google's 10-day lease expires.
+   * @param {string[]} channelIds
+   */
+  async renewWebSubSubscriptions(channelIds) {
+    const now = Date.now();
+    let renewedCount = 0;
+
+    for (const channelId of channelIds) {
+      const lastRenewed = this.webSubRenewals.get(channelId) || 0;
+      if (now - lastRenewed >= this.RENEWAL_THRESHOLD_MS) {
+        try {
+          const success = await webSubService.subscribeToChannel(channelId);
+          if (success) {
+            this.webSubRenewals.set(channelId, now);
+            renewedCount++;
+          }
+        } catch (err) {
+          console.warn(`[Scheduler] WebSub lease renewal warning for channel ${channelId}:`, err.message);
+        }
+      }
+    }
+
+    if (renewedCount > 0) {
+      console.log(`[Scheduler] 🔄 Renewed WebSub subscriptions for ${renewedCount} YouTube channels (10-day lease refreshed).`);
+    }
   }
 
   /**
@@ -144,6 +176,9 @@ class SchedulerService {
       console.log(
         `[Scheduler] ✅ Feed sync completed: checked ${channelIds.length} channels, processed ${totalUpserted} videos.`
       );
+
+      // Automatically renew WebSub leases for all tracked channels
+      await this.renewWebSubSubscriptions(channelIds);
 
       // Also sync active Reddit subreddits
       try {

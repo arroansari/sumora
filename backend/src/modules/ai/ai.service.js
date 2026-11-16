@@ -32,6 +32,40 @@ class AIService {
     }
     return provider;
   }
+
+  /**
+   * Generates structured JSON with automatic provider failover on rate limits (429 / RESOURCE_EXHAUSTED).
+   * @param {object} params
+   * @param {string} params.prompt
+   * @param {string} [params.systemInstruction]
+   * @param {import('./ai.provider').BaseAIProvider} [params.preferredProvider]
+   */
+  async generateStructuredJson({ prompt, systemInstruction, preferredProvider = null }) {
+    const primary = preferredProvider || this.getActiveProvider();
+
+    try {
+      return await primary.generateStructuredJson({ prompt, systemInstruction });
+    } catch (primaryErr) {
+      const isRateLimit =
+        primaryErr.message?.includes('RESOURCE_EXHAUSTED') ||
+        primaryErr.message?.includes('429') ||
+        primaryErr.message?.includes('rate_limit') ||
+        primaryErr.message?.includes('Quota exceeded');
+
+      if (isRateLimit) {
+        console.warn(`[AIService] ⚠️ Rate limit / quota exceeded on primary provider "${primary.name}". Attempting fallback provider...`);
+        const fallbackName = primary.name === 'gemini' ? 'openai' : 'gemini';
+        const fallback = this.providers.get(fallbackName);
+
+        if (fallback && fallback.client) {
+          console.log(`[AIService] 🔀 Seamlessly switched to fallback provider "${fallback.name}"`);
+          return await fallback.generateStructuredJson({ prompt, systemInstruction });
+        }
+      }
+
+      throw primaryErr;
+    }
+  }
 }
 
 module.exports = new AIService();

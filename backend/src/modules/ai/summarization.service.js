@@ -105,9 +105,10 @@ class SummarizationService {
             chunkText: chunks[i],
           });
 
-          const intermediate = await provider.generateStructuredJson({
+          const intermediate = await aiService.generateStructuredJson({
             prompt: chunkPrompt,
             systemInstruction: SYSTEM_INSTRUCTION,
+            preferredProvider: customProvider,
           });
 
           intermediateSummaries.push(
@@ -123,9 +124,10 @@ class SummarizationService {
           videoUrl,
         });
 
-        rawAiResponse = await provider.generateStructuredJson({
+        rawAiResponse = await aiService.generateStructuredJson({
           prompt: consolidationPrompt,
           systemInstruction: SYSTEM_INSTRUCTION,
+          preferredProvider: customProvider,
         });
       } else {
         // Single Pass for normal length transcripts
@@ -137,9 +139,10 @@ class SummarizationService {
           videoUrl,
         });
 
-        rawAiResponse = await provider.generateStructuredJson({
+        rawAiResponse = await aiService.generateStructuredJson({
           prompt: singlePassPrompt,
           systemInstruction: SYSTEM_INSTRUCTION,
+          preferredProvider: customProvider,
         });
       }
 

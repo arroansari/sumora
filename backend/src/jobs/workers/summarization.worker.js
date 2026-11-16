@@ -72,7 +72,11 @@ function createSummarizationWorker() {
     },
     {
       connection,
-      concurrency: 3, // Manage AI provider rate limits & token throughput
+      concurrency: parseInt(process.env.AI_WORKER_CONCURRENCY, 10) || 2,
+      limiter: {
+        max: parseInt(process.env.AI_MAX_REQUESTS_PER_MINUTE, 10) || 15,
+        duration: 60000,
+      },
     }
   );
 
