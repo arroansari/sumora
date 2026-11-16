@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const admin = require('firebase-admin');
 const config = require('../../config');
 const prisma = require('../../config/db');
@@ -18,8 +19,17 @@ class FCMService {
       } else if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
         const decoded = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8');
         serviceAccount = JSON.parse(decoded);
-      } else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH && fs.existsSync(process.env.FIREBASE_SERVICE_ACCOUNT_PATH)) {
-        serviceAccount = JSON.parse(fs.readFileSync(process.env.FIREBASE_SERVICE_ACCOUNT_PATH, 'utf8'));
+      } else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+        const candidatePaths = [
+          process.env.FIREBASE_SERVICE_ACCOUNT_PATH,
+          path.resolve(process.cwd(), process.env.FIREBASE_SERVICE_ACCOUNT_PATH),
+          path.resolve(__dirname, '../../../..', process.env.FIREBASE_SERVICE_ACCOUNT_PATH),
+          path.resolve(__dirname, '../../..', process.env.FIREBASE_SERVICE_ACCOUNT_PATH),
+        ];
+        const validPath = candidatePaths.find((p) => fs.existsSync(p));
+        if (validPath) {
+          serviceAccount = JSON.parse(fs.readFileSync(validPath, 'utf8'));
+        }
       }
     } catch (parseErr) {
       console.error('[FCMService] Failed to parse Firebase Service Account credentials:', parseErr.message);
@@ -75,6 +85,31 @@ class FCMService {
           channelName: String(channelName),
           type: isReady ? 'summary_ready' : 'summary_processing',
           click_action: 'OPEN_SUMMARY_DETAIL',
+        },
+        apns: {
+          headers: {
+            'apns-priority': '10',
+            'apns-push-type': 'alert',
+          },
+          payload: {
+            aps: {
+              alert: {
+                title,
+                body,
+              },
+              sound: 'default',
+              badge: 1,
+              contentAvailable: true,
+            },
+          },
+        },
+        android: {
+          priority: 'high',
+          notification: {
+            sound: 'default',
+            channelId: 'sumora_summaries',
+            priority: 'high',
+          },
         },
       };
     }
