@@ -111,8 +111,15 @@ class IntegrationsService {
     }
 
     // Upsert TrackedSources and register WebSub
+    const MAX_DEFAULT_ACTIVE = 30;
+    const existingActiveCount = await prisma.trackedSource.count({
+      where: { userId, platform: 'youtube', isActive: true },
+    });
+    let remainingActiveSlots = Math.max(0, MAX_DEFAULT_ACTIVE - existingActiveCount);
+
     const syncedSources = [];
     for (const channel of subscribedChannels) {
+      const willBeActive = remainingActiveSlots > 0;
       const source = await prisma.trackedSource.upsert({
         where: {
           userId_platform_sourceId: {
@@ -127,6 +134,7 @@ class IntegrationsService {
           sourceId: channel.sourceId,
           sourceName: channel.sourceName,
           thumbnailUrl: channel.thumbnailUrl || null,
+          isActive: willBeActive,
         },
         update: {
           sourceName: channel.sourceName,
@@ -134,12 +142,18 @@ class IntegrationsService {
         },
       });
 
+      if (willBeActive && source.isActive) {
+        remainingActiveSlots--;
+      }
+
       syncedSources.push(source);
 
-      // Register WebSub in background (don't wait/fail connect if hub fails)
-      webSubService.subscribeToChannel(channel.sourceId).catch((err) => {
-        console.warn(`[WebSub] Background subscribe failed for ${channel.sourceId}:`, err.message);
-      });
+      // Only register WebSub for actively tracked channels
+      if (source.isActive) {
+        webSubService.subscribeToChannel(channel.sourceId).catch((err) => {
+          console.warn(`[WebSub] Background subscribe failed for ${channel.sourceId}:`, err.message);
+        });
+      }
     }
 
     return {
@@ -248,8 +262,15 @@ class IntegrationsService {
 
     const subscribedChannels = await youTubeService.getSubscribedChannels(accessToken);
 
+    const MAX_DEFAULT_ACTIVE = 15;
+    const existingActiveCount = await prisma.trackedSource.count({
+      where: { userId, platform: 'youtube', isActive: true },
+    });
+    let remainingActiveSlots = Math.max(0, MAX_DEFAULT_ACTIVE - existingActiveCount);
+
     for (const channel of subscribedChannels) {
-      await prisma.trackedSource.upsert({
+      const willBeActive = remainingActiveSlots > 0;
+      const createdOrUpdated = await prisma.trackedSource.upsert({
         where: {
           userId_platform_sourceId: {
             userId,
@@ -263,12 +284,17 @@ class IntegrationsService {
           sourceId: channel.sourceId,
           sourceName: channel.sourceName,
           thumbnailUrl: channel.thumbnailUrl || null,
+          isActive: willBeActive,
         },
         update: {
           sourceName: channel.sourceName,
           ...(channel.thumbnailUrl ? { thumbnailUrl: channel.thumbnailUrl } : {}),
         },
       });
+
+      if (willBeActive && createdOrUpdated.isActive) {
+        remainingActiveSlots--;
+      }
     }
 
     const sources = await prisma.trackedSource.findMany({
@@ -336,29 +362,10 @@ class IntegrationsService {
 
     let totalUpserted = 0;
     for (const id of channelIds) {
-      // 1. Pre-distill the newest uploads in the background via RSS
-      const result = await webSubService.backfillChannelFeed(id, { triggerPipeline: true });
+      // Index the newest channel uploads in database at $0 upfront AI cost.
+      // Summarization is lazily triggered on-demand when a user taps "Read Summary".
+      const result = await webSubService.backfillChannelFeed(id, { triggerPipeline: false });
       totalUpserted += result.upserted;
-
-      // 2. Priority Summaries: Also trigger any existing uploads for this channel that are pending or failed
-      const pendingVideos = await prisma.video.findMany({
-        where: {
-          channelId: id,
-          summaryStatus: { in: ['pending', 'failed'] },
-        },
-        orderBy: { publishedAt: 'desc' },
-        take: 3,
-      });
-
-      const inlinePipeline = require('../pipeline/inline-pipeline.service');
-      for (const vid of pendingVideos) {
-        inlinePipeline.fireAndForget({
-          videoId: vid.videoId,
-          channelId: vid.channelId,
-          title: vid.title,
-          videoUrl: vid.videoUrl,
-        });
-      }
     }
 
     return { success: true, channelsProcessed: channelIds.length, videosUpserted: totalUpserted };

@@ -41,6 +41,19 @@ class SourcesController {
       next(error);
     }
   }
+
+  async toggleSource(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await sourcesService.toggleTrackedSource(req.user.id, id);
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new SourcesController();

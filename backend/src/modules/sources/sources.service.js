@@ -14,10 +14,41 @@ class SourcesService {
     if (platform && platform !== 'all') {
       where.platform = { in: [platform.toLowerCase(), platform.toUpperCase()] };
     }
-    return prisma.trackedSource.findMany({
+    const sources = await prisma.trackedSource.findMany({
       where,
       orderBy: { createdAt: 'desc' },
     });
+
+    // Auto-cap active channels to at most 30 (defaulting to 15) if legacy database had all active
+    const activeYoutube = sources.filter(
+      (s) => s.platform.toLowerCase() === 'youtube' && s.isActive
+    );
+    if (activeYoutube.length > 30) {
+      // Keep only top 15 active to prevent API cost overruns and match priority slots
+      const keepIds = new Set(activeYoutube.slice(0, 15).map((s) => s.id));
+      const deactivateIds = activeYoutube
+        .filter((s) => !keepIds.has(s.id))
+        .map((s) => s.id);
+
+      if (deactivateIds.length > 0) {
+        prisma.trackedSource
+          .updateMany({
+            where: { id: { in: deactivateIds } },
+            data: { isActive: false },
+          })
+          .catch((err) =>
+            console.warn('[SourcesService] Failed to auto-cap legacy active sources:', err.message)
+          );
+
+        for (const s of sources) {
+          if (deactivateIds.includes(s.id)) {
+            s.isActive = false;
+          }
+        }
+      }
+    }
+
+    return sources;
   }
 
   /**
@@ -88,6 +119,43 @@ class SourcesService {
       success: true,
       message: `Stopped tracking ${source.sourceName}`,
     };
+  }
+
+  /**
+   * Toggles active tracking status (isActive) for a source.
+   * Enables selective AI summarization to prevent excessive API costs.
+   * @param {string} userId
+   * @param {string} sourceIdOrRecordId
+   */
+  async toggleTrackedSource(userId, sourceIdOrRecordId) {
+    const source = await prisma.trackedSource.findFirst({
+      where: {
+        userId,
+        OR: [{ id: sourceIdOrRecordId }, { sourceId: sourceIdOrRecordId }],
+      },
+    });
+
+    if (!source) {
+      const error = new Error('Tracked source not found');
+      error.status = 404;
+      throw error;
+    }
+
+    const nextActive = !source.isActive;
+
+    const updated = await prisma.trackedSource.update({
+      where: { id: source.id },
+      data: { isActive: nextActive },
+    });
+
+    // If enabling YouTube channel, ensure WebSub subscription is active
+    if (updated.platform.toLowerCase() === 'youtube' && nextActive) {
+      webSubService.subscribeToChannel(updated.sourceId).catch((err) => {
+        console.warn(`[WebSub] Re-subscribe failed for ${updated.sourceId}:`, err.message);
+      });
+    }
+
+    return updated;
   }
 }
 

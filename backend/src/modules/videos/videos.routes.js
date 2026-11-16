@@ -9,6 +9,11 @@ router.use(authenticate);
 // Video feed
 router.get('/', (req, res, next) => videosController.getFeed(req, res, next));
 
+// Most popular videos for a channel (Top 10)
+router.get('/channel/:channelId/popular', (req, res, next) =>
+  videosController.getPopularVideos(req, res, next)
+);
+
 // Sync fresh YouTube uploads on demand (pull-to-refresh)
 router.post('/sync-feed', (req, res, next) =>
   videosController.syncFeed(req, res, next)

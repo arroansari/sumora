@@ -48,150 +48,125 @@ class FCMService {
     }
   }
 
-  /**
-   * Builds the standardized push notification payload.
-   * Notice: As per Project Spec Section 13, push notifications are short,
-   * do not include the full summary, and contain data.videoId so mobile opens the detail screen.
-   * @param {object} params
-   * @param {string} params.channelName
-   * @param {string} params.videoTitle
-   * @param {string} params.videoId
-   * @param {boolean} [params.isReady=true]
-   */
-  buildNotificationPayload({ channelName, videoTitle, videoId, isReady = true }) {
-    const title = isReady
-      ? `New video from ${channelName}. Your AI summary is ready!`
-      : `New video from ${channelName}. We're preparing your summary.`;
+    /**
+     * Builds the standardized push notification payload.
+     * Notice: As per Project Spec Section 13, push notifications are short,
+     * do not include the full summary, and contain data.videoId so mobile opens the detail screen.
+     * @param {object} params
+     * @param {string} params.channelName
+     * @param {string} params.videoTitle
+     * @param {string} params.videoId
+     * @param {boolean} [params.isReady=true]
+     */
+    buildNotificationPayload({ channelName, videoTitle, videoId, isReady = true }) {
+      const title = isReady
+        ? `New video from ${channelName}. Your AI summary is ready!`
+        : `New video from ${channelName}. We're preparing your summary.`;
 
-    const body = `"${videoTitle.slice(0, 70)}" - Tap to read your distilled insights.`;
+      const body = `"${videoTitle.slice(0, 70)}" - Tap to read your distilled insights.`;
 
-    return {
-      notification: {
-        title,
-        body,
-      },
-      data: {
-        videoId: String(videoId),
-        channelName: String(channelName),
-        type: isReady ? 'summary_ready' : 'summary_processing',
-        click_action: 'OPEN_SUMMARY_DETAIL',
-      },
-      android: {
-        priority: 'high',
+      return {
         notification: {
-          channelId: 'sumora_summaries',
-          sound: 'default',
-          priority: 'high',
-          defaultSound: true,
-          defaultVibrateTimings: true,
+          title,
+          body,
         },
-      },
-      apns: {
-        headers: {
-          'apns-priority': '10',
-          'apns-push-type': 'alert',
+        data: {
+          videoId: String(videoId),
+          channelName: String(channelName),
+          type: isReady ? 'summary_ready' : 'summary_processing',
+          click_action: 'OPEN_SUMMARY_DETAIL',
         },
-        payload: {
-          aps: {
-            alert: {
-              title,
-              body,
-            },
-            badge: 1,
-            sound: 'default',
-            contentAvailable: true,
-          },
-        },
-      },
-    };
-  }
+      };
+    }
 
   /**
+   * Dispatches push notifications to a list of device tokens.
    * Dispatches push notifications to a list of device tokens, automatically pruning
    * invalid, unregistered, or expired device tokens from PostgreSQL.
    * @param {string[]} deviceTokens
    * @param {object} payload - Output from buildNotificationPayload
+   * @returns {Promise<{successCount: number, failureCount: number}>}
    * @returns {Promise<{successCount: number, failureCount: number, prunedCount?: number}>}
    */
   async sendToDevices(deviceTokens, payload) {
-    if (!Array.isArray(deviceTokens) || deviceTokens.length === 0) {
-      return { successCount: 0, failureCount: 0 };
-    }
+      if (!Array.isArray(deviceTokens) || deviceTokens.length === 0) {
+        return { successCount: 0, failureCount: 0 };
+      }
 
-    if (!this.isInitialized) {
-      if (process.env.NODE_ENV === 'production') {
-        console.error('[FCMService] Cannot send push notifications: Firebase Admin SDK is not initialized in production.');
+      if (!this.isInitialized) {
+        if (process.env.NODE_ENV === 'production') {
+          console.error('[FCMService] Cannot send push notifications: Firebase Admin SDK is not initialized in production.');
+          return {
+            successCount: 0,
+            failureCount: deviceTokens.length,
+            error: 'Firebase Admin SDK not initialized in production',
+          };
+        }
+
+        console.log(
+          `[FCMService] [MOCK SEND] Dispatched push alert to ${deviceTokens.length} devices:\n  Title: "${payload.notification.title}"\n  Body: "${payload.notification.body}"\n  Target Video ID: "${payload.data.videoId}"`
+        );
         return {
-          successCount: 0,
-          failureCount: deviceTokens.length,
-          error: 'Firebase Admin SDK not initialized in production',
+          successCount: deviceTokens.length,
+          failureCount: 0,
+          mock: true,
         };
       }
 
-      console.log(
-        `[FCMService] [MOCK SEND] Dispatched push alert to ${deviceTokens.length} devices:\n  Title: "${payload.notification.title}"\n  Body: "${payload.notification.body}"\n  Target Video ID: "${payload.data.videoId}"`
-      );
-      return {
-        successCount: deviceTokens.length,
-        failureCount: 0,
-        mock: true,
-      };
-    }
-
-    try {
-      const response = await admin.messaging().sendEachForMulticast({
-        tokens: deviceTokens,
-        notification: payload.notification,
-        data: payload.data,
-      });
-
-      console.log(
-        `[FCMService] Sent multicast notification: ${response.successCount} succeeded, ${response.failureCount} failed`
-      );
-
-      // Automatically prune invalid, unregistered, or mismatched device tokens
-      const invalidTokens = [];
-      if (response.responses && Array.isArray(response.responses)) {
-        response.responses.forEach((resp, index) => {
-          if (!resp.success && resp.error) {
-            const code = resp.error.code;
-            if (
-              code === 'messaging/invalid-registration-token' ||
-              code === 'messaging/registration-token-not-registered' ||
-              code === 'messaging/mismatched-credential'
-            ) {
-              invalidTokens.push(deviceTokens[index]);
-            }
-          }
+      try {
+        const response = await admin.messaging().sendEachForMulticast({
+          tokens: deviceTokens,
+          notification: payload.notification,
+          data: payload.data,
         });
-      }
 
-      if (invalidTokens.length > 0) {
-        try {
-          const deleteResult = await prisma.deviceToken.deleteMany({
-            where: { deviceToken: { in: invalidTokens } },
+        console.log(
+          `[FCMService] Sent multicast notification: ${response.successCount} succeeded, ${response.failureCount} failed`
+        );
+
+        // Automatically prune invalid, unregistered, or mismatched device tokens
+        const invalidTokens = [];
+        if (response.responses && Array.isArray(response.responses)) {
+          response.responses.forEach((resp, index) => {
+            if (!resp.success && resp.error) {
+              const code = resp.error.code;
+              if (
+                code === 'messaging/invalid-registration-token' ||
+                code === 'messaging/registration-token-not-registered' ||
+                code === 'messaging/mismatched-credential'
+              ) {
+                invalidTokens.push(deviceTokens[index]);
+              }
+            }
           });
-          console.log(`[FCMService] Pruned ${deleteResult.count} unregistered/invalid FCM device tokens.`);
-        } catch (pruneErr) {
-          console.warn('[FCMService] Error pruning invalid tokens from database:', pruneErr.message);
         }
-      }
 
-      return {
-        successCount: response.successCount,
-        failureCount: response.failureCount,
-        prunedCount: invalidTokens.length,
-      };
-    } catch (error) {
-      console.error('[FCMService] Multicast send error:', error.message);
-      return {
-        successCount: 0,
-        failureCount: deviceTokens.length,
-        error: error.message,
-      };
+        if (invalidTokens.length > 0) {
+          try {
+            const deleteResult = await prisma.deviceToken.deleteMany({
+              where: { deviceToken: { in: invalidTokens } },
+            });
+            console.log(`[FCMService] Pruned ${deleteResult.count} unregistered/invalid FCM device tokens.`);
+          } catch (pruneErr) {
+            console.warn('[FCMService] Error pruning invalid tokens from database:', pruneErr.message);
+          }
+        }
+
+        return {
+          successCount: response.successCount,
+          failureCount: response.failureCount,
+          prunedCount: invalidTokens.length,
+        };
+      } catch (error) {
+        console.error('[FCMService] Multicast send error:', error.message);
+        return {
+          successCount: 0,
+          failureCount: deviceTokens.length,
+          error: error.message,
+        };
+      }
     }
   }
-}
 
 module.exports = new FCMService();
 

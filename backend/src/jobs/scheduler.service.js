@@ -145,20 +145,16 @@ class SchedulerService {
 
               if (!existing) {
                 totalUpserted++;
-                inlinePipeline.fireAndForget({
-                  videoId: upload.videoId,
-                  channelId: upload.channelId,
-                  title: upload.title,
-                  videoUrl: upload.videoUrl,
-                });
+                // On-Demand Architecture: Historical/backlog videos are indexed in DB at $0 cost.
+                // AI summarization is generated lazily only when a user taps "Read Summary".
               }
             }
             return { upserted: uploads.length };
           }
         }
 
-        // Fallback: WebSub RSS feed parser
-        return webSubService.backfillChannelFeed(channelId, { triggerPipeline: true });
+        // Fallback: WebSub RSS feed parser (indexes videos without triggering expensive AI batch summarization)
+        return webSubService.backfillChannelFeed(channelId, { triggerPipeline: false });
       };
 
       // Process in batches of 5 to avoid overwhelming network

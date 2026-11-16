@@ -196,6 +196,105 @@ class YouTubeService {
       return [];
     }
   }
+
+  /**
+   * Scrapes and extracts the Top N most popular videos for any YouTube channel.
+   * Uses YouTube's public sort=p feed without requiring OAuth quotas.
+   * @param {string} channelId - Channel ID (UC...) or handle (@...)
+   * @param {number} maxResults - Number of popular videos (default 10)
+   * @returns {Promise<Array<{videoId: string, channelId: string, title: string, videoUrl: string, thumbnailUrl: string}>>}
+   */
+  async getPopularVideos(channelId, maxResults = 10) {
+    if (!channelId) return [];
+
+    const url = channelId.startsWith('@')
+      ? `https://www.youtube.com/${channelId}/videos?view=0&sort=p`
+      : `https://www.youtube.com/channel/${channelId}/videos?view=0&sort=p`;
+
+    try {
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        timeout: 10000,
+      });
+
+      const match =
+        response.data.match(/ytInitialData\s*=\s*({.+?});<\/script>/s) ||
+        response.data.match(/var ytInitialData = ({.+?});/s);
+
+      if (!match) {
+        console.warn(`[YouTubeService] ytInitialData not found for ${channelId}`);
+        return [];
+      }
+
+      const json = JSON.parse(match[1]);
+      const popularVideos = [];
+
+      function extract(obj) {
+        if (!obj || typeof obj !== 'object') return;
+
+        // Modern 2025/2026 YouTube lockupViewModel
+        if (obj.lockupViewModel && obj.lockupViewModel.contentId) {
+          const lm = obj.lockupViewModel;
+          const videoId = lm.contentId;
+          const title =
+            lm.metadata?.lockupMetadataViewModel?.title?.content ||
+            lm.rendererContext?.accessibilityContext?.label ||
+            'Untitled Video';
+          const thumb =
+            lm.contentImage?.thumbnailViewModel?.image?.sources?.slice(-1)[0]?.url ||
+            `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+          if (videoId.length === 11 && !popularVideos.some((v) => v.videoId === videoId)) {
+            popularVideos.push({
+              videoId,
+              channelId,
+              title,
+              videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+              thumbnailUrl: thumb,
+              publishedAt: new Date(),
+            });
+          }
+          return;
+        }
+
+        // Classic videoRenderer fallback
+        if (obj.videoRenderer && obj.videoRenderer.videoId) {
+          const vr = obj.videoRenderer;
+          const videoId = vr.videoId;
+          const title = vr.title?.runs?.[0]?.text || vr.title?.simpleText || 'Untitled Video';
+          const thumb =
+            vr.thumbnail?.thumbnails?.slice(-1)[0]?.url ||
+            `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+          if (videoId.length === 11 && !popularVideos.some((v) => v.videoId === videoId)) {
+            popularVideos.push({
+              videoId,
+              channelId,
+              title,
+              videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+              thumbnailUrl: thumb,
+              publishedAt: new Date(),
+            });
+          }
+          return;
+        }
+
+        for (const k of Object.keys(obj)) {
+          extract(obj[k]);
+        }
+      }
+
+      extract(json);
+      return popularVideos.slice(0, maxResults);
+    } catch (err) {
+      console.warn(`[YouTubeService] Failed to fetch popular videos for ${channelId}:`, err.message);
+      return [];
+    }
+  }
 }
 
 module.exports = new YouTubeService();

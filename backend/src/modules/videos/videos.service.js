@@ -29,8 +29,14 @@ class VideosService {
     const skip = (page - 1) * limit;
 
     // Get list of channel IDs tracked by user (with their display names)
+    // Home feed (channelId = null) exclusively serves actively tracked channels (isActive: true)
+    const trackedWhere = { userId, platform: 'youtube' };
+    if (!channelId) {
+      trackedWhere.isActive = true;
+    }
+
     const tracked = await prisma.trackedSource.findMany({
-      where: { userId, platform: 'youtube' },
+      where: trackedWhere,
       select: { sourceId: true, sourceName: true },
     });
 
@@ -251,18 +257,27 @@ class VideosService {
     }
 
     // Try BullMQ queue first; fall back to inline pipeline
-    let queue = null;
+    let transcriptQueue = null;
     try {
-      queue = getQueue(QUEUE_NAMES.AI_SUMMARIZATION);
+      transcriptQueue = getQueue(QUEUE_NAMES.TRANSCRIPT_INGESTION);
     } catch (err) {
       console.warn('[VideosService] BullMQ unavailable, using inline pipeline:', err.message);
     }
 
-    if (queue) {
-      await queue.add('summarize-video', { videoId });
+    if (transcriptQueue) {
+      await transcriptQueue.add(
+        'fetch-transcript',
+        {
+          videoId: video.videoId,
+          channelId: video.channelId,
+          title: video.title,
+          videoUrl: video.videoUrl,
+        },
+        { jobId: `transcript-${video.videoId}` }
+      );
       await prisma.video.update({
         where: { videoId },
-        data: { summaryStatus: 'processing' },
+        data: { summaryStatus: 'processing', transcriptStatus: 'fetching_transcript' },
       });
       return { message: 'Summarization job queued', status: 'processing' };
     } else {
@@ -497,20 +512,16 @@ class VideosService {
 
             if (!existing) {
               newVideosCount++;
-              inlinePipeline.fireAndForget({
-                videoId: upload.videoId,
-                channelId: upload.channelId,
-                title: upload.title,
-                videoUrl: upload.videoUrl,
-              });
+              // On-Demand Architecture: Sync adds fresh feed items to library without incurring upfront AI costs.
+              // Summarization is lazily executed when user taps to read.
             }
           }
           return { upserted: uploads.length };
         }
       }
 
-      // Fallback: WebSub RSS feed parser
-      return webSubService.backfillChannelFeed(channelId, { triggerPipeline: true });
+      // Fallback: WebSub RSS feed parser (indexes videos without triggering expensive AI batch summarization)
+      return webSubService.backfillChannelFeed(channelId, { triggerPipeline: false });
     };
 
     for (let i = 0; i < immediateChannels.length; i += batchSize) {
@@ -538,6 +549,77 @@ class VideosService {
       totalChannels: allChannelIds.length,
       newVideosCount,
     };
+  }
+
+  /**
+   * Retrieves the Top 10 most popular videos for a specific channel.
+   * Scrapes YouTube popular uploads (sort=p), upserts them into DB, and returns them enriched with summaries.
+   * @param {string} channelId
+   * @param {number} maxResults
+   */
+  async getPopularVideosForChannel(channelId, maxResults = 10) {
+    if (!channelId) return [];
+
+    const youtubeService = require('../integrations/youtube/youtube.service');
+    const popular = await youtubeService.getPopularVideos(channelId, maxResults);
+
+    if (popular && popular.length > 0) {
+      for (const v of popular) {
+        await prisma.video
+          .upsert({
+            where: { videoId: v.videoId },
+            create: {
+              videoId: v.videoId,
+              channelId: v.channelId,
+              title: v.title,
+              videoUrl: v.videoUrl,
+              thumbnailUrl: v.thumbnailUrl,
+              publishedAt: v.publishedAt || new Date(),
+              transcriptStatus: 'pending',
+              summaryStatus: 'pending',
+            },
+            update: {
+              title: v.title,
+              videoUrl: v.videoUrl,
+              ...(v.thumbnailUrl ? { thumbnailUrl: v.thumbnailUrl } : {}),
+            },
+          })
+          .catch(() => {});
+      }
+    }
+
+    // Now query from DB with summary relation included
+    const videoIds = popular.map((p) => p.videoId);
+    const dbVideos = await prisma.video.findMany({
+      where: videoIds.length > 0 ? { videoId: { in: videoIds } } : { channelId },
+      include: {
+        summary: {
+          select: {
+            id: true,
+            overview: true,
+            keyPoints: true,
+            conclusion: true,
+            importantConcepts: true,
+            aiProvider: true,
+            modelName: true,
+            createdAt: true,
+          },
+        },
+      },
+      take: maxResults,
+    });
+
+    // Sort to preserve popular rank
+    if (videoIds.length > 0) {
+      const orderMap = new Map(videoIds.map((id, idx) => [id, idx]));
+      dbVideos.sort((a, b) => {
+        const orderA = orderMap.has(a.videoId) ? orderMap.get(a.videoId) : 999;
+        const orderB = orderMap.has(b.videoId) ? orderMap.get(b.videoId) : 999;
+        return orderA - orderB;
+      });
+    }
+
+    return dbVideos.slice(0, maxResults);
   }
 }
 
