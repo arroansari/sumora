@@ -22,6 +22,11 @@ router.get('/feed/filters', apiLimiter, (req, res, next) => {
   return contentController.getFilters(req, res, next);
 });
 
+// On-demand Content Summary Endpoint (Books & Cinema) (/api/feed/:id/summary)
+router.get('/feed/:id/summary', apiLimiter, (req, res, next) => {
+  return contentController.getContentSummary(req, res, next);
+});
+
 // Unified Space Feed Endpoint (/api/feed?space=YOUTUBE | REDDIT | TMDB | OPEN_LIBRARY)
 router.get('/feed', apiLimiter, authenticate, (req, res, next) => {
   const target = (req.query.space || req.query.platform || '').toUpperCase();

@@ -228,12 +228,12 @@ export const NotificationsScreen: React.FC = () => {
   const [mutedChannels, setMutedChannels] = useState<Record<string, boolean>>({});
 
   // Books Domain State
-  const [bookSources] = useState<TrackedSource[]>(DEFAULT_BOOK_SOURCES);
+  const [bookSources, setBookSources] = useState<TrackedSource[]>(DEFAULT_BOOK_SOURCES);
   const [isBooksEnabled, setIsBooksEnabled] = useState<boolean>(true);
   const [mutedBooks, setMutedBooks] = useState<Record<string, boolean>>({});
 
   // Cinema Domain State
-  const [cinemaSources] = useState<TrackedSource[]>(DEFAULT_CINEMA_SOURCES);
+  const [cinemaSources, setCinemaSources] = useState<TrackedSource[]>(DEFAULT_CINEMA_SOURCES);
   const [isCinemaEnabled, setIsCinemaEnabled] = useState<boolean>(true);
   const [mutedCinema, setMutedCinema] = useState<Record<string, boolean>>({});
 
@@ -270,16 +270,20 @@ export const NotificationsScreen: React.FC = () => {
   }, []);
 
   const fetchNotificationData = useCallback(async () => {
-    const [prefs, channels, accounts, subs] = await Promise.all([
+    const [prefs, channels, accounts, subs, bks, cnm] = await Promise.all([
       preferencesApi.get().catch(() => []),
       sourcesApi.list().catch(() => []),
       integrationsApi.list().catch(() => []),
       redditApi.listSources().catch(() => []),
+      sourcesApi.list({ platform: 'books' }).catch(() => []),
+      sourcesApi.list({ platform: 'cinema' }).catch(() => []),
     ]);
     return {
       prefs,
       channels,
       subreddits: subs,
+      books: bks && bks.length > 0 ? bks : DEFAULT_BOOK_SOURCES,
+      cinema: cnm && cnm.length > 0 ? cnm : DEFAULT_CINEMA_SOURCES,
       ytConnected: accounts.some((a) => a.platform === 'youtube' && a.status === 'active'),
     };
   }, []);
@@ -290,11 +294,13 @@ export const NotificationsScreen: React.FC = () => {
 
       async function loadNotificationData() {
         try {
-          const { prefs, channels, subreddits: subs, ytConnected } = await fetchNotificationData();
+          const { prefs, channels, subreddits: subs, books, cinema, ytConnected } = await fetchNotificationData();
           if (isMounted) {
             setPreferences(prefs);
             setSources(channels);
             setSubreddits(subs);
+            setBookSources(books);
+            setCinemaSources(cinema);
             setIsYouTubeConnected(ytConnected);
           }
         } catch (err: any) {
@@ -317,10 +323,12 @@ export const NotificationsScreen: React.FC = () => {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const { prefs, channels, subreddits: subs, ytConnected } = await fetchNotificationData();
+      const { prefs, channels, subreddits: subs, books, cinema, ytConnected } = await fetchNotificationData();
       setPreferences(prefs);
       setSources(channels);
       setSubreddits(subs);
+      setBookSources(books);
+      setCinemaSources(cinema);
       setIsYouTubeConnected(ytConnected);
     } catch {
       console.warn('[NotificationsScreen] Refresh failed');
@@ -480,21 +488,55 @@ export const NotificationsScreen: React.FC = () => {
     [subreddits, getIsMuted]
   );
 
-  const handleToggleBookMute = useCallback((topicId: string) => {
-    setMutedBooks((prev) => {
-      const updated = { ...prev, [topicId]: !prev[topicId] };
-      AsyncStorage.setItem(MUTED_BOOKS_KEY, JSON.stringify(updated)).catch(() => {});
-      return updated;
-    });
-  }, []);
+  const handleToggleBookMute = useCallback(
+    async (topicId: string) => {
+      const target = bookSources.find((s) => s.sourceId === topicId || s.id === topicId);
+      if (!target) return;
 
-  const handleToggleCinemaMute = useCallback((radarId: string) => {
-    setMutedCinema((prev) => {
-      const updated = { ...prev, [radarId]: !prev[radarId] };
-      AsyncStorage.setItem(MUTED_CINEMA_KEY, JSON.stringify(updated)).catch(() => {});
-      return updated;
-    });
-  }, []);
+      const currentlyMuted = getIsMuted(target);
+      const nextMuted = !currentlyMuted;
+      const nextActive = !nextMuted;
+
+      setBookSources((prev) =>
+        prev.map((s) => (s.id === target.id ? { ...s, isActive: nextActive } : s))
+      );
+      setMutedBooks((prev) => {
+        const updated = { ...prev, [target.sourceId]: nextMuted };
+        AsyncStorage.setItem(MUTED_BOOKS_KEY, JSON.stringify(updated)).catch(() => {});
+        return updated;
+      });
+
+      if (!target.id.startsWith('b_') && !target.id.startsWith('b1') && !target.id.startsWith('b2')) {
+        sourcesApi.toggle(target.id).catch(() => {});
+      }
+    },
+    [bookSources, getIsMuted]
+  );
+
+  const handleToggleCinemaMute = useCallback(
+    async (radarId: string) => {
+      const target = cinemaSources.find((s) => s.sourceId === radarId || s.id === radarId);
+      if (!target) return;
+
+      const currentlyMuted = getIsMuted(target);
+      const nextMuted = !currentlyMuted;
+      const nextActive = !nextMuted;
+
+      setCinemaSources((prev) =>
+        prev.map((s) => (s.id === target.id ? { ...s, isActive: nextActive } : s))
+      );
+      setMutedCinema((prev) => {
+        const updated = { ...prev, [target.sourceId]: nextMuted };
+        AsyncStorage.setItem(MUTED_CINEMA_KEY, JSON.stringify(updated)).catch(() => {});
+        return updated;
+      });
+
+      if (!target.id.startsWith('c_') && !target.id.startsWith('c1') && !target.id.startsWith('c2')) {
+        sourcesApi.toggle(target.id).catch(() => {});
+      }
+    },
+    [cinemaSources, getIsMuted]
+  );
 
   const filteredItems = useMemo(() => {
     const query = deferredSearchQuery.trim().toLowerCase();
@@ -640,7 +682,7 @@ export const NotificationsScreen: React.FC = () => {
             space="OPEN_LIBRARY"
             item={item}
             isMasterEnabled={isBooksEnabled}
-            isMuted={Boolean(mutedBooks[item.sourceId])}
+            isMuted={getIsMuted(item)}
             themeColor="#10B981"
             styles={styles}
             colors={colors}
@@ -654,7 +696,7 @@ export const NotificationsScreen: React.FC = () => {
             space="TMDB"
             item={item}
             isMasterEnabled={isCinemaEnabled}
-            isMuted={Boolean(mutedCinema[item.sourceId])}
+            isMuted={getIsMuted(item)}
             themeColor="#F59E0B"
             styles={styles}
             colors={colors}

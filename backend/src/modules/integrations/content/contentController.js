@@ -49,6 +49,19 @@ class ContentController {
     }
   }
 
+  async getContentSummary(req, res, next) {
+    try {
+      const { id } = req.params;
+      const summary = await contentService.getContentSummary(id);
+      res.status(200).json({
+        success: true,
+        data: summary,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getFilters(req, res, next) {
     try {
       const space = req.query.space || req.query.platform || 'YOUTUBE';

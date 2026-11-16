@@ -468,6 +468,9 @@ export const FollowingScreen: React.FC = () => {
       AsyncStorage.setItem(TRACKED_BOOKS_STORAGE_KEY, JSON.stringify(updated)).catch(() => {});
       return updated;
     });
+    if (!item.id.startsWith('b_') && !item.id.startsWith('b1') && !item.id.startsWith('b2')) {
+      sourcesApi.toggle(item.id).catch(() => {});
+    }
   }, []);
 
   const handleRemoveBookSource = useCallback((item: TrackedSource) => {
@@ -482,6 +485,9 @@ export const FollowingScreen: React.FC = () => {
             AsyncStorage.setItem(TRACKED_BOOKS_STORAGE_KEY, JSON.stringify(updated)).catch(() => {});
             return updated;
           });
+          if (!item.id.startsWith('b_') && !item.id.startsWith('b1') && !item.id.startsWith('b2')) {
+            sourcesApi.remove(item.id).catch(() => {});
+          }
         },
       },
     ]);
@@ -494,6 +500,9 @@ export const FollowingScreen: React.FC = () => {
       AsyncStorage.setItem(TRACKED_CINEMA_STORAGE_KEY, JSON.stringify(updated)).catch(() => {});
       return updated;
     });
+    if (!item.id.startsWith('c_') && !item.id.startsWith('c1') && !item.id.startsWith('c2')) {
+      sourcesApi.toggle(item.id).catch(() => {});
+    }
   }, []);
 
   const handleRemoveCinemaSource = useCallback((item: TrackedSource) => {
@@ -508,6 +517,9 @@ export const FollowingScreen: React.FC = () => {
             AsyncStorage.setItem(TRACKED_CINEMA_STORAGE_KEY, JSON.stringify(updated)).catch(() => {});
             return updated;
           });
+          if (!item.id.startsWith('c_') && !item.id.startsWith('c1') && !item.id.startsWith('c2')) {
+            sourcesApi.remove(item.id).catch(() => {});
+          }
         },
       },
     ]);
@@ -521,28 +533,48 @@ export const FollowingScreen: React.FC = () => {
 
     try {
       if (activeSpace === 'OPEN_LIBRARY') {
-        const newAuthor: TrackedSource = {
-          id: `b_${Date.now()}`,
-          platform: 'books',
-          sourceId: text.toLowerCase().replace(/\s+/g, '-'),
-          sourceName: text,
-          isActive: true,
-          memberCount: 1,
-          createdAt: new Date().toISOString(),
-        };
+        const cleanId = text.toLowerCase().replace(/\s+/g, '-');
+        let newAuthor: TrackedSource;
+        try {
+          newAuthor = await sourcesApi.add({
+            platform: 'books',
+            sourceId: cleanId,
+            sourceName: text,
+          });
+        } catch {
+          newAuthor = {
+            id: `b_${Date.now()}`,
+            platform: 'books',
+            sourceId: cleanId,
+            sourceName: text,
+            isActive: true,
+            memberCount: 1,
+            createdAt: new Date().toISOString(),
+          };
+        }
         const updated = [newAuthor, ...bookSources];
         setBookSources(updated);
         await AsyncStorage.setItem(TRACKED_BOOKS_STORAGE_KEY, JSON.stringify(updated));
       } else if (activeSpace === 'TMDB') {
-        const newPlatform: TrackedSource = {
-          id: `c_${Date.now()}`,
-          platform: 'cinema',
-          sourceId: text.toLowerCase().replace(/\s+/g, '-'),
-          sourceName: text,
-          isActive: true,
-          memberCount: 1,
-          createdAt: new Date().toISOString(),
-        };
+        const cleanId = text.toLowerCase().replace(/\s+/g, '-');
+        let newPlatform: TrackedSource;
+        try {
+          newPlatform = await sourcesApi.add({
+            platform: 'cinema',
+            sourceId: cleanId,
+            sourceName: text,
+          });
+        } catch {
+          newPlatform = {
+            id: `c_${Date.now()}`,
+            platform: 'cinema',
+            sourceId: cleanId,
+            sourceName: text,
+            isActive: true,
+            memberCount: 1,
+            createdAt: new Date().toISOString(),
+          };
+        }
         const updated = [newPlatform, ...cinemaSources];
         setCinemaSources(updated);
         await AsyncStorage.setItem(TRACKED_CINEMA_STORAGE_KEY, JSON.stringify(updated));

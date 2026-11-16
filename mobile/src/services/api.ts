@@ -139,8 +139,9 @@ export const integrationsApi = {
 
 // Tracked Sources API
 export const sourcesApi = {
-  list: async (): Promise<TrackedSource[]> => {
-    const res = await request<{ data: TrackedSource[] }>('/sources');
+  list: async (opts?: { platform?: string }): Promise<TrackedSource[]> => {
+    const query = opts?.platform ? `?platform=${encodeURIComponent(opts.platform)}` : '';
+    const res = await request<{ data: TrackedSource[] }>(`/sources${query}`);
     return res.data;
   },
 
@@ -378,6 +379,11 @@ export const contentApi = {
   getFilters: async (space: SpaceType): Promise<string[]> => {
     const res = await request<{ data: string[] }>(`/feed/filters?space=${space}`);
     return res.data || [];
+  },
+
+  getSummary: async (id: string): Promise<any> => {
+    const res = await request<{ data: any }>(`/feed/${id}/summary`);
+    return res.data;
   },
 };
 

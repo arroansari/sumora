@@ -15,7 +15,7 @@ import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
-import { videosApi, redditApi } from '../../services/api';
+import { videosApi, redditApi, contentApi } from '../../services/api';
 import { VideoItem, VideoSummary, SummaryStatus, SpaceType } from '../../types/models.types';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation.types';
@@ -348,42 +348,83 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         return;
       }
 
-      // 4. Fallback for Books / Cinema when passedSummary is empty
-      if (!isMounted) return;
-      const author = passedChannelName || (activeSpace === 'OPEN_LIBRARY' ? 'Bestselling Author' : 'TMDB Cinema');
-      setVideo({
-        id: videoId,
-        videoId,
-        channelId: author,
-        channelName: author,
-        title: videoTitle || 'Distilled Insight',
-        videoUrl: passedUrl || '',
-        thumbnailUrl: passedThumbnailUrl || undefined,
-        publishedAt: passedPublishedAt || new Date().toISOString(),
-        transcriptStatus: 'completed',
-        summaryStatus: 'completed',
-      });
-      setSummary({
-        videoId,
-        overview:
-          activeSpace === 'OPEN_LIBRARY'
-            ? 'Core non-fiction mental models and actionable takeaways for sustainable intellectual growth.'
-            : 'Spoiler-free critical analysis and streaming intelligence.',
-        keyPoints: [
-          'High-signal thesis distilled into practical daily takeaways.',
+      // 4. On-demand AI summary fetch for Books & Cinema
+      try {
+        const contentSummary = await contentApi.getSummary(videoId);
+        if (!isMounted) return;
+
+        const author = contentSummary?.author || passedChannelName || (activeSpace === 'OPEN_LIBRARY' ? 'Bestselling Author' : 'TMDB Cinema');
+        setVideo({
+          id: videoId,
+          videoId,
+          channelId: author,
+          channelName: author,
+          title: contentSummary?.title || videoTitle || 'Distilled Insight',
+          videoUrl: passedUrl || '',
+          thumbnailUrl: contentSummary?.posterUrl || passedThumbnailUrl || undefined,
+          publishedAt: passedPublishedAt || new Date().toISOString(),
+          transcriptStatus: 'completed',
+          summaryStatus: 'completed',
+        });
+
+        const takeaways = contentSummary?.takeaways || [
+          'Core thesis distilled into practical daily takeaways.',
           'Fundamental principles extracted for quick retention.',
           'Real-world mental models and execution steps.',
-        ],
-        importantConcepts: [
-          { concept: 'Key Takeaway', explanation: 'Direct actionable application for personal clarity.' },
-        ],
-        detailedSummary: videoTitle || 'Distilled overview',
-        conclusion: 'Actionable consensus.',
-        topicsCovered: [activeSpace === 'OPEN_LIBRARY' ? 'Books' : 'Cinema'],
-        aiProvider: 'Sumora Grounded Engine',
-      });
-      setStatus('completed');
-      setLoading(false);
+        ];
+
+        setSummary({
+          videoId,
+          overview: contentSummary?.consensus || contentSummary?.overview || (activeSpace === 'OPEN_LIBRARY' ? 'Distilled non-fiction mental models and core thesis.' : 'Spoiler-free critical review and streaming availability.'),
+          keyPoints: takeaways,
+          importantConcepts: takeaways.slice(0, 3).map((t: string, idx: number) => ({
+            concept: activeSpace === 'OPEN_LIBRARY' ? `Mental Model ${idx + 1}` : `Key Note ${idx + 1}`,
+            explanation: t,
+          })),
+          detailedSummary: contentSummary?.fullSummary || videoTitle || 'Distilled overview',
+          conclusion: contentSummary?.consensus || 'Actionable takeaways.',
+          topicsCovered: [activeSpace === 'OPEN_LIBRARY' ? 'Books' : 'Cinema'],
+          aiProvider: 'Sumora Grounded Engine',
+        });
+        setStatus('completed');
+      } catch {
+        if (!isMounted) return;
+        const author = passedChannelName || (activeSpace === 'OPEN_LIBRARY' ? 'Bestselling Author' : 'TMDB Cinema');
+        setVideo({
+          id: videoId,
+          videoId,
+          channelId: author,
+          channelName: author,
+          title: videoTitle || 'Distilled Insight',
+          videoUrl: passedUrl || '',
+          thumbnailUrl: passedThumbnailUrl || undefined,
+          publishedAt: passedPublishedAt || new Date().toISOString(),
+          transcriptStatus: 'completed',
+          summaryStatus: 'completed',
+        });
+        setSummary({
+          videoId,
+          overview:
+            activeSpace === 'OPEN_LIBRARY'
+              ? 'Core non-fiction mental models and actionable takeaways for sustainable intellectual growth.'
+              : 'Spoiler-free critical analysis and streaming intelligence.',
+          keyPoints: [
+            'High-signal thesis distilled into practical daily takeaways.',
+            'Fundamental principles extracted for quick retention.',
+            'Real-world mental models and execution steps.',
+          ],
+          importantConcepts: [
+            { concept: 'Key Takeaway', explanation: 'Direct actionable application for personal clarity.' },
+          ],
+          detailedSummary: videoTitle || 'Distilled overview',
+          conclusion: 'Actionable consensus.',
+          topicsCovered: [activeSpace === 'OPEN_LIBRARY' ? 'Books' : 'Cinema'],
+          aiProvider: 'Sumora Grounded Engine',
+        });
+        setStatus('completed');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     }
 
     loadData();

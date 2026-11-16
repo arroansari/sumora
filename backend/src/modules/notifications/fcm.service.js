@@ -115,33 +115,30 @@ class FCMService {
     }
 
     /**
-     * Builds standardized push notification payload for Reddit community debates.
+     * Builds standardized push notification payload for Cinema & OTT streaming releases.
      * @param {object} params
-     * @param {string} params.subreddit - e.g. "technology"
-     * @param {string} params.postTitle
-     * @param {string} params.postId
-     * @param {boolean} [params.isReady=true]
+     * @param {string} params.title
+     * @param {string} [params.streamingPlatform='Streaming']
+     * @param {string} params.externalId
+     * @param {string} [params.takeaway='']
      */
-    buildRedditNotificationPayload({ subreddit, postTitle, postId, isReady = true }) {
-      const cleanSub = subreddit.replace(/^r\//i, '').trim();
-      const title = isReady
-        ? `Hot debate in r/${cleanSub}. Key takeaways ready!`
-        : `Trending discussion in r/${cleanSub}.`;
-
-      const body = `"${postTitle.slice(0, 70)}" - Tap to explore community consensus.`;
+    buildCinemaNotificationPayload({ title, streamingPlatform = 'Streaming', externalId, takeaway = '' }) {
+      const notifTitle = `🎬 Streaming Alert: ${title}`;
+      const notifBody = takeaway
+        ? `${takeaway.slice(0, 75)} - Watch on ${streamingPlatform}.`
+        : `Available now on ${streamingPlatform}. Tap to see spoiler-free review.`;
 
       return {
         notification: {
-          title,
-          body,
+          title: notifTitle,
+          body: notifBody,
         },
         data: {
-          postId: String(postId),
-          videoId: String(postId), // backward-compatible for universal mobile navigators
-          subreddit: cleanSub,
-          platform: 'reddit',
-          type: isReady ? 'reddit_summary_ready' : 'reddit_summary_processing',
-          click_action: 'OPEN_REDDIT_DETAIL',
+          postId: String(externalId),
+          videoId: String(externalId),
+          platform: 'cinema',
+          type: 'cinema_alert',
+          click_action: 'OPEN_CINEMA_DETAIL',
         },
         apns: {
           headers: {
@@ -151,8 +148,62 @@ class FCMService {
           payload: {
             aps: {
               alert: {
-                title,
-                body,
+                title: notifTitle,
+                body: notifBody,
+              },
+              sound: 'default',
+              badge: 1,
+              contentAvailable: true,
+            },
+          },
+        },
+        android: {
+          priority: 'high',
+          notification: {
+            sound: 'default',
+            channelId: 'sumora_summaries',
+            priority: 'high',
+          },
+        },
+      };
+    }
+
+    /**
+     * Builds standardized push notification payload for Non-Fiction Book Insights.
+     * @param {object} params
+     * @param {string} params.title
+     * @param {string} [params.author='Bestselling Author']
+     * @param {string} params.externalId
+     * @param {string} [params.thesis='']
+     */
+    buildBookNotificationPayload({ title, author = 'Bestselling Author', externalId, thesis = '' }) {
+      const notifTitle = `📚 Daily Book Insight: ${title}`;
+      const notifBody = thesis
+        ? `by ${author}. ${thesis.slice(0, 70)} - Tap to read mental models.`
+        : `Key mental models distilled from ${title} by ${author}.`;
+
+      return {
+        notification: {
+          title: notifTitle,
+          body: notifBody,
+        },
+        data: {
+          postId: String(externalId),
+          videoId: String(externalId),
+          platform: 'books',
+          type: 'book_insight',
+          click_action: 'OPEN_BOOK_DETAIL',
+        },
+        apns: {
+          headers: {
+            'apns-priority': '10',
+            'apns-push-type': 'alert',
+          },
+          payload: {
+            aps: {
+              alert: {
+                title: notifTitle,
+                body: notifBody,
               },
               sound: 'default',
               badge: 1,
