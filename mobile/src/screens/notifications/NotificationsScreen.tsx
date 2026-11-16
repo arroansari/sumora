@@ -369,41 +369,6 @@ export const NotificationsScreen: React.FC = () => {
     await AsyncStorage.setItem(ALERTS_CINEMA_KEY, String(value));
   }, []);
 
-  // Individual Mute Handlers
-  const handleToggleChannelMute = useCallback((channelId: string) => {
-    setMutedChannels((prev) => {
-      const currentSource = sources.find((s) => s.sourceId === channelId);
-      const currentlyMuted = prev[channelId] !== undefined ? prev[channelId] : currentSource?.isActive === false;
-      return {
-        ...prev,
-        [channelId]: !currentlyMuted,
-      };
-    });
-  }, [sources]);
-
-  const handleToggleSubredditMute = useCallback((subredditId: string) => {
-    setMutedSubreddits((prev) => ({
-      ...prev,
-      [subredditId]: !prev[subredditId],
-    }));
-  }, []);
-
-  const handleToggleBookMute = useCallback((topicId: string) => {
-    setMutedBooks((prev) => {
-      const updated = { ...prev, [topicId]: !prev[topicId] };
-      AsyncStorage.setItem(MUTED_BOOKS_KEY, JSON.stringify(updated)).catch(() => {});
-      return updated;
-    });
-  }, []);
-
-  const handleToggleCinemaMute = useCallback((radarId: string) => {
-    setMutedCinema((prev) => {
-      const updated = { ...prev, [radarId]: !prev[radarId] };
-      AsyncStorage.setItem(MUTED_CINEMA_KEY, JSON.stringify(updated)).catch(() => {});
-      return updated;
-    });
-  }, []);
-
   // Filtered Source Selection based on activeSpace
   const currentDomainItems = useMemo(() => {
     switch (activeSpace) {
@@ -444,6 +409,92 @@ export const NotificationsScreen: React.FC = () => {
     },
     [currentMutedRecord]
   );
+
+  // Individual Mute Handlers
+  const handleToggleChannelMute = useCallback(
+    async (channelId: string) => {
+      const targetSource = sources.find((s) => s.sourceId === channelId || s.id === channelId);
+      if (!targetSource) return;
+
+      const currentlyMuted = getIsMuted(targetSource);
+      const nextMuted = !currentlyMuted;
+      const nextActive = !nextMuted;
+
+      // Optimistically update sources and mute states
+      setSources((prev) =>
+        prev.map((s) => (s.id === targetSource.id ? { ...s, isActive: nextActive } : s))
+      );
+      setMutedChannels((prev) => ({
+        ...prev,
+        [targetSource.sourceId]: nextMuted,
+      }));
+
+      // Persist active state directly to backend
+      try {
+        await sourcesApi.toggle(targetSource.id);
+      } catch (err: any) {
+        console.warn('[NotificationsScreen] Toggle failed:', err.message);
+        // Revert on error
+        setSources((prev) =>
+          prev.map((s) => (s.id === targetSource.id ? { ...s, isActive: !nextActive } : s))
+        );
+        setMutedChannels((prev) => ({
+          ...prev,
+          [targetSource.sourceId]: currentlyMuted,
+        }));
+      }
+    },
+    [sources, getIsMuted]
+  );
+
+  const handleToggleSubredditMute = useCallback(
+    async (subredditId: string) => {
+      const targetSub = subreddits.find((s) => s.sourceId === subredditId || s.id === subredditId);
+      if (!targetSub) return;
+
+      const currentlyMuted = getIsMuted(targetSub);
+      const nextMuted = !currentlyMuted;
+      const nextActive = !nextMuted;
+
+      setSubreddits((prev) =>
+        prev.map((s) => (s.id === targetSub.id ? { ...s, isActive: nextActive } : s))
+      );
+      setMutedSubreddits((prev) => ({
+        ...prev,
+        [targetSub.sourceId]: nextMuted,
+      }));
+
+      try {
+        await sourcesApi.toggle(targetSub.id);
+      } catch (err: any) {
+        console.warn('[NotificationsScreen] Subreddit toggle failed:', err.message);
+        setSubreddits((prev) =>
+          prev.map((s) => (s.id === targetSub.id ? { ...s, isActive: !nextActive } : s))
+        );
+        setMutedSubreddits((prev) => ({
+          ...prev,
+          [targetSub.sourceId]: currentlyMuted,
+        }));
+      }
+    },
+    [subreddits, getIsMuted]
+  );
+
+  const handleToggleBookMute = useCallback((topicId: string) => {
+    setMutedBooks((prev) => {
+      const updated = { ...prev, [topicId]: !prev[topicId] };
+      AsyncStorage.setItem(MUTED_BOOKS_KEY, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  }, []);
+
+  const handleToggleCinemaMute = useCallback((radarId: string) => {
+    setMutedCinema((prev) => {
+      const updated = { ...prev, [radarId]: !prev[radarId] };
+      AsyncStorage.setItem(MUTED_CINEMA_KEY, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  }, []);
 
   const filteredItems = useMemo(() => {
     const query = deferredSearchQuery.trim().toLowerCase();
