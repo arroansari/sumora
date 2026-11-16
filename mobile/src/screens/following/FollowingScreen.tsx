@@ -55,7 +55,7 @@ const SYNC_DONE_KEY = 'sumora:yt_thumb_sync_done';
 const TRACKED_BOOKS_STORAGE_KEY = 'sumora:tracked_book_authors';
 const TRACKED_CINEMA_STORAGE_KEY = 'sumora:tracked_cinema_sources';
 const PAGE_SIZE = 24;
-const MAX_ACTIVE_TRACKING = 30;
+const MAX_ACTIVE_TRACKING = 50;
 
 const GRADIENT_STEPS = [
   '#6C47FF',

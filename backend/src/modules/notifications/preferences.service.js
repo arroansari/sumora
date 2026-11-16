@@ -105,6 +105,43 @@ class PreferencesService {
       },
     });
   }
+
+  /**
+   * Dispatches an immediate test push notification to the user's registered devices.
+   * Useful for verifying real device token delivery and Firebase/APNs setup.
+   * @param {string} userId
+   */
+  async sendTestNotification(userId) {
+    const fcmService = require('./fcm.service');
+    const devices = await prisma.deviceToken.findMany({
+      where: { userId },
+      select: { deviceToken: true },
+    });
+
+    if (devices.length === 0) {
+      return {
+        success: false,
+        message: 'No device tokens registered for this user in the database.',
+        deviceCount: 0,
+      };
+    }
+
+    const payload = fcmService.buildNotificationPayload({
+      channelName: 'Sumora Test Alert',
+      videoTitle: 'Your production push notification system is active and verified!',
+      videoId: 'test_production_verification',
+      isReady: true,
+    });
+
+    const tokens = devices.map((d) => d.deviceToken);
+    const result = await fcmService.sendToDevices(tokens, payload);
+    return {
+      success: true,
+      message: `Dispatched test notification to ${tokens.length} device(s).`,
+      deviceCount: tokens.length,
+      ...result,
+    };
+  }
 }
 
 module.exports = new PreferencesService();

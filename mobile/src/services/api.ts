@@ -282,6 +282,13 @@ export const preferencesApi = {
       method: 'DELETE',
     });
   },
+
+  sendTestPush: async (): Promise<{ success: boolean; message: string; deviceCount?: number }> => {
+    const res = await request('/devices/test-push', {
+      method: 'POST',
+    });
+    return res as { success: boolean; message: string; deviceCount?: number };
+  },
 };
 
 export const notificationsApi = preferencesApi;

@@ -680,6 +680,34 @@ export const NotificationsScreen: React.FC = () => {
           />
         </View>
 
+        {/* Instant Test Push Dispatcher */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={{
+            backgroundColor: `${masterCardMeta.color}12`,
+            borderColor: `${masterCardMeta.color}35`,
+            borderWidth: 1,
+            borderRadius: 14,
+            paddingVertical: 11,
+            paddingHorizontal: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 16,
+          }}
+          onPress={async () => {
+            try {
+              const res = await preferencesApi.sendTestPush();
+              Alert.alert('Push Notification Test', res.message || 'Dispatched notification successfully!');
+            } catch (err: any) {
+              Alert.alert('Push Notification', err.message || 'Test push notification could not be dispatched.');
+            }
+          }}>
+          <Text style={{ color: masterCardMeta.color, fontWeight: '700', fontSize: 14 }}>
+            🔔 Send Test Notification
+          </Text>
+        </TouchableOpacity>
+
         {/* Section Header */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>{masterCardMeta.sectionTitle}</Text>

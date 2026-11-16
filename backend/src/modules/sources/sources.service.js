@@ -19,13 +19,13 @@ class SourcesService {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Auto-cap active channels to at most 30 (defaulting to 15) if legacy database had all active
+    // Auto-cap active channels to at most 50 if legacy database had all active
     const activeYoutube = sources.filter(
       (s) => s.platform.toLowerCase() === 'youtube' && s.isActive
     );
-    if (activeYoutube.length > 30) {
-      // Keep only top 15 active to prevent API cost overruns and match priority slots
-      const keepIds = new Set(activeYoutube.slice(0, 15).map((s) => s.id));
+    if (activeYoutube.length > 50) {
+      // Keep only top 50 active to prevent API cost overruns and match priority slots
+      const keepIds = new Set(activeYoutube.slice(0, 50).map((s) => s.id));
       const deactivateIds = activeYoutube
         .filter((s) => !keepIds.has(s.id))
         .map((s) => s.id);

@@ -59,6 +59,15 @@ class PreferencesController {
       next(error);
     }
   }
+
+  async sendTestNotification(req, res, next) {
+    try {
+      const result = await preferencesService.sendTestNotification(req.user.id);
+      res.status(result.success ? 200 : 400).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new PreferencesController();

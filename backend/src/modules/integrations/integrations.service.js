@@ -111,7 +111,7 @@ class IntegrationsService {
     }
 
     // Upsert TrackedSources and register WebSub
-    const MAX_DEFAULT_ACTIVE = 30;
+    const MAX_DEFAULT_ACTIVE = 50;
     const existingActiveCount = await prisma.trackedSource.count({
       where: { userId, platform: 'youtube', isActive: true },
     });
