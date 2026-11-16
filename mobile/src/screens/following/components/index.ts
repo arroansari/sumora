@@ -6,4 +6,5 @@ export * from './AddSubredditModal';
 export * from './SubredditListView';
 export * from './FollowingHeader';
 export * from './ManualChannelAddForm';
-
+export * from './DomainSourceListView';
+export * from './AddDomainSourceModal';

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useDeferredValue } from 'react';
+import React, { useState, useMemo, useCallback, useDeferredValue, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,14 +12,16 @@ import {
   Modal,
 } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { usePlatform } from '../../context/PlatformContext';
 import { preferencesApi, sourcesApi, integrationsApi, redditApi } from '../../services/api';
-import { NotificationPreference, TrackedSource } from '../../types/models.types';
+import { NotificationPreference, TrackedSource, SpaceType } from '../../types/models.types';
 import { SearchBar } from '../../components/atoms/SearchBar';
 import { FilterPillOption } from '../../components/atoms/FilterPills';
+import { SpaceIcon } from '../../components/atoms/SpaceIcon';
 import { createNotificationsStyles } from './NotificationsScreen.styles';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -34,7 +36,30 @@ const SORT_OPTIONS: FilterPillOption<SortFilter>[] = [
   { label: 'Z → A', value: 'z_a' },
 ];
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+const ALERTS_BOOKS_KEY = 'sumora:alerts_books_enabled';
+const MUTED_BOOKS_KEY = 'sumora:muted_book_topics';
+const ALERTS_CINEMA_KEY = 'sumora:alerts_cinema_enabled';
+const MUTED_CINEMA_KEY = 'sumora:muted_cinema_sources';
+
+const DEFAULT_BOOK_SOURCES: TrackedSource[] = [
+  { id: 'b1', platform: 'books', sourceId: 'james-clear', sourceName: 'James Clear', isActive: true, memberCount: 4, createdAt: '2026-01-01' },
+  { id: 'b2', platform: 'books', sourceId: 'morgan-housel', sourceName: 'Morgan Housel', isActive: true, memberCount: 3, createdAt: '2026-01-01' },
+  { id: 'b3', platform: 'books', sourceId: 'jenny-odell', sourceName: 'Jenny Odell', isActive: true, memberCount: 2, createdAt: '2026-01-01' },
+  { id: 'b4', platform: 'books', sourceId: 'daniel-kahneman', sourceName: 'Daniel Kahneman', isActive: true, memberCount: 3, createdAt: '2026-01-01' },
+  { id: 'b5', platform: 'books', sourceId: 'ryan-holiday', sourceName: 'Ryan Holiday', isActive: true, memberCount: 5, createdAt: '2026-01-01' },
+  { id: 'b6', platform: 'books', sourceId: 'psychology', sourceName: 'Psychology Mental Models', isActive: true, memberCount: 14, createdAt: '2026-01-01' },
+  { id: 'b7', platform: 'books', sourceId: 'productivity', sourceName: 'Productivity & Habits', isActive: true, memberCount: 18, createdAt: '2026-01-01' },
+  { id: 'b8', platform: 'books', sourceId: 'wealth', sourceName: 'Wealth & Decision Making', isActive: true, memberCount: 11, createdAt: '2026-01-01' },
+];
+
+const DEFAULT_CINEMA_SOURCES: TrackedSource[] = [
+  { id: 'c1', platform: 'cinema', sourceId: 'netflix', sourceName: 'Netflix Originals & Premieres', isActive: true, memberCount: 18, createdAt: '2026-01-01' },
+  { id: 'c2', platform: 'cinema', sourceId: 'max', sourceName: 'Max & HBO Cinema Radar', isActive: true, memberCount: 12, createdAt: '2026-01-01' },
+  { id: 'c3', platform: 'cinema', sourceId: 'appletv', sourceName: 'Apple TV+ Quality Films', isActive: true, memberCount: 8, createdAt: '2026-01-01' },
+  { id: 'c4', platform: 'cinema', sourceId: 'tmdb-trending', sourceName: 'TMDB Trending & Box Office', isActive: true, memberCount: 24, createdAt: '2026-01-01' },
+  { id: 'c5', platform: 'cinema', sourceId: 'scifi', sourceName: 'Sci-Fi & Cyberpunk Radar', isActive: true, memberCount: 15, createdAt: '2026-01-01' },
+  { id: 'c6', platform: 'cinema', sourceId: 'a24', sourceName: 'A24 & Independent Cinema', isActive: true, memberCount: 9, createdAt: '2026-01-01' },
+];
 
 const getInitials = (name: string): string => {
   const parts = name.trim().split(/\s+/);
@@ -43,6 +68,64 @@ const getInitials = (name: string): string => {
   }
   return name.slice(0, 2).toUpperCase();
 };
+
+// ─── Sub-row Component for Generic Domain Source ─────────────────────────────
+
+interface DomainNotificationRowProps {
+  space: SpaceType;
+  item: TrackedSource;
+  isMasterEnabled: boolean;
+  isMuted: boolean;
+  themeColor: string;
+  styles: ReturnType<typeof createNotificationsStyles>;
+  colors: ReturnType<typeof useAppTheme>['colors'];
+  onToggleMute: (id: string) => void;
+}
+
+const DomainNotificationRow = React.memo<DomainNotificationRowProps>(
+  ({ space, item, isMasterEnabled, isMuted, themeColor, styles, colors, onToggleMute }) => {
+    const isNotifying = isMasterEnabled && !isMuted;
+
+    return (
+      <View style={styles.channelCard}>
+        <View style={styles.toggleRow}>
+          <View style={styles.channelLeft}>
+            <View style={{ marginRight: 12 }}>
+              <SpaceIcon space={space} size={42} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.channelTitle} numberOfLines={1}>
+                {item.sourceName}
+              </Text>
+              <View style={styles.statusRow}>
+                <View
+                  style={[
+                    styles.statusDot,
+                    { backgroundColor: isNotifying ? themeColor : colors.textMuted },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.channelStatus,
+                    { color: isNotifying ? themeColor : colors.textMuted },
+                  ]}>
+                  {isNotifying ? 'Alerts active' : 'Muted'}
+                </Text>
+              </View>
+            </View>
+          </View>
+          <Switch
+            value={!isMuted}
+            onValueChange={() => onToggleMute(item.sourceId)}
+            disabled={!isMasterEnabled}
+            trackColor={{ false: colors.border, true: themeColor }}
+            thumbColor="#FFFFFF"
+          />
+        </View>
+      </View>
+    );
+  }
+);
 
 // ─── ChannelNotificationRow ──────────────────────────────────────────────────
 
@@ -125,96 +208,66 @@ const ChannelNotificationRow = React.memo<ChannelNotificationRowProps>(
   }
 );
 
-// ─── SubredditNotificationRow ────────────────────────────────────────────────
-
-interface SubredditNotificationRowProps {
-  subreddit: TrackedSource;
-  isRedditEnabled: boolean;
-  isMuted: boolean;
-  styles: ReturnType<typeof createNotificationsStyles>;
-  colors: ReturnType<typeof useAppTheme>['colors'];
-  onToggleMute: (id: string) => void;
-}
-
-const SubredditNotificationRow = React.memo<SubredditNotificationRowProps>(
-  ({ subreddit, isRedditEnabled, isMuted, styles, colors, onToggleMute }) => {
-    const isNotifying = isRedditEnabled && !isMuted;
-
-    return (
-      <View style={styles.channelCard}>
-        <View style={styles.toggleRow}>
-          <View style={styles.channelLeft}>
-            <View
-              style={[
-                styles.channelAvatar,
-                { backgroundColor: '#FF4500' },
-                !isNotifying && styles.channelAvatarMuted,
-              ]}>
-              <Text
-                style={[
-                  styles.channelAvatarText,
-                  { color: '#FFFFFF' },
-                  !isNotifying && styles.channelAvatarTextMuted,
-                ]}>
-                r/
-              </Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.channelTitle} numberOfLines={1}>
-                {subreddit.sourceName}
-              </Text>
-              <View style={styles.statusRow}>
-                <View
-                  style={[
-                    styles.statusDot,
-                    { backgroundColor: isNotifying ? '#10B981' : colors.textMuted },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.channelStatus,
-                    { color: isNotifying ? '#10B981' : colors.textMuted },
-                  ]}>
-                  {isNotifying ? 'Debate alerts active' : 'Muted'}
-                </Text>
-              </View>
-            </View>
-          </View>
-          <Switch
-            value={!isMuted}
-            onValueChange={() => onToggleMute(subreddit.sourceId)}
-            disabled={!isRedditEnabled}
-            trackColor={{ false: colors.border, true: '#FF4500' }}
-            thumbColor="#FFFFFF"
-          />
-        </View>
-      </View>
-    );
-  }
-);
-
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export const NotificationsScreen: React.FC = () => {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createNotificationsStyles(colors), [colors]);
 
-  const { activePlatform } = usePlatform();
-  const activeSegment = activePlatform === 'REDDIT' ? 'subreddits' : 'channels';
+  // Universal Space Horizon State
+  const { activeSpace } = usePlatform();
+
+  // YouTube / Reddit API State
   const [preferences, setPreferences] = useState<NotificationPreference[]>([]);
   const [sources, setSources] = useState<TrackedSource[]>([]);
   const [subreddits, setSubreddits] = useState<TrackedSource[]>([]);
   const [mutedSubreddits, setMutedSubreddits] = useState<Record<string, boolean>>({});
-  const [isYouTubeConnected, setIsYouTubeConnected] = useState<boolean>(false);
-  const [syncing, setSyncing] = useState<boolean>(false);
+  const [, setIsYouTubeConnected] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [mutedChannels, setMutedChannels] = useState<Record<string, boolean>>({});
+
+  // Books Domain State
+  const [bookSources] = useState<TrackedSource[]>(DEFAULT_BOOK_SOURCES);
+  const [isBooksEnabled, setIsBooksEnabled] = useState<boolean>(true);
+  const [mutedBooks, setMutedBooks] = useState<Record<string, boolean>>({});
+
+  // Cinema Domain State
+  const [cinemaSources] = useState<TrackedSource[]>(DEFAULT_CINEMA_SOURCES);
+  const [isCinemaEnabled, setIsCinemaEnabled] = useState<boolean>(true);
+  const [mutedCinema, setMutedCinema] = useState<Record<string, boolean>>({});
+
+  // Filter & Search
   const [searchQuery, setSearchQuery] = useState<string>('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [muteFilter, setMuteFilter] = useState<MuteFilter>('all');
   const [sortFilter, setSortFilter] = useState<SortFilter>('newest');
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
+
+  // Load local preferences for books & cinema
+  useEffect(() => {
+    AsyncStorage.getItem(ALERTS_BOOKS_KEY).then((v) => {
+      if (v !== null) setIsBooksEnabled(v === 'true');
+    });
+    AsyncStorage.getItem(MUTED_BOOKS_KEY).then((v) => {
+      if (v) {
+        try {
+          setMutedBooks(JSON.parse(v));
+        } catch {}
+      }
+    });
+
+    AsyncStorage.getItem(ALERTS_CINEMA_KEY).then((v) => {
+      if (v !== null) setIsCinemaEnabled(v === 'true');
+    });
+    AsyncStorage.getItem(MUTED_CINEMA_KEY).then((v) => {
+      if (v) {
+        try {
+          setMutedCinema(JSON.parse(v));
+        } catch {}
+      }
+    });
+  }, []);
 
   const fetchNotificationData = useCallback(async () => {
     const [prefs, channels, accounts, subs] = await Promise.all([
@@ -276,45 +329,119 @@ export const NotificationsScreen: React.FC = () => {
     }
   }, [fetchNotificationData]);
 
-  const handleSyncYouTube = useCallback(async () => {
-    setSyncing(true);
-    try {
-      const synced = await integrationsApi.syncYouTube();
-      if (synced.sources) {
-        setSources(synced.sources);
-      } else {
-        const channels = await sourcesApi.list().catch(() => []);
-        setSources(channels);
-      }
-    } catch (err: any) {
-      Alert.alert('Sync Failed', err.message || 'Could not sync YouTube subscriptions.');
-    } finally {
-      setSyncing(false);
-    }
-  }, []);
-
+  // Master Toggle Values
   const isYouTubeEnabled =
     preferences.find((p) => p.platform === 'youtube')?.enabled ?? true;
 
   const isRedditEnabled =
     preferences.find((p) => p.platform === 'reddit')?.enabled ?? true;
 
-  const filteredSources = useMemo(() => {
+  // Domain Master Toggle Handlers
+  const handleToggleGlobalYouTube = useCallback(async (value: boolean) => {
+    try {
+      setPreferences((prev) =>
+        prev.map((p) => (p.platform === 'youtube' ? { ...p, enabled: value } : p))
+      );
+      await preferencesApi.update({ platform: 'youtube', enabled: value });
+    } catch {
+      Alert.alert('Error', 'Could not update YouTube notification preference.');
+    }
+  }, []);
+
+  const handleToggleGlobalReddit = useCallback(async (value: boolean) => {
+    try {
+      setPreferences((prev) =>
+        prev.map((p) => (p.platform === 'reddit' ? { ...p, enabled: value } : p))
+      );
+      await preferencesApi.update({ platform: 'reddit', enabled: value });
+    } catch {
+      Alert.alert('Error', 'Could not update Reddit notification preference.');
+    }
+  }, []);
+
+  const handleToggleGlobalBooks = useCallback(async (value: boolean) => {
+    setIsBooksEnabled(value);
+    await AsyncStorage.setItem(ALERTS_BOOKS_KEY, String(value));
+  }, []);
+
+  const handleToggleGlobalCinema = useCallback(async (value: boolean) => {
+    setIsCinemaEnabled(value);
+    await AsyncStorage.setItem(ALERTS_CINEMA_KEY, String(value));
+  }, []);
+
+  // Individual Mute Handlers
+  const handleToggleChannelMute = useCallback((channelId: string) => {
+    setMutedChannels((prev) => ({
+      ...prev,
+      [channelId]: !prev[channelId],
+    }));
+  }, []);
+
+  const handleToggleSubredditMute = useCallback((subredditId: string) => {
+    setMutedSubreddits((prev) => ({
+      ...prev,
+      [subredditId]: !prev[subredditId],
+    }));
+  }, []);
+
+  const handleToggleBookMute = useCallback((topicId: string) => {
+    setMutedBooks((prev) => {
+      const updated = { ...prev, [topicId]: !prev[topicId] };
+      AsyncStorage.setItem(MUTED_BOOKS_KEY, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  }, []);
+
+  const handleToggleCinemaMute = useCallback((radarId: string) => {
+    setMutedCinema((prev) => {
+      const updated = { ...prev, [radarId]: !prev[radarId] };
+      AsyncStorage.setItem(MUTED_CINEMA_KEY, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  }, []);
+
+  // Filtered Source Selection based on activeSpace
+  const currentDomainItems = useMemo(() => {
+    switch (activeSpace) {
+      case 'OPEN_LIBRARY':
+        return bookSources;
+      case 'TMDB':
+        return cinemaSources;
+      case 'REDDIT':
+        return subreddits;
+      case 'YOUTUBE':
+      default:
+        return sources;
+    }
+  }, [activeSpace, bookSources, cinemaSources, subreddits, sources]);
+
+  const currentMutedRecord = useMemo(() => {
+    switch (activeSpace) {
+      case 'OPEN_LIBRARY':
+        return mutedBooks;
+      case 'TMDB':
+        return mutedCinema;
+      case 'REDDIT':
+        return mutedSubreddits;
+      case 'YOUTUBE':
+      default:
+        return mutedChannels;
+    }
+  }, [activeSpace, mutedBooks, mutedCinema, mutedSubreddits, mutedChannels]);
+
+  const filteredItems = useMemo(() => {
     const query = deferredSearchQuery.trim().toLowerCase();
 
-    // 1. Search filter
     let result = query
-      ? sources.filter((c) => c.sourceName.toLowerCase().includes(query))
-      : sources;
+      ? currentDomainItems.filter((c) => c.sourceName.toLowerCase().includes(query))
+      : currentDomainItems;
 
-    // 2. Mute filter
     if (muteFilter === 'active') {
-      result = result.filter((c) => !mutedChannels[c.sourceId]);
+      result = result.filter((c) => !currentMutedRecord[c.sourceId]);
     } else if (muteFilter === 'muted') {
-      result = result.filter((c) => Boolean(mutedChannels[c.sourceId]));
+      result = result.filter((c) => Boolean(currentMutedRecord[c.sourceId]));
     }
 
-    // 3. Sort
     const copy = [...result];
     switch (sortFilter) {
       case 'a_z':
@@ -343,84 +470,139 @@ export const NotificationsScreen: React.FC = () => {
     }
 
     return copy;
-  }, [sources, deferredSearchQuery, muteFilter, sortFilter, mutedChannels]);
-
-  const handleToggleGlobalYouTube = useCallback(async (value: boolean) => {
-    try {
-      setPreferences((prev) =>
-        prev.map((p) => (p.platform === 'youtube' ? { ...p, enabled: value } : p))
-      );
-      await preferencesApi.update({ platform: 'youtube', enabled: value });
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update preference.');
-    }
-  }, []);
-
-  const handleToggleGlobalReddit = useCallback(async (value: boolean) => {
-    try {
-      setPreferences((prev) => {
-        const exists = prev.some((p) => p.platform === 'reddit');
-        if (exists) {
-          return prev.map((p) => (p.platform === 'reddit' ? { ...p, enabled: value } : p));
-        }
-        return [...prev, { id: 'reddit_pref', platform: 'reddit', enabled: value }];
-      });
-      await preferencesApi.update({ platform: 'reddit', enabled: value });
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update Reddit preference.');
-    }
-  }, []);
-
-  const handleToggleSubredditMute = useCallback((subId: string) => {
-    setMutedSubreddits((prev) => ({
-      ...prev,
-      [subId]: !prev[subId],
-    }));
-  }, []);
-
-  const handleToggleChannelMute = useCallback((channelId: string) => {
-    setMutedChannels((prev) => ({
-      ...prev,
-      [channelId]: !prev[channelId],
-    }));
-  }, []);
-
-  // ── Mute All / Unmute All ──────────────────────────────────────────────────
-
-  const handleMuteAll = useCallback(() => {
-    if (sources.length === 0) return;
-    const updated: Record<string, boolean> = {};
-    sources.forEach((s) => {
-      updated[s.sourceId] = true;
-    });
-    setMutedChannels(updated);
-  }, [sources]);
-
-  const handleUnmuteAll = useCallback(() => {
-    setMutedChannels({});
-  }, []);
+  }, [currentDomainItems, deferredSearchQuery, muteFilter, currentMutedRecord, sortFilter]);
 
   const mutedCount = useMemo(
-    () => sources.filter((s) => Boolean(mutedChannels[s.sourceId])).length,
-    [sources, mutedChannels]
+    () => currentDomainItems.filter((s) => Boolean(currentMutedRecord[s.sourceId])).length,
+    [currentDomainItems, currentMutedRecord]
   );
 
   const anyMuted = mutedCount > 0;
-  const activeCount = sources.length - mutedCount;
+  const activeCount = currentDomainItems.length - mutedCount;
   const hasActiveFilter = muteFilter !== 'all' || sortFilter !== 'newest';
 
-  // ── Render helpers ─────────────────────────────────────────────────────────
+  const handleMuteAll = useCallback(() => {
+    const allMuted: Record<string, boolean> = {};
+    for (const item of currentDomainItems) {
+      allMuted[item.sourceId] = true;
+    }
+    if (activeSpace === 'OPEN_LIBRARY') setMutedBooks(allMuted);
+    else if (activeSpace === 'TMDB') setMutedCinema(allMuted);
+    else if (activeSpace === 'REDDIT') setMutedSubreddits(allMuted);
+    else setMutedChannels(allMuted);
+  }, [currentDomainItems, activeSpace]);
 
-  const keyExtractor = useCallback((item: TrackedSource) => item.id, []);
+  const handleUnmuteAll = useCallback(() => {
+    if (activeSpace === 'OPEN_LIBRARY') setMutedBooks({});
+    else if (activeSpace === 'TMDB') setMutedCinema({});
+    else if (activeSpace === 'REDDIT') setMutedSubreddits({});
+    else setMutedChannels({});
+  }, [activeSpace]);
+
+  // Master Card Meta Config
+  const masterCardMeta = useMemo(() => {
+    switch (activeSpace) {
+      case 'OPEN_LIBRARY':
+        return {
+          title: 'Daily Book Insight Alerts',
+          subtitle: isBooksEnabled
+            ? 'Push alerts for daily 5-min mental models'
+            : 'All reading alerts paused',
+          enabled: isBooksEnabled,
+          onToggle: handleToggleGlobalBooks,
+          color: '#10B981',
+          sectionTitle: 'Author & Topic Notifications',
+          searchPlaceholder: 'Search authors or topics...',
+        };
+      case 'TMDB':
+        return {
+          title: 'Cinema Radar Alerts',
+          subtitle: isCinemaEnabled
+            ? 'Push alerts for new releases & critic consensus'
+            : 'All cinema alerts paused',
+          enabled: isCinemaEnabled,
+          onToggle: handleToggleGlobalCinema,
+          color: '#F59E0B',
+          sectionTitle: 'Streaming & Radar Notifications',
+          searchPlaceholder: 'Search platforms or genres...',
+        };
+      case 'REDDIT':
+        return {
+          title: 'Reddit Discussion Alerts',
+          subtitle: isRedditEnabled
+            ? 'Push alerts for top community debates'
+            : 'All Reddit alerts paused',
+          enabled: isRedditEnabled,
+          onToggle: handleToggleGlobalReddit,
+          color: '#FF4500',
+          sectionTitle: 'Subreddit Debate Notifications',
+          searchPlaceholder: 'Search subreddits to mute or unmute...',
+        };
+      case 'YOUTUBE':
+      default:
+        return {
+          title: 'YouTube Video Alerts',
+          subtitle: isYouTubeEnabled
+            ? 'Push notifications enabled for new uploads'
+            : 'All notifications paused',
+          enabled: isYouTubeEnabled,
+          onToggle: handleToggleGlobalYouTube,
+          color: colors.primary,
+          sectionTitle: 'Channel Notifications',
+          searchPlaceholder: 'Search channels to mute or unmute...',
+        };
+    }
+  }, [
+    activeSpace,
+    isBooksEnabled,
+    isCinemaEnabled,
+    isRedditEnabled,
+    isYouTubeEnabled,
+    handleToggleGlobalBooks,
+    handleToggleGlobalCinema,
+    handleToggleGlobalReddit,
+    handleToggleGlobalYouTube,
+    colors.primary,
+  ]);
 
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<TrackedSource>) => {
-      if (activeSegment === 'subreddits') {
+      if (activeSpace === 'OPEN_LIBRARY') {
         return (
-          <SubredditNotificationRow
-            subreddit={item}
-            isRedditEnabled={isRedditEnabled}
+          <DomainNotificationRow
+            space="OPEN_LIBRARY"
+            item={item}
+            isMasterEnabled={isBooksEnabled}
+            isMuted={Boolean(mutedBooks[item.sourceId])}
+            themeColor="#10B981"
+            styles={styles}
+            colors={colors}
+            onToggleMute={handleToggleBookMute}
+          />
+        );
+      }
+      if (activeSpace === 'TMDB') {
+        return (
+          <DomainNotificationRow
+            space="TMDB"
+            item={item}
+            isMasterEnabled={isCinemaEnabled}
+            isMuted={Boolean(mutedCinema[item.sourceId])}
+            themeColor="#F59E0B"
+            styles={styles}
+            colors={colors}
+            onToggleMute={handleToggleCinemaMute}
+          />
+        );
+      }
+      if (activeSpace === 'REDDIT') {
+        return (
+          <DomainNotificationRow
+            space="REDDIT"
+            item={item}
+            isMasterEnabled={isRedditEnabled}
             isMuted={Boolean(mutedSubreddits[item.sourceId])}
+            themeColor="#FF4500"
             styles={styles}
             colors={colors}
             onToggleMute={handleToggleSubredditMute}
@@ -439,82 +621,63 @@ export const NotificationsScreen: React.FC = () => {
       );
     },
     [
-      activeSegment,
+      activeSpace,
+      isBooksEnabled,
+      mutedBooks,
+      handleToggleBookMute,
+      isCinemaEnabled,
+      mutedCinema,
+      handleToggleCinemaMute,
       isRedditEnabled,
       mutedSubreddits,
+      handleToggleSubredditMute,
       isYouTubeEnabled,
       mutedChannels,
+      handleToggleChannelMute,
       styles,
       colors,
-      handleToggleSubredditMute,
-      handleToggleChannelMute,
     ]
   );
 
   const listHeader = useMemo(
     () => (
       <View>
-        {activeSegment === 'channels' ? (
-          /* Compact Master Global Toggle: YouTube */
-          <View style={styles.masterCard}>
-            <View style={styles.masterLeft}>
-              <View style={styles.masterIconBadge}>
-                <Text style={styles.masterIconText}>▶</Text>
-              </View>
-              <View style={styles.masterTextGroup}>
-                <Text style={styles.masterTitle}>YouTube Video Alerts</Text>
-                <Text style={styles.masterSubtitle} numberOfLines={1}>
-                  {isYouTubeEnabled
-                    ? 'Push notifications enabled for new uploads'
-                    : 'All notifications paused'}
-                </Text>
-              </View>
+        {/* Dynamic Master Card */}
+        <View style={styles.masterCard}>
+          <View style={styles.masterLeft}>
+            <View style={{ marginRight: 12 }}>
+              <SpaceIcon space={activeSpace} size={42} />
             </View>
-            <Switch
-              value={isYouTubeEnabled}
-              onValueChange={handleToggleGlobalYouTube}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-        ) : (
-          /* Master Global Toggle: Reddit */
-          <View style={styles.masterCard}>
-            <View style={styles.masterLeft}>
-              <View style={[styles.masterIconBadge, { backgroundColor: '#FF4500' }]}>
-                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '900' }}>r/</Text>
-              </View>
-              <View style={styles.masterTextGroup}>
-                <Text style={styles.masterTitle}>Reddit Discussion Alerts</Text>
-                <Text style={styles.masterSubtitle} numberOfLines={1}>
-                  {isRedditEnabled
-                    ? 'Push alerts for top community debates'
-                    : 'All Reddit alerts paused'}
-                </Text>
-              </View>
+            <View style={styles.masterTextGroup}>
+              <Text style={styles.masterTitle}>{masterCardMeta.title}</Text>
+              <Text style={styles.masterSubtitle} numberOfLines={1}>
+                {masterCardMeta.subtitle}
+              </Text>
             </View>
-            <Switch
-              value={isRedditEnabled}
-              onValueChange={handleToggleGlobalReddit}
-              trackColor={{ false: colors.border, true: '#FF4500' }}
-              thumbColor="#FFFFFF"
-            />
           </View>
-        )}
+          <Switch
+            value={masterCardMeta.enabled}
+            onValueChange={masterCardMeta.onToggle}
+            trackColor={{ false: colors.border, true: masterCardMeta.color }}
+            thumbColor="#FFFFFF"
+          />
+        </View>
 
         {/* Section Header */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>
-            {activeSegment === 'channels' ? 'Channel Notifications' : 'Subreddit Debate Notifications'}
-          </Text>
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>
-              {activeSegment === 'channels' ? sources.length : subreddits.length}
+          <Text style={styles.sectionTitle}>{masterCardMeta.sectionTitle}</Text>
+          <View
+            style={[
+              styles.countBadge,
+              { backgroundColor: `${masterCardMeta.color}18` },
+            ]}>
+            <Text style={[styles.countBadgeText, { color: masterCardMeta.color }]}>
+              {currentDomainItems.length}
             </Text>
           </View>
         </View>
 
-        {activeSegment === 'channels' && sources.length > 0 && (
+        {currentDomainItems.length > 0 && (
           <>
             {/* Search bar + Filters modal button */}
             <View style={styles.searchRow}>
@@ -522,7 +685,7 @@ export const NotificationsScreen: React.FC = () => {
                 <SearchBar
                   value={searchQuery}
                   onChangeText={setSearchQuery}
-                  placeholder="Search channels to mute or unmute..."
+                  placeholder={masterCardMeta.searchPlaceholder}
                 />
               </View>
               <TouchableOpacity
@@ -547,10 +710,10 @@ export const NotificationsScreen: React.FC = () => {
             <View style={styles.bulkActionRow}>
               <Text style={styles.searchMetaText}>
                 {searchQuery.trim().length > 0
-                  ? `${filteredSources.length} of ${sources.length} channels`
+                  ? `${filteredItems.length} of ${currentDomainItems.length} items`
                   : muteFilter !== 'all'
-                  ? `${filteredSources.length} ${muteFilter} channels • ${SORT_OPTIONS.find((s) => s.value === sortFilter)?.label || 'Sorted'}`
-                  : `${sources.length} channels (${activeCount} active)`}
+                  ? `${filteredItems.length} ${muteFilter} items`
+                  : `${currentDomainItems.length} items (${activeCount} active)`}
               </Text>
               <View style={{ flex: 1 }} />
               {anyMuted ? (
@@ -577,20 +740,14 @@ export const NotificationsScreen: React.FC = () => {
     ),
     [
       styles,
-      isYouTubeEnabled,
-      isRedditEnabled,
-      handleToggleGlobalYouTube,
-      handleToggleGlobalReddit,
-      activeSegment,
-      subreddits.length,
+      activeSpace,
+      masterCardMeta,
       colors.border,
-      colors.primary,
-      sources.length,
+      currentDomainItems.length,
       searchQuery,
-      filteredSources.length,
+      filteredItems.length,
       hasActiveFilter,
       muteFilter,
-      sortFilter,
       activeCount,
       anyMuted,
       handleMuteAll,
@@ -598,189 +755,89 @@ export const NotificationsScreen: React.FC = () => {
     ]
   );
 
-  const listEmpty = useMemo(() => {
-    if (activeSegment === 'subreddits') {
-      if (subreddits.length === 0) {
-        return (
-          <View style={styles.card}>
-            <Text style={{ color: colors.textMuted, textAlign: 'center', padding: 8 }}>
-              No tracked subreddits yet. Follow subreddits in the Following tab to configure debate notifications.
-            </Text>
-          </View>
-        );
-      }
-      return undefined;
-    }
-
-    if (sources.length === 0) {
-      return (
-        <View style={styles.card}>
-          <Text style={{ color: colors.textMuted, textAlign: 'center', padding: 8 }}>
-            {isYouTubeConnected
-              ? 'Your YouTube account is connected, but no channels are synced yet.'
-              : 'No tracked channels yet. Connect YouTube or add channels to configure notifications.'}
-          </Text>
-          {isYouTubeConnected && (
-            <TouchableOpacity
-              style={styles.syncEmptyButton}
-              onPress={handleSyncYouTube}
-              disabled={syncing}
-              activeOpacity={0.8}>
-              {syncing ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text style={styles.syncEmptyButtonText}>↻ Sync YouTube Subscriptions</Text>
-              )}
-            </TouchableOpacity>
-          )}
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.emptySearchBox}>
-        <Text style={{ fontSize: 30 }}>🔎</Text>
-        <Text style={styles.emptySearchTitle}>No Matching Channels</Text>
-        <Text style={styles.emptySearchSubtitle}>
-          {muteFilter !== 'all'
-            ? `No ${muteFilter === 'active' ? 'active' : 'muted'} channels match your search.`
-            : `No channels matched "${searchQuery}".`}
-        </Text>
-        <TouchableOpacity
-          style={styles.clearSearchButton}
-          onPress={() => {
-            setSearchQuery('');
-            setMuteFilter('all');
-          }}>
-          <Text style={styles.clearSearchButtonText}>Clear Filters</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }, [
-    activeSegment,
-    subreddits.length,
-    sources.length,
-    styles,
-    colors.textMuted,
-    searchQuery,
-    muteFilter,
-    isYouTubeConnected,
-    syncing,
-    handleSyncYouTube,
-  ]);
-
-  if (loading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Loading settings...</Text>
-      </View>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      {/* Dynamic Screen Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Notification Settings</Text>
         <Text style={styles.headerSubtitle}>
-          {activeSegment === 'channels'
-            ? 'Control push notification alerts for video summaries'
-            : 'Control push notification alerts for Reddit debate discussions'}
+          {activeSpace === 'OPEN_LIBRARY'
+            ? 'Control daily mental model digests and author notifications'
+            : activeSpace === 'TMDB'
+            ? 'Control critic consensus alerts and cinema release radar'
+            : activeSpace === 'REDDIT'
+            ? 'Control push notification alerts for community debates'
+            : 'Control push notification alerts for video summaries'}
         </Text>
       </View>
 
-      <FlatList
-        data={activeSegment === 'channels' ? filteredSources : subreddits}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        ListHeaderComponent={listHeader}
-        ListEmptyComponent={listEmpty}
-        contentContainerStyle={styles.listContent}
-        keyboardShouldPersistTaps="handled"
-        initialNumToRender={12}
-        maxToRenderPerBatch={8}
-        updateCellsBatchingPeriod={50}
-        windowSize={5}
-        removeClippedSubviews={true}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      />
+      {loading ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={masterCardMeta.color} />
+          <Text style={styles.loadingText}>Loading notification preferences…</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredItems}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={listHeader}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={masterCardMeta.color}
+            />
+          }
+        />
+      )}
 
-      {/* ── Filter & Sort Modal ────────────────────────────────────────── */}
+      {/* Filter Modal Sheet */}
       <Modal
         visible={showFilterModal}
         transparent
         animationType="slide"
         onRequestClose={() => setShowFilterModal(false)}>
         <View style={styles.modalBackdrop}>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            activeOpacity={1}
+            onPress={() => setShowFilterModal(false)}
+          />
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>⚡ Filter & Sort Alerts</Text>
-              <TouchableOpacity
-                onPress={() => setShowFilterModal(false)}
-                style={styles.modalCloseBtn}>
+              <Text style={styles.modalTitle}>Filter Alerts</Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.modalCloseBtn}>
                 <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Section 1: Alert Status */}
             <Text style={styles.modalSectionTitle}>Alert Status</Text>
             <View style={styles.modalGrid}>
-              <TouchableOpacity
-                style={[
-                  styles.modalChip,
-                  muteFilter === 'all' && styles.modalChipActive,
-                ]}
-                onPress={() => setMuteFilter('all')}
-                activeOpacity={0.75}>
-                <Text
-                  style={[
-                    styles.modalChipText,
-                    muteFilter === 'all' && styles.modalChipTextActive,
-                  ]}>
-                  🔔 All Channels ({sources.length})
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.modalChip,
-                  muteFilter === 'active' && styles.modalChipActive,
-                ]}
-                onPress={() => setMuteFilter('active')}
-                activeOpacity={0.75}>
-                <Text
-                  style={[
-                    styles.modalChipText,
-                    muteFilter === 'active' && styles.modalChipTextActive,
-                  ]}>
-                  ✅ Active Alerts ({activeCount})
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.modalChip,
-                  muteFilter === 'muted' && styles.modalChipActive,
-                ]}
-                onPress={() => setMuteFilter('muted')}
-                activeOpacity={0.75}>
-                <Text
-                  style={[
-                    styles.modalChipText,
-                    muteFilter === 'muted' && styles.modalChipTextActive,
-                  ]}>
-                  🔕 Muted Channels ({mutedCount})
-                </Text>
-              </TouchableOpacity>
+              {(['all', 'active', 'muted'] as MuteFilter[]).map((f) => {
+                const isActive = muteFilter === f;
+                return (
+                  <TouchableOpacity
+                    key={f}
+                    style={[
+                      styles.modalChip,
+                      isActive && { backgroundColor: masterCardMeta.color, borderColor: masterCardMeta.color },
+                    ]}
+                    onPress={() => setMuteFilter(f)}>
+                    <Text
+                      style={[
+                        styles.modalChipText,
+                        isActive && styles.modalChipTextActive,
+                      ]}>
+                      {f === 'all' ? 'All' : f === 'active' ? 'Active Alerts' : 'Muted'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            {/* Section 2: Sort Order */}
             <Text style={styles.modalSectionTitle}>Sort Order</Text>
             <View style={styles.modalGrid}>
               {SORT_OPTIONS.map((opt) => {
@@ -788,9 +845,11 @@ export const NotificationsScreen: React.FC = () => {
                 return (
                   <TouchableOpacity
                     key={opt.value}
-                    style={[styles.modalChip, isActive && styles.modalChipActive]}
-                    onPress={() => setSortFilter(opt.value)}
-                    activeOpacity={0.75}>
+                    style={[
+                      styles.modalChip,
+                      isActive && { backgroundColor: masterCardMeta.color, borderColor: masterCardMeta.color },
+                    ]}
+                    onPress={() => setSortFilter(opt.value)}>
                     <Text
                       style={[
                         styles.modalChipText,
@@ -803,22 +862,10 @@ export const NotificationsScreen: React.FC = () => {
               })}
             </View>
 
-            {/* Footer Buttons */}
             <View style={styles.modalBtnRow}>
               <TouchableOpacity
-                style={styles.modalSecondaryBtn}
-                onPress={() => {
-                  setMuteFilter('all');
-                  setSortFilter('newest');
-                }}
-                activeOpacity={0.75}>
-                <Text style={styles.modalSecondaryBtnText}>Reset</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.modalPrimaryBtn}
-                onPress={() => setShowFilterModal(false)}
-                activeOpacity={0.8}>
+                style={[styles.modalPrimaryBtn, { backgroundColor: masterCardMeta.color }]}
+                onPress={() => setShowFilterModal(false)}>
                 <Text style={styles.modalPrimaryBtnText}>Apply Filters</Text>
               </TouchableOpacity>
             </View>

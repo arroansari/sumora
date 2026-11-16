@@ -43,19 +43,47 @@ import {
   SubredditListView,
   FollowingHeader,
   ManualChannelAddForm,
+  DomainSourceListView,
+  AddDomainSourceModal,
 } from './components';
 
 export * from './types';
 
 const FAVORITES_STORAGE_KEY = 'sumora:favorite_channel_ids';
 const SYNC_DONE_KEY = 'sumora:yt_thumb_sync_done';
+const TRACKED_BOOKS_STORAGE_KEY = 'sumora:tracked_book_authors';
+const TRACKED_CINEMA_STORAGE_KEY = 'sumora:tracked_cinema_sources';
 const PAGE_SIZE = 24;
+
+const DEFAULT_BOOK_SOURCES: TrackedSource[] = [
+  { id: 'b1', platform: 'books', sourceId: 'james-clear', sourceName: 'James Clear', isActive: true, memberCount: 4, createdAt: '2026-01-01' },
+  { id: 'b2', platform: 'books', sourceId: 'morgan-housel', sourceName: 'Morgan Housel', isActive: true, memberCount: 3, createdAt: '2026-01-01' },
+  { id: 'b3', platform: 'books', sourceId: 'jenny-odell', sourceName: 'Jenny Odell', isActive: true, memberCount: 2, createdAt: '2026-01-01' },
+  { id: 'b4', platform: 'books', sourceId: 'daniel-kahneman', sourceName: 'Daniel Kahneman', isActive: true, memberCount: 3, createdAt: '2026-01-01' },
+  { id: 'b5', platform: 'books', sourceId: 'ryan-holiday', sourceName: 'Ryan Holiday', isActive: true, memberCount: 5, createdAt: '2026-01-01' },
+  { id: 'b6', platform: 'books', sourceId: 'psychology', sourceName: 'Psychology Mental Models', isActive: true, memberCount: 14, createdAt: '2026-01-01' },
+  { id: 'b7', platform: 'books', sourceId: 'productivity', sourceName: 'Productivity & Habits', isActive: true, memberCount: 18, createdAt: '2026-01-01' },
+  { id: 'b8', platform: 'books', sourceId: 'wealth', sourceName: 'Wealth & Decision Making', isActive: true, memberCount: 11, createdAt: '2026-01-01' },
+];
+
+const DEFAULT_CINEMA_SOURCES: TrackedSource[] = [
+  { id: 'c1', platform: 'cinema', sourceId: 'netflix', sourceName: 'Netflix Originals & Premieres', isActive: true, memberCount: 18, createdAt: '2026-01-01' },
+  { id: 'c2', platform: 'cinema', sourceId: 'max', sourceName: 'Max & HBO Cinema Radar', isActive: true, memberCount: 12, createdAt: '2026-01-01' },
+  { id: 'c3', platform: 'cinema', sourceId: 'appletv', sourceName: 'Apple TV+ Quality Films', isActive: true, memberCount: 8, createdAt: '2026-01-01' },
+  { id: 'c4', platform: 'cinema', sourceId: 'tmdb-trending', sourceName: 'TMDB Trending & Box Office', isActive: true, memberCount: 24, createdAt: '2026-01-01' },
+  { id: 'c5', platform: 'cinema', sourceId: 'scifi', sourceName: 'Sci-Fi & Cyberpunk Radar', isActive: true, memberCount: 15, createdAt: '2026-01-01' },
+  { id: 'c6', platform: 'cinema', sourceId: 'a24', sourceName: 'A24 & Independent Cinema', isActive: true, memberCount: 9, createdAt: '2026-01-01' },
+];
 
 export const FollowingScreen: React.FC = () => {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createFollowingStyles(colors), [colors]);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
+  // Universal Space Switcher State
+  const { activeSpace } = usePlatform();
+
+  // YouTube State
   const [sources, setSources] = useState<TrackedSource[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [, setIsYouTubeConnected] = useState<boolean>(false);
@@ -71,30 +99,58 @@ export const FollowingScreen: React.FC = () => {
   const [newChannelName, setNewChannelName] = useState<string>('');
   const [adding, setAdding] = useState<boolean>(false);
 
-  // Platform Section
-  const { activePlatform } = usePlatform();
-  const platformSection = activePlatform === 'REDDIT' ? 'subreddits' : 'channels';
+  // Reddit State
   const [subreddits, setSubreddits] = useState<TrackedSource[]>([]);
   const [newSubredditInput, setNewSubredditInput] = useState<string>('');
   const [addingSubreddit, setAddingSubreddit] = useState<boolean>(false);
   const [showAddSubredditModal, setShowAddSubredditModal] = useState<boolean>(false);
 
-  // Virtual pagination
+  // Books State (Open Library)
+  const [bookSources, setBookSources] = useState<TrackedSource[]>(DEFAULT_BOOK_SOURCES);
+  const [activeBookCategory, setActiveBookCategory] = useState<string>('All');
+
+  // Cinema State (TMDB)
+  const [cinemaSources, setCinemaSources] = useState<TrackedSource[]>(DEFAULT_CINEMA_SOURCES);
+  const [activeCinemaCategory, setActiveCinemaCategory] = useState<string>('All');
+
+  // Generic Domain Add Modal State
+  const [showAddDomainModal, setShowAddDomainModal] = useState<boolean>(false);
+  const [domainModalInput, setDomainModalInput] = useState<string>('');
+  const [addingDomain, setAddingDomain] = useState<boolean>(false);
+
+  // Virtual pagination for YouTube
   const [displayLimit, setDisplayLimit] = useState<number>(PAGE_SIZE);
 
   useEffect(() => {
     setDisplayLimit(PAGE_SIZE);
   }, [deferredSearchQuery, selectedCategory, sortFilter]);
 
+  // Load stored sources across all spaces
   useEffect(() => {
     AsyncStorage.getItem(FAVORITES_STORAGE_KEY).then((json) => {
       if (json) {
         try {
           const ids = JSON.parse(json);
           if (Array.isArray(ids)) setFavoriteIds(ids);
-        } catch {
-          // ignore parsing error
-        }
+        } catch {}
+      }
+    });
+
+    AsyncStorage.getItem(TRACKED_BOOKS_STORAGE_KEY).then((json) => {
+      if (json) {
+        try {
+          const parsed = JSON.parse(json);
+          if (Array.isArray(parsed) && parsed.length > 0) setBookSources(parsed);
+        } catch {}
+      }
+    });
+
+    AsyncStorage.getItem(TRACKED_CINEMA_STORAGE_KEY).then((json) => {
+      if (json) {
+        try {
+          const parsed = JSON.parse(json);
+          if (Array.isArray(parsed) && parsed.length > 0) setCinemaSources(parsed);
+        } catch {}
       }
     });
   }, []);
@@ -127,9 +183,7 @@ export const FollowingScreen: React.FC = () => {
                   setSources(synced.sources);
                 }
                 await AsyncStorage.setItem(SYNC_DONE_KEY, 'true');
-              } catch {
-                // ignore
-              }
+              } catch {}
             }
           }
         } catch (err: any) {
@@ -147,6 +201,7 @@ export const FollowingScreen: React.FC = () => {
     }, [])
   );
 
+  // YouTube Handlers
   const handleToggleFavorite = useCallback(
     async (source: TrackedSource) => {
       const isFav = favoriteIds.includes(source.sourceId);
@@ -156,9 +211,7 @@ export const FollowingScreen: React.FC = () => {
         updated = favoriteIds.filter((id) => id !== source.sourceId);
       } else {
         updated = [...favoriteIds, source.sourceId];
-        integrationsApi.backfillChannel(source.sourceId).catch((err) => {
-          console.warn('[FollowingScreen] Favorite backfill note:', err.message);
-        });
+        integrationsApi.backfillChannel(source.sourceId).catch(() => {});
       }
 
       setFavoriteIds(updated);
@@ -172,9 +225,7 @@ export const FollowingScreen: React.FC = () => {
     try {
       const data = await sourcesApi.list();
       setSources(data);
-    } catch {
-      // ignore
-    } finally {
+    } catch {} finally {
       setRefreshing(false);
     }
   }, []);
@@ -234,6 +285,7 @@ export const FollowingScreen: React.FC = () => {
     }
   }, [newChannelId, newChannelName]);
 
+  // Reddit Handlers
   const handleToggleSubreddit = useCallback(async (item: TrackedSource) => {
     const nextActive = !item.isActive;
     setSubreddits((prev) =>
@@ -284,6 +336,101 @@ export const FollowingScreen: React.FC = () => {
     }
   }, [newSubredditInput]);
 
+  // Book Handlers
+  const handleToggleBookSource = useCallback((item: TrackedSource) => {
+    setBookSources((prev) => {
+      const updated = prev.map((s) => (s.id === item.id ? { ...s, isActive: !s.isActive } : s));
+      AsyncStorage.setItem(TRACKED_BOOKS_STORAGE_KEY, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  }, []);
+
+  const handleRemoveBookSource = useCallback((item: TrackedSource) => {
+    Alert.alert('Remove Author/Topic', `Stop tracking ${item.sourceName}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          setBookSources((prev) => {
+            const updated = prev.filter((s) => s.id !== item.id);
+            AsyncStorage.setItem(TRACKED_BOOKS_STORAGE_KEY, JSON.stringify(updated)).catch(() => {});
+            return updated;
+          });
+        },
+      },
+    ]);
+  }, []);
+
+  // Cinema Handlers
+  const handleToggleCinemaSource = useCallback((item: TrackedSource) => {
+    setCinemaSources((prev) => {
+      const updated = prev.map((s) => (s.id === item.id ? { ...s, isActive: !s.isActive } : s));
+      AsyncStorage.setItem(TRACKED_CINEMA_STORAGE_KEY, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  }, []);
+
+  const handleRemoveCinemaSource = useCallback((item: TrackedSource) => {
+    Alert.alert('Remove Radar', `Stop tracking ${item.sourceName}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          setCinemaSources((prev) => {
+            const updated = prev.filter((s) => s.id !== item.id);
+            AsyncStorage.setItem(TRACKED_CINEMA_STORAGE_KEY, JSON.stringify(updated)).catch(() => {});
+            return updated;
+          });
+        },
+      },
+    ]);
+  }, []);
+
+  // Generic Domain Add Submission
+  const handleAddDomainSource = useCallback(async () => {
+    const text = domainModalInput.trim();
+    if (!text) return;
+    setAddingDomain(true);
+
+    try {
+      if (activeSpace === 'OPEN_LIBRARY') {
+        const newAuthor: TrackedSource = {
+          id: `b_${Date.now()}`,
+          platform: 'books',
+          sourceId: text.toLowerCase().replace(/\s+/g, '-'),
+          sourceName: text,
+          isActive: true,
+          memberCount: 1,
+          createdAt: new Date().toISOString(),
+        };
+        const updated = [newAuthor, ...bookSources];
+        setBookSources(updated);
+        await AsyncStorage.setItem(TRACKED_BOOKS_STORAGE_KEY, JSON.stringify(updated));
+      } else if (activeSpace === 'TMDB') {
+        const newPlatform: TrackedSource = {
+          id: `c_${Date.now()}`,
+          platform: 'cinema',
+          sourceId: text.toLowerCase().replace(/\s+/g, '-'),
+          sourceName: text,
+          isActive: true,
+          memberCount: 1,
+          createdAt: new Date().toISOString(),
+        };
+        const updated = [newPlatform, ...cinemaSources];
+        setCinemaSources(updated);
+        await AsyncStorage.setItem(TRACKED_CINEMA_STORAGE_KEY, JSON.stringify(updated));
+      }
+      setDomainModalInput('');
+      setShowAddDomainModal(false);
+    } catch {
+      Alert.alert('Error', 'Could not add source.');
+    } finally {
+      setAddingDomain(false);
+    }
+  }, [domainModalInput, activeSpace, bookSources, cinemaSources]);
+
   const handleChannelPress = useCallback(
     (source: TrackedSource) => {
       navigation.navigate('ChannelDetail', {
@@ -295,6 +442,7 @@ export const FollowingScreen: React.FC = () => {
     [navigation]
   );
 
+  // Filtered YouTube Channels
   const channelSources = useMemo(
     () => sources.filter((s) => s.platform !== 'reddit'),
     [sources]
@@ -471,35 +619,126 @@ export const FollowingScreen: React.FC = () => {
     ]
   );
 
+  // Dynamic Header Meta per Active Space
+  const spaceHeaderMeta = useMemo(() => {
+    switch (activeSpace) {
+      case 'OPEN_LIBRARY':
+        return {
+          title: 'Tracked Authors & Topics',
+          subtitle: 'Manage followed non-fiction authors, genres & mental model topics',
+          count: bookSources.length,
+          color: '#10B981',
+        };
+      case 'TMDB':
+        return {
+          title: 'Tracked Streaming & Genres',
+          subtitle: 'Manage followed streaming networks, critic radars & cinema genres',
+          count: cinemaSources.length,
+          color: '#F59E0B',
+        };
+      case 'REDDIT':
+        return {
+          title: 'Tracked Subreddits',
+          subtitle: 'Track high-upvote debates and community consensus across Reddit',
+          count: subreddits.length,
+          color: '#FF4500',
+        };
+      case 'YOUTUBE':
+      default:
+        return {
+          title: 'Tracked Channels',
+          subtitle: 'Manage subscribed channels for automatic summarization',
+          count: channelSources.length,
+          color: colors.primary,
+        };
+    }
+  }, [activeSpace, bookSources.length, cinemaSources.length, subreddits.length, channelSources.length, colors.primary]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <FollowingHeader
         styles={styles}
-        platformSection={platformSection}
-        count={platformSection === 'channels' ? channelSources.length : subreddits.length}
-        isAddActive={platformSection === 'channels' ? showAddForm : showAddSubredditModal}
+        title={spaceHeaderMeta.title}
+        subtitle={spaceHeaderMeta.subtitle}
+        count={spaceHeaderMeta.count}
+        badgeColor={spaceHeaderMeta.color}
+        addButtonColor={spaceHeaderMeta.color}
+        isAddActive={
+          activeSpace === 'YOUTUBE'
+            ? showAddForm
+            : activeSpace === 'REDDIT'
+            ? showAddSubredditModal
+            : showAddDomainModal
+        }
         onToggleAdd={() => {
-          if (platformSection === 'channels') {
+          if (activeSpace === 'YOUTUBE') {
             setShowAddForm((prev) => !prev);
-          } else {
+          } else if (activeSpace === 'REDDIT') {
             setShowAddSubredditModal(true);
+          } else {
+            setShowAddDomainModal(true);
           }
         }}
       />
 
-      {showAddForm && (
-        <ManualChannelAddForm
-          styles={styles}
-          channelName={newChannelName}
-          channelId={newChannelId}
-          onChangeName={setNewChannelName}
-          onChangeId={setNewChannelId}
-          onSubmit={handleAddManualChannel}
-          adding={adding}
-        />
+      {/* 1. YouTube Space */}
+      {activeSpace === 'YOUTUBE' && (
+        <>
+          {showAddForm && (
+            <ManualChannelAddForm
+              styles={styles}
+              channelName={newChannelName}
+              channelId={newChannelId}
+              onChangeName={setNewChannelName}
+              onChangeId={setNewChannelId}
+              onSubmit={handleAddManualChannel}
+              adding={adding}
+            />
+          )}
+
+          {loading ? (
+            <View style={styles.centerContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>Loading tracked channels…</Text>
+            </View>
+          ) : channelSources.length === 0 ? (
+            <View style={styles.centerContainer}>
+              <Text style={styles.emptyTitle}>No Channels Tracked Yet</Text>
+              <Text style={styles.emptySubtitle}>
+                Connect your YouTube account or manually add channel IDs to start auto-generating video summaries.
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={visibleSources}
+              keyExtractor={keyExtractor}
+              renderItem={renderItem}
+              numColumns={2}
+              columnWrapperStyle={styles.gridColumnWrapper}
+              contentContainerStyle={styles.gridListContent}
+              showsVerticalScrollIndicator={false}
+              ListHeaderComponent={ListHeader}
+              ListFooterComponent={ListFooter}
+              onEndReached={handleEndReached}
+              onEndReachedThreshold={0.5}
+              initialNumToRender={12}
+              maxToRenderPerBatch={12}
+              windowSize={7}
+              removeClippedSubviews={true}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  tintColor={colors.primary}
+                />
+              }
+            />
+          )}
+        </>
       )}
 
-      {platformSection === 'subreddits' ? (
+      {/* 2. Reddit Space */}
+      {activeSpace === 'REDDIT' && (
         <SubredditListView
           subreddits={subreddits}
           styles={styles}
@@ -507,45 +746,49 @@ export const FollowingScreen: React.FC = () => {
           onRemoveSubreddit={handleRemoveSubreddit}
           onOpenAddModal={() => setShowAddSubredditModal(true)}
         />
-      ) : loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading tracked channels…</Text>
-        </View>
-      ) : channelSources.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <Text style={styles.emptyTitle}>No Channels Tracked Yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Connect your YouTube account or manually add channel IDs to start auto-generating video summaries.
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={visibleSources}
-          keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          numColumns={2}
-          columnWrapperStyle={styles.gridColumnWrapper}
-          contentContainerStyle={styles.gridListContent}
-          showsVerticalScrollIndicator={false}
-          ListHeaderComponent={ListHeader}
-          ListFooterComponent={ListFooter}
-          onEndReached={handleEndReached}
-          onEndReachedThreshold={0.5}
-          initialNumToRender={12}
-          maxToRenderPerBatch={12}
-          windowSize={7}
-          removeClippedSubviews={true}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={colors.primary}
-            />
-          }
+      )}
+
+      {/* 3. Book Insights (Open Library) Space */}
+      {activeSpace === 'OPEN_LIBRARY' && (
+        <DomainSourceListView
+          space="OPEN_LIBRARY"
+          items={bookSources}
+          styles={styles}
+          onToggle={handleToggleBookSource}
+          onRemove={handleRemoveBookSource}
+          onOpenAddModal={() => setShowAddDomainModal(true)}
+          emptyIcon="📚"
+          emptyTitle="No Authors Tracked"
+          emptySubtitle="Follow your favorite authors or non-fiction genres to auto-distill 5-minute mental models."
+          addBtnText="+ Track Author"
+          themeColor="#10B981"
+          filterCategories={['All', 'Psychology', 'Productivity', 'Wealth', 'Philosophy']}
+          activeFilter={activeBookCategory}
+          onSelectFilter={setActiveBookCategory}
         />
       )}
 
+      {/* 4. Cinema & OTT (TMDB) Space */}
+      {activeSpace === 'TMDB' && (
+        <DomainSourceListView
+          space="TMDB"
+          items={cinemaSources}
+          styles={styles}
+          onToggle={handleToggleCinemaSource}
+          onRemove={handleRemoveCinemaSource}
+          onOpenAddModal={() => setShowAddDomainModal(true)}
+          emptyIcon="🎬"
+          emptyTitle="No Streaming Radars Tracked"
+          emptySubtitle="Follow Netflix, Max, or your favorite genres to auto-distill spoiler-free critic consensus."
+          addBtnText="+ Track Platform"
+          themeColor="#F59E0B"
+          filterCategories={['All', 'Netflix', 'Max', 'Apple TV+', 'Top Rated', 'Sci-Fi']}
+          activeFilter={activeCinemaCategory}
+          onSelectFilter={setActiveCinemaCategory}
+        />
+      )}
+
+      {/* Modals */}
       <FilterModal
         visible={showFilterModal}
         styles={styles}
@@ -569,6 +812,27 @@ export const FollowingScreen: React.FC = () => {
         onSubmit={handleAddSubreddit}
         loading={addingSubreddit}
         onClose={() => setShowAddSubredditModal(false)}
+      />
+
+      <AddDomainSourceModal
+        visible={showAddDomainModal}
+        title={activeSpace === 'OPEN_LIBRARY' ? 'Track Author or Topic' : 'Track Streaming Network'}
+        placeholder={activeSpace === 'OPEN_LIBRARY' ? 'e.g. James Clear or Psychology' : 'e.g. Netflix, HBO, or Sci-Fi'}
+        hint={
+          activeSpace === 'OPEN_LIBRARY'
+            ? 'Enter author name or non-fiction category to prioritize in your daily reading feed.'
+            : 'Enter streaming network or genre to track upcoming releases and consensus.'
+        }
+        themeColor={activeSpace === 'OPEN_LIBRARY' ? '#10B981' : '#F59E0B'}
+        styles={styles}
+        value={domainModalInput}
+        onChangeText={setDomainModalInput}
+        onSubmit={handleAddDomainSource}
+        loading={addingDomain}
+        onClose={() => {
+          setDomainModalInput('');
+          setShowAddDomainModal(false);
+        }}
       />
     </SafeAreaView>
   );

@@ -32,18 +32,13 @@ const PlatformContext = createContext<PlatformContextValue>({
 });
 
 export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeSpace, setActiveSpaceState] = useState<SpaceType>('YOUTUBE');
+  const [activeSpace, setActiveSpaceState] = useState<SpaceType>('OPEN_LIBRARY');
 
   useEffect(() => {
     AsyncStorage.getItem(SPACE_STORAGE_KEY)
       .then((saved) => {
         if (saved === 'YOUTUBE' || saved === 'REDDIT' || saved === 'TMDB' || saved === 'OPEN_LIBRARY') {
           setActiveSpaceState(saved as SpaceType);
-        } else {
-          // Fallback check legacy platform key
-          AsyncStorage.getItem(PLATFORM_STORAGE_KEY).then((legacy) => {
-            if (legacy === 'REDDIT') setActiveSpaceState('REDDIT');
-          }).catch(() => {});
         }
       })
       .catch(() => {});
