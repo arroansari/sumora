@@ -104,3 +104,4 @@ export const PriorityChannelsBar: React.FC<PriorityChannelsBarProps> = ({
     </View>
   );
 };
+

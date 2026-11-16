@@ -719,3 +719,4 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
     celebrationVideoTitle,
   };
 }
+

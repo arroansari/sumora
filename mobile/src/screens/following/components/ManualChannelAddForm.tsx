@@ -56,3 +56,4 @@ export const ManualChannelAddForm: React.FC<ManualChannelAddFormProps> = ({
     </View>
   );
 };
+

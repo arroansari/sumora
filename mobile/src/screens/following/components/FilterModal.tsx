@@ -140,3 +140,4 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     </Modal>
   );
 };
+

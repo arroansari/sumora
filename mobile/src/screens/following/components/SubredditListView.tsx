@@ -107,3 +107,4 @@ export const SubredditListView: React.FC<SubredditListViewProps> = ({
     </View>
   );
 };
+

@@ -35,3 +35,4 @@ export const DomainEmptyState: React.FC<DomainEmptyStateProps> = ({
     </View>
   );
 };
+

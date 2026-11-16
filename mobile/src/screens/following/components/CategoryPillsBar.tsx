@@ -65,3 +65,4 @@ export const CategoryPillsBar: React.FC<CategoryPillsBarProps> = ({
     </ScrollView>
   );
 };
+
