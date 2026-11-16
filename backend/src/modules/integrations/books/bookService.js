@@ -108,48 +108,123 @@ const FALLBACK_BOOKS = [
       'Mental Model 2 (Definite Optimism): The future can be known and shaped through clear vision and proactive design rather than passive chance.',
       'Practical Application: Dominate a tiny niche market first before expanding into adjacent domains.'
     ],
+  },
+  {
+    externalId: 'OL17855018W',
+    title: 'The Daily Stoic',
+    author: 'Ryan Holiday',
+    description: '366 Meditations on Wisdom, Perseverance, and the Art of Living. Timeless insights from Seneca, Epictetus, and Marcus Aurelius.',
+    posterUrl: 'https://covers.openlibrary.org/b/id/8333552-L.jpg',
+    url: 'https://openlibrary.org/works/OL17855018W',
+    pageCount: 416,
+    readTime: '5-Min Read',
+    categories: ['Philosophy', 'Psychology', 'Mindset'],
+    releaseYear: '2016',
+    takeaways: [
+      'Core Thesis: You cannot control external events, but you maintain sovereign control over your reaction and moral character.',
+      'Mental Model 1 (Dichotomy of Control): Divide every circumstance into what is up to you (beliefs, impulses, desires) and what is not (reputation, outcomes).',
+      'Mental Model 2 (Amor Fati): Do not merely tolerate adversity; actively love your fate and transform every obstacle into fuel for growth.',
+      'Practical Application: Begin and end each day reviewing what was in your power versus what was outside of it.'
+    ],
+  },
+  {
+    externalId: 'OL484351W',
+    title: 'Meditations',
+    author: 'Marcus Aurelius',
+    description: 'Private reflections and spiritual exercises of Roman Emperor Marcus Aurelius on duty, self-discipline, and serenity amidst chaos.',
+    posterUrl: 'https://covers.openlibrary.org/b/id/12522776-L.jpg',
+    url: 'https://openlibrary.org/works/OL484351W',
+    pageCount: 256,
+    readTime: '5-Min Read',
+    categories: ['Philosophy', 'Stoicism', 'Mindset'],
+    releaseYear: '180',
+    takeaways: [
+      'Core Thesis: The soul becomes dyed with the color of its thoughts; external things touch not the soul, but stand quietly without.',
+      'Mental Model 1 (The Inner Citadel): Build a fortress of inner equanimity that no external chaos, insult, or misfortune can breach.',
+      'Mental Model 2 (Memento Mori): Remember the transience of life to eradicate petty anxieties and act with urgent virtue.',
+      'Practical Application: View challenging people each morning as opportunities to practice patience, justice, and kindness.'
+    ],
+  },
+  {
+    externalId: 'OL21639145W',
+    title: 'The Almanack of Naval Ravikant',
+    author: 'Eric Jorgenson',
+    description: 'A Guide to Wealth and Happiness. Principles on building leverage, judgment, and peace of mind without relying on luck.',
+    posterUrl: 'https://covers.openlibrary.org/b/id/10684120-L.jpg',
+    url: 'https://openlibrary.org/works/OL21639145W',
+    pageCount: 242,
+    readTime: '5-Min Read',
+    categories: ['Wealth', 'Philosophy', 'Productivity'],
+    releaseYear: '2020',
+    takeaways: [
+      'Core Thesis: Wealth creation is a skill earned by pairing specific knowledge with high-permissionless leverage (code and media).',
+      'Mental Model 1 (Permissionless Leverage): Code and media work for you while you sleep, requiring zero permission from gatekeepers.',
+      'Mental Model 2 (Judgment as Key Currency): In an age of leverage, one correct decision is worth a thousand hours of blind effort.',
+      'Practical Application: Arm yourself with specific knowledge that cannot be trained out of you, then apply code or content leverage.'
+    ],
+  },
+  {
+    externalId: 'OL17140730W',
+    title: 'Essentialism',
+    author: 'Greg McKeown',
+    description: 'The Disciplined Pursuit of Less. How to eliminate non-essentials and focus single-mindedly on what truly matters.',
+    posterUrl: 'https://covers.openlibrary.org/b/id/7388725-L.jpg',
+    url: 'https://openlibrary.org/works/OL17140730W',
+    pageCount: 272,
+    readTime: '5-Min Read',
+    categories: ['Productivity', 'Focus', 'Leadership'],
+    releaseYear: '2014',
+    takeaways: [
+      'Core Thesis: If you do not prioritize your life, someone else will. The disciplined pursuit of less leads to greater contribution.',
+      'Mental Model 1 (Trade-Off Thinking): You cannot do it all; deliberate trade-offs are the fundamental reality of high achievement.',
+      'Mental Model 2 (The 90% Rule): If a project or commitment is not a definitive "90% Yes", it is an automatic "No".',
+      'Practical Application: Audit weekly obligations and ruthlessly eliminate 3 trivial tasks that deliver zero leveraged value.'
+    ],
+  },
+  {
+    externalId: 'OL242207W',
+    title: "Man's Search for Meaning",
+    author: 'Viktor E. Frankl',
+    description: 'Psychiatrist Viktor Frankl recounts his experiences in Auschwitz and introduces logotherapy: human motivation is the search for purpose.',
+    posterUrl: 'https://covers.openlibrary.org/b/id/8231990-L.jpg',
+    url: 'https://openlibrary.org/works/OL242207W',
+    pageCount: 184,
+    readTime: '5-Min Read',
+    categories: ['Psychology', 'Philosophy', 'Mindset'],
+    releaseYear: '1946',
+    takeaways: [
+      'Core Thesis: Those who have a "why" to live can bear almost any "how"; spiritual freedom cannot be taken away.',
+      'Mental Model 1 (The Space Between Stimulus and Response): Between stimulus and response lies human freedom to choose our attitude.',
+      'Mental Model 2 (Will to Meaning): Humans are driven not by pleasure or power, but by the pursuit of creative work, love, and courage in suffering.',
+      'Practical Application: Find meaning in every challenge by shifting perspective from "Why is this happening to me?" to "What does life ask of me right now?".'
+    ],
+  },
+  {
+    externalId: 'OL14959146W',
+    title: 'Rich Dad Poor Dad',
+    author: 'Robert T. Kiyosaki',
+    description: 'What the Rich Teach Their Kids About Money That the Poor and Middle Class Do Not. Mastering cash flow, assets, and financial literacy.',
+    posterUrl: 'https://covers.openlibrary.org/b/id/8225266-L.jpg',
+    url: 'https://openlibrary.org/works/OL14959146W',
+    pageCount: 336,
+    readTime: '5-Min Read',
+    categories: ['Wealth', 'Finance', 'Investing'],
+    releaseYear: '1997',
+    takeaways: [
+      'Core Thesis: The rich acquire income-generating assets, while the poor and middle class acquire liabilities they think are assets.',
+      'Mental Model 1 (Cash Flow Quadrant): Transition from trading time for wages (Employee) to owning scalable assets and systems (Investor).',
+      'Mental Model 2 (Work to Learn, Not to Earn): Build multidisciplinary skills in sales, finance, and marketing rather than over-specializing.',
+      'Practical Application: Reinvest active income into cash-flow producing vehicles before funding discretionary lifestyle expenditures.'
+    ],
   }
 ];
 
 class BookService {
   /**
-   * 1. Fetch popular books by subject from Open Library with automatic fallback
+   * 1. Fetch popular books with curated bestsellers guaranteed
    */
-  async getPopularBestsellers(subject = 'self-help') {
-    const cleanSubject = subject.toLowerCase().replace(/[^a-z0-9_]/g, '_');
-    const url = `https://openlibrary.org/subjects/${cleanSubject}.json?limit=10`;
-
-    try {
-      const res = await axios.get(url, {
-        headers: { 'User-Agent': 'node:sumora-app:v1.0.0 (by /u/sumora_books)' },
-        timeout: 8000,
-      });
-
-      const works = res.data?.works || [];
-      if (!works.length) return FALLBACK_BOOKS;
-
-      return works.slice(0, 10).map((work) => {
-        const coverId = work.cover_id;
-        const authorName = work.authors?.[0]?.name || 'Author';
-
-        return {
-          externalId: work.key?.replace('/works/', '') || String(work.cover_id),
-          title: work.title,
-          author: authorName,
-          description: work.subject?.slice(0, 4).join(', ') || 'Non-fiction insights and mental models.',
-          posterUrl: coverId ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg` : 'https://covers.openlibrary.org/b/id/12843477-L.jpg',
-          url: `https://openlibrary.org${work.key}`,
-          pageCount: 280,
-          readTime: '5-Min Read',
-          categories: work.subject?.slice(0, 3) || ['Non-Fiction', 'Insights'],
-          releaseYear: String(work.first_publish_year || 2020),
-          publishedAt: new Date(work.first_publish_year ? `${work.first_publish_year}-01-01` : Date.now()),
-        };
-      });
-    } catch (error) {
-      console.warn(`[BookService] Open Library books fetch failed for subject ${subject}, using curated fallback:`, error.message);
-      return FALLBACK_BOOKS;
-    }
+  async getPopularBestsellers() {
+    return FALLBACK_BOOKS;
   }
 
   /**
@@ -194,4 +269,5 @@ class BookService {
 }
 
 module.exports = new BookService();
+
 

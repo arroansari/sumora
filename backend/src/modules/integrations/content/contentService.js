@@ -75,10 +75,9 @@ class ContentService {
    */
   async ensureBookData() {
     const count = await prisma.contentPost.count({ where: { platform: 'OPEN_LIBRARY' } });
-    if (count >= 5) return;
+    if (count >= 12) return;
 
-    console.log('[ContentService] Seeding high-signal Open Library books into database...');
-    const books = await bookService.getPopularBestsellers();
+    const books = bookService.getCuratedFallbackBooks();
 
     for (const book of books) {
       try {
@@ -141,12 +140,16 @@ class ContentService {
       platform: 'TMDB',
     };
 
+    const conditions = [];
+
     if (search && search.trim()) {
-      where.OR = [
-        { title: { contains: search.trim(), mode: 'insensitive' } },
-        { description: { contains: search.trim(), mode: 'insensitive' } },
-        { author: { contains: search.trim(), mode: 'insensitive' } },
-      ];
+      conditions.push({
+        OR: [
+          { title: { contains: search.trim(), mode: 'insensitive' } },
+          { description: { contains: search.trim(), mode: 'insensitive' } },
+          { author: { contains: search.trim(), mode: 'insensitive' } },
+        ],
+      });
     }
 
     let orderBy = { publishedAt: 'desc' };
@@ -157,10 +160,18 @@ class ContentService {
         orderBy = { rating: 'desc' };
       } else {
         // e.g. "Netflix", "Max", "Prime Video"
-        where.streamingPlatforms = {
-          has: filter,
-        };
+        const norm = filter.trim();
+        const titleCase = norm.charAt(0).toUpperCase() + norm.slice(1).toLowerCase();
+        conditions.push({
+          streamingPlatforms: {
+            hasSome: [norm, norm.toLowerCase(), titleCase, norm.toUpperCase()],
+          },
+        });
       }
+    }
+
+    if (conditions.length > 0) {
+      where.AND = conditions;
     }
 
     const skip = (page - 1) * limit;
@@ -199,18 +210,40 @@ class ContentService {
       platform: 'OPEN_LIBRARY',
     };
 
+    const conditions = [];
+
     if (search && search.trim()) {
-      where.OR = [
-        { title: { contains: search.trim(), mode: 'insensitive' } },
-        { description: { contains: search.trim(), mode: 'insensitive' } },
-        { author: { contains: search.trim(), mode: 'insensitive' } },
-      ];
+      conditions.push({
+        OR: [
+          { title: { contains: search.trim(), mode: 'insensitive' } },
+          { description: { contains: search.trim(), mode: 'insensitive' } },
+          { author: { contains: search.trim(), mode: 'insensitive' } },
+        ],
+      });
     }
 
     if (filter && filter !== 'all' && filter !== 'All Books') {
-      where.categories = {
-        has: filter,
-      };
+      const norm = filter.trim();
+      const titleCase = norm.charAt(0).toUpperCase() + norm.slice(1).toLowerCase();
+      conditions.push({
+        OR: [
+          {
+            categories: {
+              hasSome: [norm, norm.toLowerCase(), titleCase, norm.toUpperCase()],
+            },
+          },
+          {
+            title: { contains: norm, mode: 'insensitive' },
+          },
+          {
+            description: { contains: norm, mode: 'insensitive' },
+          },
+        ],
+      });
+    }
+
+    if (conditions.length > 0) {
+      where.AND = conditions;
     }
 
     const skip = (page - 1) * limit;
