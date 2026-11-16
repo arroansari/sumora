@@ -1,5 +1,6 @@
 const prisma = require('../../config/db');
 const { encrypt, decrypt } = require('../../utils/encryption.util');
+const { signOAuthState, verifyOAuthState } = require('../../utils/oauth.util');
 const youTubeService = require('./youtube/youtube.service');
 const webSubService = require('./youtube/websub.service');
 
@@ -22,13 +23,12 @@ class IntegrationsService {
   }
 
   /**
-   * Generates YouTube OAuth connect URL with encoded state.
+   * Generates YouTube OAuth connect URL with HMAC-signed state.
    * @param {string} userId
    * @returns {{authUrl: string}}
    */
   getYouTubeConnectUrl(userId) {
-    const state = JSON.stringify({ userId, timestamp: Date.now() });
-    const encodedState = Buffer.from(state).toString('base64');
+    const encodedState = signOAuthState({ userId, platform: 'youtube' });
     const authUrl = youTubeService.getAuthUrl(encodedState);
     return { authUrl };
   }

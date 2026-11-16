@@ -115,7 +115,7 @@ export const RootNavigator: React.FC = () => {
   return (
     <NavigationContainer ref={navigationRef} theme={navTheme}>
       <Stack.Navigator
-        initialRouteName="MainTabs"
+        initialRouteName={isAuthenticated ? 'MainTabs' : 'Auth'}
         screenOptions={{
           headerStyle: { backgroundColor: colors.surface },
           headerTintColor: colors.primary,

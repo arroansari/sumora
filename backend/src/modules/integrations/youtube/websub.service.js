@@ -169,11 +169,18 @@ class WebSubService {
    * @returns {Promise<{processed: number, entries: Array}>}
    */
   async handleNotification(rawXmlBody, signatureHeader) {
-    // Verify signature if provided
-    if (signatureHeader && !this.verifySignature(rawXmlBody, signatureHeader)) {
-      const error = new Error('Invalid WebSub HMAC signature');
-      error.status = 403;
-      throw error;
+    // Verify HMAC signature: require in production, and enforce whenever header or secret is provided
+    if (config.websub.secret) {
+      if (!signatureHeader && process.env.NODE_ENV === 'production') {
+        const error = new Error('Missing required WebSub HMAC signature');
+        error.status = 401;
+        throw error;
+      }
+      if (signatureHeader && !this.verifySignature(rawXmlBody, signatureHeader)) {
+        const error = new Error('Invalid WebSub HMAC signature');
+        error.status = 403;
+        throw error;
+      }
     }
 
     const entries = this.parseAtomFeed(rawXmlBody);

@@ -32,7 +32,7 @@ const PlatformContext = createContext<PlatformContextValue>({
 });
 
 export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeSpace, setActiveSpaceState] = useState<SpaceType>('OPEN_LIBRARY');
+  const [activeSpace, setActiveSpaceState] = useState<SpaceType>('YOUTUBE');
 
   useEffect(() => {
     AsyncStorage.getItem(SPACE_STORAGE_KEY)

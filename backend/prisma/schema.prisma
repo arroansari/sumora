@@ -73,6 +73,7 @@ model TrackedSource {
 
   @@unique([userId, platform, sourceId])
   @@index([platform, sourceId])
+  @@index([userId, platform])
   @@map("tracked_sources")
 }
 
@@ -95,6 +96,7 @@ model Video {
 
   @@index([channelId])
   @@index([publishedAt])
+  @@index([channelId, publishedAt])
   @@map("videos")
 }
 
@@ -186,6 +188,7 @@ model RedditPost {
 
   @@index([subreddit])
   @@index([publishedAt])
+  @@index([subreddit, publishedAt])
   @@map("reddit_posts")
 }
 
@@ -232,6 +235,8 @@ model ContentPost {
 
   @@index([platform])
   @@index([publishedAt])
+  @@index([platform, publishedAt])
+  @@index([platform, createdAt])
   @@map("content_posts")
 }
 

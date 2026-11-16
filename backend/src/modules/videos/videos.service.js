@@ -68,8 +68,6 @@ class VideosService {
       if (customVideoIds.length > 0) {
         orConditions.push({ videoId: { in: customVideoIds } });
       }
-      // Also include any video marked as 'imported'
-      orConditions.push({ channelId: 'imported' });
 
       if (orConditions.length === 1) {
         whereClause = orConditions[0];

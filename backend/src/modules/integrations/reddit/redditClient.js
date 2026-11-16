@@ -1,5 +1,6 @@
 const axios = require('axios');
 const config = require('../../../config');
+const { signOAuthState } = require('../../../utils/oauth.util');
 
 class RedditClient {
   constructor() {
@@ -200,8 +201,7 @@ class RedditClient {
    */
   getConnectUrl(userId, customRedirectUri = null) {
     const redirectUri = customRedirectUri || config.reddit.redirectUri || 'http://localhost:5000/api/auth/reddit/callback';
-    const stateObj = { userId: userId || 'anonymous', timestamp: Date.now() };
-    const state = Buffer.from(JSON.stringify(stateObj)).toString('base64');
+    const state = signOAuthState({ userId: userId || 'anonymous', platform: 'reddit' });
     const scope = 'identity,mysubreddits,read';
     const clientId = this.clientId || 'MOCK_CLIENT_ID';
 

@@ -46,13 +46,20 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       headers,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || data.error || `HTTP Error ${response.status}`);
+    let data: any = null;
+    const contentType = response.headers.get('content-type') || '';
+    if (response.status !== 204 && contentType.includes('application/json')) {
+      data = await response.json().catch(() => null);
+    } else {
+      const rawText = await response.text().catch(() => '');
+      data = rawText ? { message: rawText } : {};
     }
 
-    return data;
+    if (!response.ok) {
+      throw new Error(data?.message || data?.error || `HTTP Error ${response.status}`);
+    }
+
+    return (data || {}) as T;
   } catch (error: any) {
     console.warn(`[API] Request failed for ${endpoint}:`, error.message);
     throw error;

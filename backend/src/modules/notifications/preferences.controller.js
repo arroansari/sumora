@@ -46,6 +46,19 @@ class PreferencesController {
       next(error);
     }
   }
+
+  async unregisterDevice(req, res, next) {
+    try {
+      const deviceToken = req.params.deviceToken || req.body?.deviceToken;
+      const result = await preferencesService.unregisterDeviceToken(req.user.id, deviceToken);
+      res.status(200).json({
+        success: true,
+        ...result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new PreferencesController();
