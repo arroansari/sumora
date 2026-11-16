@@ -115,6 +115,7 @@ export const RootNavigator: React.FC = () => {
   return (
     <NavigationContainer ref={navigationRef} theme={navTheme}>
       <Stack.Navigator
+        initialRouteName="MainTabs"
         screenOptions={{
           headerStyle: { backgroundColor: colors.surface },
           headerTintColor: colors.primary,

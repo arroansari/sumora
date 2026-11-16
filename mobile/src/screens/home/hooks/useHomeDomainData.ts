@@ -232,9 +232,12 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
       navigation.navigate('SummaryDetail', {
         videoId,
         videoTitle: title,
+        space: 'YOUTUBE',
         channelName: item?.channelName,
         thumbnailUrl: item?.thumbnailUrl,
         publishedAt: item?.publishedAt,
+        url: item?.videoUrl,
+        readTime: '1-2 Min Read',
         summary: item?.summary,
       });
     },
@@ -325,9 +328,16 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
       navigation.navigate('SummaryDetail', {
         videoId: postId,
         videoTitle: title,
+        space: 'REDDIT',
         channelName: `r/${item.subreddit}`,
         thumbnailUrl: item.url || undefined,
         publishedAt: item.publishedAt,
+        url: item.permalink?.startsWith('http')
+          ? item.permalink
+          : `https://www.reddit.com${item.permalink || ''}`,
+        readTime: '3-Min Read',
+        isReddit: true,
+        redditItem: item,
         summary: item.summary
           ? {
               overview: item.summary.consensus || item.summary.fullSummary,
@@ -406,9 +416,12 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
       navigation.navigate('SummaryDetail', {
         videoId: item.externalId,
         videoTitle: item.title,
+        space: 'TMDB',
         channelName: item.author || 'TMDB Cinema',
-        thumbnailUrl: item.posterUrl,
+        thumbnailUrl: item.posterUrl || item.backdropUrl,
         publishedAt: item.publishedAt,
+        url: item.url,
+        readTime: item.runtime || '2-Min Read',
         summary: item.summary
           ? {
               overview: item.summary.consensus || item.description || '',
@@ -473,9 +486,12 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
       navigation.navigate('SummaryDetail', {
         videoId: item.externalId,
         videoTitle: item.title,
+        space: 'OPEN_LIBRARY',
         channelName: item.author || 'Author',
         thumbnailUrl: item.posterUrl,
         publishedAt: item.publishedAt,
+        url: item.url,
+        readTime: item.readTime || '5-Min Read',
         summary: item.summary
           ? {
               overview: item.summary.consensus || item.description || '',
