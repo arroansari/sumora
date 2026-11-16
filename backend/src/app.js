@@ -11,10 +11,10 @@ const app = express();
 app.use(helmet());
 app.use(cors());
 
-// Support Atom/XML bodies for WebSub webhooks
-app.use(express.text({ type: ['application/atom+xml', 'application/xml', 'text/xml'] }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Support Atom/XML bodies for WebSub webhooks (with 2MB body limit to prevent payload DoS)
+app.use(express.text({ type: ['application/atom+xml', 'application/xml', 'text/xml'], limit: '2mb' }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));

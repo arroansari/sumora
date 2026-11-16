@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '../types/models.types';
-import { authApi, setAuthToken } from '../services/api';
+import { authApi, notificationsApi, setAuthToken } from '../services/api';
 
 const STORAGE_KEYS = {
   TOKEN: '@sumora_auth_token',
@@ -121,6 +121,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async () => {
     setIsLoading(true);
     try {
+      const deviceToken = await AsyncStorage.getItem('@sumora_device_token').catch(() => null);
+      if (deviceToken) {
+        await notificationsApi.unregisterDevice(deviceToken).catch(() => {});
+        await AsyncStorage.removeItem('@sumora_device_token').catch(() => {});
+      }
       await authApi.logout();
     } catch {
       // Ignore network errors on logout

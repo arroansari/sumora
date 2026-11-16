@@ -251,7 +251,15 @@ export const preferencesApi = {
       body: JSON.stringify({ deviceToken, platform }),
     });
   },
+
+  unregisterDevice: async (deviceToken: string): Promise<void> => {
+    await request(`/devices/${encodeURIComponent(deviceToken)}`, {
+      method: 'DELETE',
+    });
+  },
 };
+
+export const notificationsApi = preferencesApi;
 
 // Reddit Discussions & Sources API
 export const redditApi = {

@@ -53,12 +53,14 @@ function getInitials(name: string): string {
 
 function getDateBounds(range: DateRange, customBounds: DateBounds | null): DateBounds | null {
   const startOfDay = (d: Date) => {
-    d.setHours(0, 0, 0, 0);
-    return d;
+    const copy = new Date(d);
+    copy.setHours(0, 0, 0, 0);
+    return copy;
   };
   const endOfDay = (d: Date) => {
-    d.setHours(23, 59, 59, 999);
-    return d;
+    const copy = new Date(d);
+    copy.setHours(23, 59, 59, 999);
+    return copy;
   };
 
   switch (range) {
