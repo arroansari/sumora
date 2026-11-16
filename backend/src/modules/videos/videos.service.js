@@ -574,7 +574,7 @@ class VideosService {
               title: v.title,
               videoUrl: v.videoUrl,
               thumbnailUrl: v.thumbnailUrl,
-              publishedAt: v.publishedAt || new Date(),
+              publishedAt: v.publishedAt || new Date(0),
               transcriptStatus: 'pending',
               summaryStatus: 'pending',
             },

@@ -255,7 +255,7 @@ class YouTubeService {
               title,
               videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
               thumbnailUrl: thumb,
-              publishedAt: new Date(),
+              publishedAt: new Date(0),
             });
           }
           return;
@@ -277,7 +277,7 @@ class YouTubeService {
               title,
               videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
               thumbnailUrl: thumb,
-              publishedAt: new Date(),
+              publishedAt: new Date(0),
             });
           }
           return;
