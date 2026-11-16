@@ -8,6 +8,8 @@ import {
   NotificationPreference,
   RedditPostItem,
   RedditSummary,
+  ContentPostItem,
+  SpaceType,
 } from '../types/models.types';
 
 // Default to localhost for iOS simulator, 10.0.2.2 for Android emulator
@@ -44,13 +46,20 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       headers,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || data.error || `HTTP Error ${response.status}`);
+    let data: any = null;
+    const contentType = response.headers.get('content-type') || '';
+    if (response.status !== 204 && contentType.includes('application/json')) {
+      data = await response.json().catch(() => null);
+    } else {
+      const rawText = await response.text().catch(() => '');
+      data = rawText ? { message: rawText } : {};
     }
 
-    return data;
+    if (!response.ok) {
+      throw new Error(data?.message || data?.error || `HTTP Error ${response.status}`);
+    }
+
+    return (data || {}) as T;
   } catch (error: any) {
     console.warn(`[API] Request failed for ${endpoint}:`, error.message);
     throw error;
@@ -130,8 +139,9 @@ export const integrationsApi = {
 
 // Tracked Sources API
 export const sourcesApi = {
-  list: async (): Promise<TrackedSource[]> => {
-    const res = await request<{ data: TrackedSource[] }>('/sources');
+  list: async (opts?: { platform?: string }): Promise<TrackedSource[]> => {
+    const query = opts?.platform ? `?platform=${encodeURIComponent(opts.platform)}` : '';
+    const res = await request<{ data: TrackedSource[] }>(`/sources${query}`);
     return res.data;
   },
 
@@ -148,6 +158,13 @@ export const sourcesApi = {
       method: 'DELETE',
     });
   },
+
+  toggle: async (id: string): Promise<TrackedSource> => {
+    const res = await request<{ data: TrackedSource }>(`/sources/${id}/toggle`, {
+      method: 'POST',
+    });
+    return res.data;
+  },
 };
 
 // Videos & Summaries API
@@ -155,7 +172,7 @@ export const videosApi = {
   getFeed: async (
     page = 1,
     limit = 20,
-    opts: { channelId?: string; from?: string; to?: string; search?: string } = {}
+    opts: { channelId?: string; from?: string; to?: string; search?: string; sort?: string } = {}
   ): Promise<{ videos: VideoItem[]; totalPages: number }> => {
     const params = new URLSearchParams({
       page: String(page),
@@ -165,6 +182,7 @@ export const videosApi = {
     if (opts.from)      params.set('from', opts.from);
     if (opts.to)        params.set('to', opts.to);
     if (opts.search)    params.set('search', opts.search);
+    if (opts.sort)      params.set('sort', opts.sort);
 
     const res = await request<{ data: VideoItem[]; pagination: { totalPages: number } }>(
       `/videos?${params.toString()}`
@@ -173,6 +191,23 @@ export const videosApi = {
       videos: res.data,
       totalPages: res.pagination?.totalPages || 1,
     };
+  },
+
+  getPopularVideos: async (channelId: string, limit = 10): Promise<VideoItem[]> => {
+    try {
+      const res = await request<{ data: VideoItem[] }>(
+        `/videos/channel/${encodeURIComponent(channelId)}/popular?limit=${limit}`
+      );
+      if (res?.data && res.data.length > 0) return res.data;
+    } catch {}
+
+    try {
+      const feed = await videosApi.getFeed(1, limit, { channelId, sort: 'popular' });
+      if (feed?.videos && feed.videos.length > 0) return feed.videos;
+    } catch {}
+
+    const fallback = await videosApi.getFeed(1, limit, { channelId });
+    return fallback.videos;
   },
 
   getVideo: async (videoId: string): Promise<VideoItem> => {
@@ -242,7 +277,22 @@ export const preferencesApi = {
       body: JSON.stringify({ deviceToken, platform }),
     });
   },
+
+  unregisterDevice: async (deviceToken: string): Promise<void> => {
+    await request(`/devices/${encodeURIComponent(deviceToken)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  sendTestPush: async (): Promise<{ success: boolean; message: string; deviceCount?: number }> => {
+    const res = await request('/devices/test-push', {
+      method: 'POST',
+    });
+    return res as { success: boolean; message: string; deviceCount?: number };
+  },
 };
+
+export const notificationsApi = preferencesApi;
 
 // Reddit Discussions & Sources API
 export const redditApi = {
@@ -300,5 +350,42 @@ export const redditApi = {
     return res.data;
   },
 };
+
+// Universal Space API (TMDB Cinema & Open Library Books)
+export const contentApi = {
+  getFeed: async (
+    space: SpaceType,
+    page = 1,
+    limit = 20,
+    opts: { filter?: string; search?: string } = {}
+  ): Promise<{ posts: ContentPostItem[]; totalPages: number }> => {
+    const params = new URLSearchParams({
+      space,
+      page: String(page),
+      limit: String(limit),
+    });
+    if (opts.filter) params.set('filter', opts.filter);
+    if (opts.search) params.set('search', opts.search);
+
+    const res = await request<{ data: ContentPostItem[]; pagination: { totalPages: number } }>(
+      `/feed?${params.toString()}`
+    );
+    return {
+      posts: res.data || [],
+      totalPages: res.pagination?.totalPages || 1,
+    };
+  },
+
+  getFilters: async (space: SpaceType): Promise<string[]> => {
+    const res = await request<{ data: string[] }>(`/feed/filters?space=${space}`);
+    return res.data || [];
+  },
+
+  getSummary: async (id: string): Promise<any> => {
+    const res = await request<{ data: any }>(`/feed/${id}/summary`);
+    return res.data;
+  },
+};
+
 
 

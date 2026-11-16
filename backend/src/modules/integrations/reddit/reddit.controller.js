@@ -1,4 +1,6 @@
 const redditService = require('./reddit.service');
+const { verifyOAuthState } = require('../../../utils/oauth.util');
+const prisma = require('../../../config/db');
 
 class RedditController {
   async getFeed(req, res, next) {
@@ -178,20 +180,15 @@ class RedditController {
         return res.redirect(`sumora://oauth/callback?success=false&platform=reddit&error=missing_code`);
       }
 
-      // Resolve userId from state or authenticated user or database fallback
+      // Resolve and verify userId from JWT or HMAC-signed state
       let userId = req.user?.id;
       if (!userId && state) {
-        try {
-          const decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
-          if (decodedState.userId && decodedState.userId !== 'anonymous') {
-            userId = decodedState.userId;
-          }
-        } catch {
-          // ignore state parse errors
+        const decodedState = verifyOAuthState(state);
+        if (decodedState && decodedState.userId && decodedState.userId !== 'anonymous') {
+          userId = decodedState.userId;
         }
       }
 
-      const prisma = require('../../../config/db');
       if (userId) {
         const userExists = await prisma.user.findUnique({ where: { id: userId } });
         if (!userExists) {
@@ -200,12 +197,20 @@ class RedditController {
       }
 
       if (!userId) {
-        const defaultUser = await prisma.user.findFirst();
-        userId = defaultUser?.id;
-      }
-
-      if (!userId) {
-        return res.redirect(`sumora://oauth/callback?success=false&platform=reddit&error=unauthenticated`);
+        const errorMsg = 'unauthenticated_or_invalid_state';
+        if (req.headers.accept?.includes('text/html')) {
+          return res.status(401).send(`
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family: sans-serif; background: #0B0F19; color: #fff; text-align: center; padding: 40px;">
+              <h2 style="color: #EF4444;">Authentication Required</h2>
+              <p style="color: #94A3B8;">Please log in to Sumora before connecting Reddit.</p>
+              <a style="color: #FF4500;" href="sumora://oauth/callback?success=false&platform=reddit&error=unauthenticated">Return to App</a>
+            </body>
+            </html>
+          `);
+        }
+        return res.redirect(`sumora://oauth/callback?success=false&platform=reddit&error=${errorMsg}`);
       }
 
       // Run token exchange and subscribed subreddit sync

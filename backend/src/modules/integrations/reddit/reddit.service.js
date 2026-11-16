@@ -2,10 +2,13 @@ const prisma = require('../../../config/db');
 const redditClient = require('./redditClient');
 const publicRedditService = require('./redditService');
 const summarizationService = require('../../ai/summarization.service');
-const { encrypt } = require('../../../utils/encryption.util');
+const { encrypt, decrypt } = require('../../../utils/encryption.util');
 const { QUEUE_NAMES, getQueue } = require('../../../jobs');
 
 class RedditService {
+  constructor() {
+    this._refreshPromises = new Map();
+  }
   /**
    * Track a new subreddit for a user
    */
@@ -124,11 +127,17 @@ class RedditService {
   }
 
   /**
-   * Sync top posts for a subreddit and generate debate summaries
+   * Sync top posts for a subreddit at $0 upfront cost (lazy summarization).
+   * Posts are indexed in PostgreSQL. AI debate summaries are generated on-demand
+   * when a user requests or views the post.
+   * @param {string} subreddit
+   * @param {number} [limit=10]
+   * @param {Object} [opts]
+   * @param {boolean} [opts.triggerSummary=false]
    */
-  async syncSubredditPosts(subreddit, limit = 10) {
+  async syncSubredditPosts(subreddit, limit = 10, { triggerSummary = false } = {}) {
     const cleanSub = subreddit.replace(/^r\//i, '').trim();
-    console.log(`[RedditService] Syncing top posts from r/${cleanSub} using public Reddit .json service...`);
+    console.log(`[RedditService] Syncing top posts from r/${cleanSub} (lazy summarization enabled)...`);
 
     let posts = [];
     try {
@@ -163,26 +172,27 @@ class RedditService {
         });
         savedPosts.push(saved);
 
-        // Check if summary already exists
-        const existingSummary = await prisma.redditSummary.findUnique({
-          where: { postId: post.externalId },
-        });
-
-        if (!existingSummary) {
-          // Fetch top comments & generate AI summary
-          let comments = await publicRedditService.getThreadComments(cleanSub, post.externalId, 20);
-          if (!comments || comments.length === 0) {
-            comments = await redditClient.fetchThreadComments(cleanSub, post.externalId, 15).catch(() => []);
-          }
-
-          await summarizationService.generateRedditSummary({
-            postId: post.externalId,
-            title: post.title,
-            author: post.author,
-            subreddit: cleanSub,
-            selftext: post.selftext,
-            comments,
+        // Zero-Cost Lazy Summarization: Only summarize if explicitly requested
+        if (triggerSummary) {
+          const existingSummary = await prisma.redditSummary.findUnique({
+            where: { postId: post.externalId },
           });
+
+          if (!existingSummary) {
+            let comments = await publicRedditService.getThreadComments(cleanSub, post.externalId, 20);
+            if (!comments || comments.length === 0) {
+              comments = await redditClient.fetchThreadComments(cleanSub, post.externalId, 15).catch(() => []);
+            }
+
+            await summarizationService.generateRedditSummary({
+              postId: post.externalId,
+              title: post.title,
+              author: post.author,
+              subreddit: cleanSub,
+              selftext: post.selftext,
+              comments,
+            });
+          }
         }
       } catch (postErr) {
         console.warn(`[RedditService] Error processing post ${post.externalId}:`, postErr.message);
@@ -201,6 +211,14 @@ class RedditService {
     // Check tracked subreddits
     const tracked = await this.listTrackedSubreddits(userId);
     const activeSubreddits = tracked.filter((s) => s.isActive).map((s) => s.sourceId.toLowerCase());
+
+    // Isolation Guard: If no specific subreddit is requested and all subreddits are muted/inactive, return empty feed
+    if ((!subreddit || subreddit === 'all') && activeSubreddits.length === 0) {
+      return {
+        posts: [],
+        pagination: { page, limit, total: 0, totalPages: 0 },
+      };
+    }
 
     const where = {};
 
@@ -297,9 +315,64 @@ class RedditService {
         selftext: post.selftext,
         comments,
       });
+
+      this.notifySubredditDebate(post.subreddit, post).catch(() => {});
     }
 
     return summary;
+  }
+
+  /**
+   * Dispatches push notifications to users actively tracking the subreddit
+   * with Reddit debate alerts enabled.
+   */
+  async notifySubredditDebate(subreddit, post) {
+    try {
+      const fcmService = require('../../notifications/fcm.service');
+      const cleanSub = subreddit.replace(/^r\//i, '').toLowerCase().trim();
+
+      const activeTrackers = await prisma.trackedSource.findMany({
+        where: {
+          platform: 'reddit',
+          sourceId: cleanSub,
+          isActive: true,
+        },
+        select: { userId: true },
+      });
+
+      if (!activeTrackers.length) return;
+      const userIds = activeTrackers.map((t) => t.userId);
+
+      const prefs = await prisma.notificationPreference.findMany({
+        where: {
+          userId: { in: userIds },
+          platform: 'reddit',
+        },
+      });
+      const disabledUserIds = new Set(prefs.filter((p) => !p.enabled).map((p) => p.userId));
+      const eligibleUserIds = userIds.filter((uid) => !disabledUserIds.has(uid));
+
+      if (!eligibleUserIds.length) return;
+
+      const devices = await prisma.deviceToken.findMany({
+        where: { userId: { in: eligibleUserIds } },
+        select: { deviceToken: true },
+      });
+
+      if (!devices.length) return;
+      const tokens = devices.map((d) => d.deviceToken);
+
+      const payload = fcmService.buildRedditNotificationPayload({
+        subreddit: cleanSub,
+        postTitle: post.title,
+        postId: post.externalId,
+        isReady: true,
+      });
+
+      await fcmService.sendToDevices(tokens, payload);
+    } catch (err) {
+      console.warn('[RedditService] Push dispatch warning:', err.message);
+    }
   }
 
   /**
@@ -373,13 +446,22 @@ class RedditService {
       },
     });
 
-    // Automatically sync subscribed subreddits
+    // Automatically sync subscribed subreddits with active quota safeguard (max 15 active)
     let subreddits = [];
     try {
       subreddits = await redditClient.getUserSubscribedSubreddits(tokenData.accessToken);
+
+      const MAX_DEFAULT_ACTIVE = 15;
+      const existingActiveCount = await prisma.trackedSource.count({
+        where: { userId, platform: 'reddit', isActive: true },
+      });
+      let remainingActiveSlots = Math.max(0, MAX_DEFAULT_ACTIVE - existingActiveCount);
+
       for (const sub of subreddits) {
         const cleanSub = sub.name.toLowerCase();
-        await prisma.trackedSource.upsert({
+        const willBeActive = remainingActiveSlots > 0;
+
+        const createdOrUpdated = await prisma.trackedSource.upsert({
           where: {
             userId_platform_sourceId: {
               userId,
@@ -394,18 +476,21 @@ class RedditService {
             sourceName: `r/${sub.name}`,
             thumbnailUrl: sub.iconImg || 'https://www.redditstatic.com/avatars/defaults/v2/avatar_default_1.png',
             memberCount: sub.subscribers || 0,
-            isActive: true,
+            isActive: willBeActive,
             isPriority: false,
           },
           update: {
-            isActive: true,
+            sourceName: `r/${sub.name}`,
             memberCount: sub.subscribers || undefined,
-            thumbnailUrl: sub.iconImg || undefined,
+            ...(sub.iconImg ? { thumbnailUrl: sub.iconImg } : {}),
           },
         });
 
-        // Trigger background sync for top posts in that subreddit
-        this.syncSubredditPosts(cleanSub, 5).catch(() => {});
+        if (willBeActive && createdOrUpdated.isActive) {
+          remainingActiveSlots--;
+          // Only index initial feed for active subreddits at $0 cost
+          this.syncSubredditPosts(cleanSub, 5, { triggerSummary: false }).catch(() => {});
+        }
       }
     } catch (subErr) {
       console.warn('[RedditService] Subscribed subreddits auto-import warning:', subErr.message);
@@ -416,6 +501,93 @@ class RedditService {
       profile,
       importedSubredditsCount: subreddits.length,
     };
+  }
+
+  /**
+   * Retrieves a decrypted, valid Reddit OAuth access token for a user,
+   * automatically refreshing 5 minutes before expiration with mutex concurrency locking,
+   * token rotation, and invalid_grant revocation handling.
+   * @param {string} userId
+   * @returns {Promise<string|null>}
+   */
+  async getValidAccessToken(userId) {
+    if (this._refreshPromises.has(userId)) {
+      return this._refreshPromises.get(userId);
+    }
+
+    const refreshTask = (async () => {
+      try {
+        const account = await prisma.connectedAccount.findUnique({
+          where: { userId_platform: { userId, platform: 'reddit' } },
+          include: { token: true },
+        });
+
+        if (!account || !account.token || account.status === 'revoked') {
+          return null;
+        }
+
+        let accessToken = decrypt(account.token.encryptedAccessToken);
+        const FIVE_MINUTES_MS = 5 * 60 * 1000;
+        const isExpiringSoon =
+          account.token.expiresAt &&
+          new Date(account.token.expiresAt).getTime() <= Date.now() + FIVE_MINUTES_MS;
+
+        if (isExpiringSoon && account.token.encryptedRefreshToken) {
+          try {
+            const rawRefreshToken = decrypt(account.token.encryptedRefreshToken);
+            const refreshed = await redditClient.refreshUserToken(rawRefreshToken);
+            accessToken = refreshed.accessToken;
+
+            const updateData = {
+              encryptedAccessToken: encrypt(refreshed.accessToken),
+              expiresAt: refreshed.expiresIn
+                ? new Date(Date.now() + refreshed.expiresIn * 1000)
+                : null,
+            };
+
+            if (refreshed.refreshToken) {
+              updateData.encryptedRefreshToken = encrypt(refreshed.refreshToken);
+            }
+
+            await prisma.platformToken.update({
+              where: { id: account.token.id },
+              data: updateData,
+            });
+          } catch (refreshErr) {
+            const isInvalidGrant =
+              refreshErr.response?.data?.error === 'invalid_grant' ||
+              refreshErr.message?.toLowerCase().includes('invalid_grant');
+
+            if (isInvalidGrant) {
+              console.warn(`[RedditService] Reddit OAuth token revoked for user ${userId}. Marking status as revoked.`);
+              await prisma.connectedAccount.update({
+                where: { id: account.id },
+                data: { status: 'revoked' },
+              });
+              return null;
+            }
+
+            console.error(`[RedditService] Failed to refresh Reddit token for user ${userId}:`, refreshErr.message);
+            if (account.token.expiresAt && new Date(account.token.expiresAt).getTime() > Date.now()) {
+              return accessToken;
+            }
+            return null;
+          }
+        }
+
+        return accessToken;
+      } catch (err) {
+        console.warn(`[RedditService] Could not retrieve access token for ${userId}:`, err.message);
+        return null;
+      }
+    })();
+
+    this._refreshPromises.set(userId, refreshTask);
+    try {
+      return await refreshTask;
+    } finally {
+      this._refreshPromises.delete(userId);
+    }
   }
 }
 

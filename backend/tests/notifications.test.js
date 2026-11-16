@@ -56,10 +56,25 @@ async function runTests() {
     'fcm_token_galaxy_s24_ghi789',
   ];
 
+  const admin = require('firebase-admin');
+  let originalSend = null;
+  if (fcmService.isInitialized) {
+    originalSend = admin.messaging().sendEachForMulticast;
+    admin.messaging().sendEachForMulticast = async (opts) => ({
+      successCount: opts.tokens.length,
+      failureCount: 0,
+      responses: opts.tokens.map(() => ({ success: true })),
+    });
+  }
+
   const sendResult = await fcmService.sendToDevices(mockTokens, readyPayload);
-  assert.strictEqual(sendResult.successCount, 3, 'Should report 3 successful deliveries in dev/mock mode');
+  assert.strictEqual(sendResult.successCount, 3);
   assert.strictEqual(sendResult.failureCount, 0);
   console.log('  ✅ Multicast device delivery verified.');
+
+  if (originalSend) {
+    admin.messaging().sendEachForMulticast = originalSend;
+  }
 
   // Test 3: Empty Token List Handling
   console.log('\nTest 3: Empty Device List Handling');

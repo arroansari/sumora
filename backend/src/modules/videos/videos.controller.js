@@ -9,11 +9,36 @@ class VideosController {
       const from = req.query.from || null;
       const to = req.query.to || null;
       const search = req.query.search || null;
+      const sort = req.query.sort || null;
+
+      if (sort === 'popular' && channelId) {
+        const popularVids = await videosService.getPopularVideosForChannel(channelId, limit);
+        return res.status(200).json({
+          success: true,
+          data: popularVids,
+          pagination: { page: 1, limit, total: popularVids.length, totalPages: 1 },
+        });
+      }
+
       const result = await videosService.getFeed(req.user.id, { page, limit, channelId, from, to, search });
       res.status(200).json({
         success: true,
         data: result.videos,
         pagination: result.pagination,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getPopularVideos(req, res, next) {
+    try {
+      const { channelId } = req.params;
+      const limit = parseInt(req.query.limit, 10) || 10;
+      const videos = await videosService.getPopularVideosForChannel(channelId, limit);
+      res.status(200).json({
+        success: true,
+        data: videos,
       });
     } catch (error) {
       next(error);

@@ -169,11 +169,18 @@ class WebSubService {
    * @returns {Promise<{processed: number, entries: Array}>}
    */
   async handleNotification(rawXmlBody, signatureHeader) {
-    // Verify signature if provided
-    if (signatureHeader && !this.verifySignature(rawXmlBody, signatureHeader)) {
-      const error = new Error('Invalid WebSub HMAC signature');
-      error.status = 403;
-      throw error;
+    // Verify HMAC signature: require in production, and enforce whenever header or secret is provided
+    if (config.websub.secret) {
+      if (!signatureHeader && process.env.NODE_ENV === 'production') {
+        const error = new Error('Missing required WebSub HMAC signature');
+        error.status = 401;
+        throw error;
+      }
+      if (signatureHeader && !this.verifySignature(rawXmlBody, signatureHeader)) {
+        const error = new Error('Invalid WebSub HMAC signature');
+        error.status = 403;
+        throw error;
+      }
     }
 
     const entries = this.parseAtomFeed(rawXmlBody);
@@ -186,6 +193,15 @@ class WebSubService {
     }
 
     for (const entry of entries) {
+      // Smart Ingestion Guard: Only trigger expensive AI summarization if at least one user actively tracks this channel
+      const activeTrackingCount = await prisma.trackedSource.count({
+        where: {
+          platform: { in: ['youtube', 'YOUTUBE'] },
+          sourceId: entry.channelId,
+          isActive: true,
+        },
+      });
+
       // Upsert Video in PostgreSQL (idempotent; 1 record per YouTube video)
       await prisma.video.upsert({
         where: { videoId: entry.videoId },
@@ -196,8 +212,8 @@ class WebSubService {
           videoUrl: entry.videoUrl,
           thumbnailUrl: `https://i.ytimg.com/vi/${entry.videoId}/hqdefault.jpg`,
           publishedAt: new Date(entry.publishedAt),
-          transcriptStatus: 'pending',
-          summaryStatus: 'pending',
+          transcriptStatus: activeTrackingCount > 0 ? 'pending' : 'skipped',
+          summaryStatus: activeTrackingCount > 0 ? 'pending' : 'skipped',
         },
         update: {
           title: entry.title,
@@ -205,6 +221,11 @@ class WebSubService {
           thumbnailUrl: `https://i.ytimg.com/vi/${entry.videoId}/hqdefault.jpg`,
         },
       });
+
+      if (activeTrackingCount === 0) {
+        console.log(`[WebSub] Skipping AI summarization for ${entry.videoId} - Channel ${entry.channelId} has 0 active tracking users.`);
+        continue;
+      }
 
       if (queue) {
         // ── Redis available: enqueue for background worker ───────────

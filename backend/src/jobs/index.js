@@ -1,24 +1,56 @@
 const { Worker } = require('bullmq');
 
+const config = require('../config');
+
 let workerInstances = [];
 
 /**
- * Returns connection options for BullMQ workers.
- * lazyConnect = false here so the Worker can detect Redis availability,
+ * Returns connection options for BullMQ workers and queues.
+ * lazyConnect = false here so BullMQ can detect Redis availability,
  * but enableOfflineQueue = false prevents queuing up commands that never flush.
  */
 function getConnectionOptions() {
+  const isTls = config.redis.tls;
+  const tlsOptions = isTls
+    ? { tls: { rejectUnauthorized: config.redis.rejectUnauthorized } }
+    : {};
+
+  if (config.redis.url) {
+    // When using URL string with BullMQ / ioredis
+    // If URL starts with rediss:// or tls is enabled, include tls option
+    try {
+      const parsedUrl = new URL(config.redis.url);
+      const isRediss = parsedUrl.protocol === 'rediss:';
+      return {
+        host: parsedUrl.hostname,
+        port: parseInt(parsedUrl.port, 10) || (isRediss ? 6380 : 6379),
+        password: parsedUrl.password ? decodeURIComponent(parsedUrl.password) : undefined,
+        username: parsedUrl.username ? decodeURIComponent(parsedUrl.username) : undefined,
+        maxRetriesPerRequest: null,
+        enableOfflineQueue: false,
+        connectTimeout: 5000,
+        ...(isRediss || isTls ? { tls: { rejectUnauthorized: config.redis.rejectUnauthorized } } : {}),
+        retryStrategy: (times) => {
+          if (times > 3) return null; // stop retrying after 3 attempts
+          return Math.min(times * 1000, 3000);
+        },
+      };
+    } catch {
+      // Fallback if URL parsing fails
+    }
+  }
+
   return {
-    host: process.env.REDIS_HOST || '127.0.0.1',
-    port: parseInt(process.env.REDIS_PORT, 10) || 6379,
-    password: process.env.REDIS_PASSWORD || undefined,
+    host: config.redis.host,
+    port: config.redis.port,
+    password: config.redis.password,
     maxRetriesPerRequest: null,
     enableOfflineQueue: false,
-    connectTimeout: 3000,
+    connectTimeout: 5000,
+    ...tlsOptions,
     retryStrategy: (times) => {
-      // After 2 retries give up — inline pipeline will handle processing
-      if (times > 2) return null; // stop retrying
-      return Math.min(times * 500, 2000);
+      if (times > 3) return null; // stop retrying after 3 attempts
+      return Math.min(times * 1000, 3000);
     },
   };
 }

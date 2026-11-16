@@ -8,6 +8,7 @@ import {
   Linking,
 } from 'react-native';
 import { RedditPostItem } from '../../../types/models.types';
+import { SpaceIcon } from '../../../components/atoms/SpaceIcon';
 import { createHomeStyles } from '../HomeScreen.styles';
 import { GradientButton } from '../../../components/atoms';
 import { useAppTheme } from '../../../context/ThemeContext';
@@ -144,17 +145,7 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
                   justifyContent: 'center',
                 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <View
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 14,
-                      backgroundColor: '#FF4500',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                    <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '800' }}>r/</Text>
-                  </View>
+                  <SpaceIcon space="REDDIT" size={28} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }} numberOfLines={1}>
                       r/{cleanSubreddit}
@@ -281,7 +272,9 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
                   style={styles.readButtonLavender}
                   onPress={() => onReadSummary(item.externalId, item.title, item)}
                   activeOpacity={0.8}>
-                  <Text style={styles.readButtonTextLavender}>Read Summary</Text>
+                  <Text style={styles.readButtonTextLavender} numberOfLines={1}>
+                    Read Summary
+                  </Text>
                 </TouchableOpacity>
 
                 <GradientButton

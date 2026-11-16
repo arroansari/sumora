@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '../types/models.types';
-import { authApi, setAuthToken } from '../services/api';
+import { authApi, notificationsApi, setAuthToken } from '../services/api';
 
 const STORAGE_KEYS = {
   TOKEN: '@sumora_auth_token',
@@ -57,6 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (isMounted) {
             setUser(freshUser);
             await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(freshUser));
+            registerCurrentDevice().catch(() => {});
           }
         } catch (err: any) {
           const msg = (err?.message || '').toLowerCase();
@@ -88,6 +90,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  const registerCurrentDevice = async () => {
+    try {
+      let deviceToken = await AsyncStorage.getItem('@sumora_device_token');
+      if (!deviceToken) {
+        const randomStr =
+          Math.random().toString(36).substring(2, 12) + Math.random().toString(36).substring(2, 12);
+        deviceToken = `sumora_${Platform.OS}_${randomStr}`;
+        await AsyncStorage.setItem('@sumora_device_token', deviceToken);
+      }
+      await notificationsApi.registerDevice(deviceToken, Platform.OS === 'ios' ? 'ios' : 'android');
+    } catch (err: any) {
+      console.warn('[AuthContext] Device registration warning:', err.message);
+    }
+  };
+
   const persistSession = async (nextUser: User, nextToken: string) => {
     setAuthToken(nextToken);
     setUser(nextUser);
@@ -96,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       AsyncStorage.setItem(STORAGE_KEYS.TOKEN, nextToken),
       AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(nextUser)),
     ]);
+    registerCurrentDevice().catch(() => {});
   };
 
   const login = useCallback(async (credentials: { email: string; password: string }) => {
@@ -121,8 +139,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async () => {
     setIsLoading(true);
     try {
+      const deviceToken = await AsyncStorage.getItem('@sumora_device_token').catch(() => null);
+      if (deviceToken) {
+        await notificationsApi.unregisterDevice(deviceToken).catch(() => {});
+        await AsyncStorage.removeItem('@sumora_device_token').catch(() => {});
+      }
       await authApi.logout();
-    } catch (err) {
+    } catch {
       // Ignore network errors on logout
     } finally {
       setAuthToken(null);

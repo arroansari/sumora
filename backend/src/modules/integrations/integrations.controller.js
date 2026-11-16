@@ -1,4 +1,5 @@
 const integrationsService = require('./integrations.service');
+const { verifyOAuthState } = require('../../utils/oauth.util');
 
 class IntegrationsController {
   async listIntegrations(req, res, next) {
@@ -46,16 +47,15 @@ class IntegrationsController {
         return res.redirect(errorUrl);
       }
 
-      // ── Resolve userId from JWT (authenticated endpoint) or state ────
+      // ── Resolve and verify userId from JWT (authenticated endpoint) or HMAC-signed state ────
       let userId = req.user?.id;
       if (!userId && state) {
-        try {
-          const decodedState = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
-          userId = decodedState.userId;
-        } catch (err) {
-          const errorUrl = `sumora://oauth/callback?success=false&error=invalid_state`;
+        const decodedState = verifyOAuthState(state);
+        if (!decodedState || !decodedState.userId) {
+          const errorUrl = `sumora://oauth/callback?success=false&error=invalid_or_expired_state`;
           return res.redirect(errorUrl);
         }
+        userId = decodedState.userId;
       }
 
       if (!userId) {

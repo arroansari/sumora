@@ -47,6 +47,9 @@ mobile/vendor/
 backend/node_modules/
 backend/dist/
 backend/coverage/
+*serviceAccountKey*.json
+*firebase-adminsdk*.json
+*.p8
 
 # IDE
 .idea/

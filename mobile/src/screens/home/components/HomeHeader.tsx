@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { EdgeInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../../context/ThemeContext';
 import { createHomeStyles } from '../HomeScreen.styles';
+import { SpaceType } from '../../../types/models.types';
+import { SpaceIcon } from '../../../components/atoms/SpaceIcon';
 
 export interface HomeHeaderProps {
   insets: EdgeInsets;
@@ -10,9 +12,16 @@ export interface HomeHeaderProps {
   onSummarizePress: () => void;
   title?: string;
   subtitle?: string;
-  activePlatform?: 'YOUTUBE' | 'REDDIT';
-  onPlatformSwitch?: (platform: 'YOUTUBE' | 'REDDIT') => void;
+  activeSpace?: SpaceType;
+  onSpacePillPress?: () => void;
 }
+
+const SPACE_DISPLAY_CONFIG: Record<SpaceType, { label: string; icon: string }> = {
+  YOUTUBE: { label: 'YouTube Videos', icon: '▶️' },
+  REDDIT: { label: 'Reddit Discussions', icon: '💬' },
+  TMDB: { label: 'Cinema & OTT', icon: '🎬' },
+  OPEN_LIBRARY: { label: 'Book Insights', icon: '📚' },
+};
 
 export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
   ({
@@ -21,10 +30,11 @@ export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
     onSummarizePress,
     title = 'Video Activity Feed',
     subtitle = 'Distilled summaries from followed channels & links',
-    activePlatform = 'YOUTUBE',
-    onPlatformSwitch,
+    activeSpace = 'YOUTUBE',
+    onSpacePillPress,
   }) => {
     const { accentTheme } = useAppTheme();
+    const currentConfig = SPACE_DISPLAY_CONFIG[activeSpace] || SPACE_DISPLAY_CONFIG.YOUTUBE;
 
     return (
       <View style={[styles.headerGradientWrapper, { paddingTop: insets.top + 6 }]}>
@@ -37,56 +47,43 @@ export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
 
         <View style={styles.headerContent}>
           <View style={styles.headerLeftCol}>
-            {/* Platform Horizon Switcher Tabs */}
-            {onPlatformSwitch && (
-              <View
+            {/* Universal Space Switcher Dropdown Pill */}
+            {onSpacePillPress && (
+              <TouchableOpacity
+                onPress={onSpacePillPress}
+                activeOpacity={0.8}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: 'rgba(255, 255, 255, 0.16)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.22)',
                   borderRadius: 16,
-                  padding: 2,
+                  paddingHorizontal: 11,
+                  paddingVertical: 4.5,
                   marginBottom: 6,
                   alignSelf: 'flex-start',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.35)',
                 }}>
-                <TouchableOpacity
-                  onPress={() => onPlatformSwitch('YOUTUBE')}
-                  activeOpacity={0.8}
+                <SpaceIcon space={activeSpace} size={18} style={{ marginRight: 6 }} />
+                <Text
                   style={{
-                    paddingHorizontal: 10,
-                    paddingVertical: 3,
-                    borderRadius: 14,
-                    backgroundColor: activePlatform === 'YOUTUBE' ? '#FFFFFF' : 'transparent',
+                    fontSize: 11.5,
+                    fontWeight: '800',
+                    color: '#FFFFFF',
+                    marginRight: 4,
                   }}>
-                  <Text
-                    style={{
-                      fontSize: 11.5,
-                      fontWeight: '800',
-                      color: activePlatform === 'YOUTUBE' ? '#4F46E5' : 'rgba(255, 255, 255, 0.85)',
-                    }}>
-                    ▶ YouTube
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => onPlatformSwitch('REDDIT')}
-                  activeOpacity={0.8}
+                  {currentConfig.label}
+                </Text>
+                <Text
                   style={{
-                    paddingHorizontal: 10,
-                    paddingVertical: 3,
-                    borderRadius: 14,
-                    backgroundColor: activePlatform === 'REDDIT' ? '#FFFFFF' : 'transparent',
+                    fontSize: 9,
+                    fontWeight: '900',
+                    color: 'rgba(255, 255, 255, 0.85)',
+                    marginTop: 1,
                   }}>
-                  <Text
-                    style={{
-                      fontSize: 11.5,
-                      fontWeight: '800',
-                      color: activePlatform === 'REDDIT' ? '#FF4500' : 'rgba(255, 255, 255, 0.85)',
-                    }}>
-                    💬 Reddit
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                  ▼
+                </Text>
+              </TouchableOpacity>
             )}
 
             <Text style={styles.headerTitle}>{title}</Text>

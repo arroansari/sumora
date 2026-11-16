@@ -3,6 +3,7 @@ const router = express.Router();
 const healthRoutes = require('./health.routes');
 const { authRoutes } = require('../modules/auth');
 const { integrationsRoutes, webSubRoutes, redditRoutes, redditController } = require('../modules/integrations');
+const contentController = require('../modules/integrations/content/contentController');
 const { sourcesRoutes } = require('../modules/sources');
 const { transcriptRoutes } = require('../modules/transcripts');
 const { videosRoutes, videosController } = require('../modules/videos');
@@ -16,11 +17,27 @@ router.use('/', healthRoutes);
 // Sensitive Authentication endpoints with strict rate limiting (/api/auth/*)
 router.use('/auth', authLimiter, authRoutes);
 
-// Unified Feed Endpoint (/api/feed?platform=REDDIT | YOUTUBE)
+// Space Filters Endpoint (/api/feed/filters?space=...)
+router.get('/feed/filters', apiLimiter, (req, res, next) => {
+  return contentController.getFilters(req, res, next);
+});
+
+// On-demand Content Summary Endpoint (Books & Cinema) (/api/feed/:id/summary)
+router.get('/feed/:id/summary', apiLimiter, (req, res, next) => {
+  return contentController.getContentSummary(req, res, next);
+});
+
+// Unified Space Feed Endpoint (/api/feed?space=YOUTUBE | REDDIT | TMDB | OPEN_LIBRARY)
 router.get('/feed', apiLimiter, authenticate, (req, res, next) => {
-  const platform = (req.query.platform || '').toUpperCase();
-  if (platform === 'REDDIT') {
+  const target = (req.query.space || req.query.platform || '').toUpperCase();
+  if (target === 'REDDIT') {
     return redditController.getFeed(req, res, next);
+  }
+  if (target === 'TMDB' || target === 'CINEMA') {
+    return contentController.getCinemaFeed(req, res, next);
+  }
+  if (target === 'OPEN_LIBRARY' || target === 'BOOKS' || target === 'BOOK') {
+    return contentController.getBookFeed(req, res, next);
   }
   return videosController.getFeed(req, res, next);
 });

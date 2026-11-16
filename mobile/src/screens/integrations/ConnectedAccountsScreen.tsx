@@ -13,6 +13,7 @@ import { useAppTheme } from '../../context/ThemeContext';
 import { usePlatform } from '../../context/PlatformContext';
 import { integrationsApi } from '../../services/api';
 import { ConnectedAccount } from '../../types/models.types';
+import { SpaceIcon } from '../../components/atoms/SpaceIcon';
 import { createConnectedAccountsStyles } from './ConnectedAccountsScreen.styles';
 
 export const ConnectedAccountsScreen: React.FC<any> = ({ navigation }) => {
@@ -200,9 +201,7 @@ export const ConnectedAccountsScreen: React.FC<any> = ({ navigation }) => {
               {/* ── Active Reddit Integration Card ── */}
               <View style={styles.platformCard}>
                 <View style={styles.platformRow}>
-                  <View style={[styles.iconCircle, { backgroundColor: '#FF4500' }]}>
-                    <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: '900' }}>r/</Text>
-                  </View>
+                  <SpaceIcon space="REDDIT" size={44} style={{ marginRight: 12 }} />
                   <View style={styles.platformInfo}>
                     <Text style={styles.platformName}>Reddit Discussions</Text>
                     <Text style={styles.platformDesc}>
@@ -223,9 +222,7 @@ export const ConnectedAccountsScreen: React.FC<any> = ({ navigation }) => {
               {/* YouTube Card */}
               <View style={styles.platformCard}>
                 <View style={styles.platformRow}>
-                  <View style={[styles.iconCircle, { backgroundColor: '#FF000018' }]}>
-                    <Text style={{ fontSize: 20, color: '#FF0000', fontWeight: '900', letterSpacing: -1 }}>▶</Text>
-                  </View>
+                  <SpaceIcon space="YOUTUBE" size={44} style={{ marginRight: 12 }} />
                   <View style={styles.platformInfo}>
                     <Text style={styles.platformName}>YouTube</Text>
                     <Text style={styles.platformDesc}>
@@ -283,9 +280,7 @@ export const ConnectedAccountsScreen: React.FC<any> = ({ navigation }) => {
               {/* YouTube Card */}
               <View style={styles.platformCard}>
                 <View style={styles.platformRow}>
-                  <View style={[styles.iconCircle, { backgroundColor: '#FF000018' }]}>
-                    <Text style={{ fontSize: 20, color: '#FF0000', fontWeight: '900', letterSpacing: -1 }}>▶</Text>
-                  </View>
+                  <SpaceIcon space="YOUTUBE" size={44} style={{ marginRight: 12 }} />
                   <View style={styles.platformInfo}>
                     <Text style={styles.platformName}>YouTube</Text>
                     <Text style={styles.platformDesc}>
@@ -341,9 +336,7 @@ export const ConnectedAccountsScreen: React.FC<any> = ({ navigation }) => {
               {/* ── Active Reddit Integration Card ── */}
               <View style={[styles.platformCard, { marginTop: 14 }]}>
                 <View style={styles.platformRow}>
-                  <View style={[styles.iconCircle, { backgroundColor: '#FF4500' }]}>
-                    <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: '900' }}>r/</Text>
-                  </View>
+                  <SpaceIcon space="REDDIT" size={44} style={{ marginRight: 12 }} />
                   <View style={styles.platformInfo}>
                     <Text style={styles.platformName}>Reddit Discussions</Text>
                     <Text style={styles.platformDesc}>

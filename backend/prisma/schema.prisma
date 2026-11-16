@@ -10,6 +10,8 @@ generator client {
 enum Platform {
   YOUTUBE
   REDDIT
+  TMDB
+  OPEN_LIBRARY
 }
 
 model User {
@@ -71,6 +73,7 @@ model TrackedSource {
 
   @@unique([userId, platform, sourceId])
   @@index([platform, sourceId])
+  @@index([userId, platform])
   @@map("tracked_sources")
 }
 
@@ -93,6 +96,7 @@ model Video {
 
   @@index([channelId])
   @@index([publishedAt])
+  @@index([channelId, publishedAt])
   @@map("videos")
 }
 
@@ -184,6 +188,7 @@ model RedditPost {
 
   @@index([subreddit])
   @@index([publishedAt])
+  @@index([subreddit, publishedAt])
   @@map("reddit_posts")
 }
 
@@ -201,4 +206,52 @@ model RedditSummary {
   updatedAt       DateTime    @updatedAt
 
   @@map("reddit_summaries")
+}
+
+model ContentPost {
+  id                 String       @id @default(uuid())
+  platform           Platform
+  externalId         String       @unique // e.g. TMDB movie ID or Open Library work key
+  title              String
+  description        String?      @db.Text
+  author             String?      // Book author or Movie Director
+  posterUrl          String?      // Movie poster or Book cover image
+  backdropUrl        String?      // Movie backdrop image
+  url                String?      // TMDB permalink or Open Library permalink
+  rating             Float?       // TMDB rating (e.g. 8.4)
+  genres             String[]     @default([])
+  runtime            String?      // e.g. "2h 46m"
+  trailerUrl         String?      // YouTube trailer embed / watch link
+  streamingPlatforms String[]     @default([]) // e.g. ["Netflix", "Max", "Prime Video"]
+  pageCount          Int?         // Book page count
+  readTime           String?      // e.g. "5-Min Read" or "7h 15m"
+  categories         String[]     @default([]) // e.g. ["Psychology", "Productivity"]
+  releaseYear        String?      // e.g. "2024"
+  publishedAt        DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  summary            PostSummary?
+
+  @@index([platform])
+  @@index([publishedAt])
+  @@index([platform, publishedAt])
+  @@index([platform, createdAt])
+  @@map("content_posts")
+}
+
+model PostSummary {
+  id              String      @id @default(uuid())
+  postId          String      @unique
+  post            ContentPost @relation(fields: [postId], references: [externalId], onDelete: Cascade)
+  takeaways       Json        // Array of 4 strings (matching the 4 bullets on the UI card)
+  consensus       String?     @db.Text
+  contrarianViews Json?
+  fullSummary     String?     @db.Text
+  aiProvider      String      @default("gemini")
+  modelName       String      @default("gemini-1.5-flash")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("post_summaries")
 }

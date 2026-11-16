@@ -1,5 +1,6 @@
 const axios = require('axios');
 const config = require('../../../config');
+const { signOAuthState } = require('../../../utils/oauth.util');
 
 class RedditClient {
   constructor() {
@@ -200,8 +201,7 @@ class RedditClient {
    */
   getConnectUrl(userId, customRedirectUri = null) {
     const redirectUri = customRedirectUri || config.reddit.redirectUri || 'http://localhost:5000/api/auth/reddit/callback';
-    const stateObj = { userId: userId || 'anonymous', timestamp: Date.now() };
-    const state = Buffer.from(JSON.stringify(stateObj)).toString('base64');
+    const state = signOAuthState({ userId: userId || 'anonymous', platform: 'reddit' });
     const scope = 'identity,mysubreddits,read';
     const clientId = this.clientId || 'MOCK_CLIENT_ID';
 
@@ -258,6 +258,41 @@ class RedditClient {
       expiresIn: response.data.expires_in || 3600,
       scope: response.data.scope,
       tokenType: response.data.token_type,
+    };
+  }
+
+  /**
+   * Refreshes an expired user OAuth access token using a refresh token.
+   * @param {string} refreshToken
+   */
+  async refreshUserToken(refreshToken) {
+    if (!refreshToken) {
+      throw new Error('Refresh token is required');
+    }
+
+    const authHeader = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
+    const params = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    });
+
+    const response = await axios.post(
+      'https://www.reddit.com/api/v1/access_token',
+      params.toString(),
+      {
+        headers: {
+          Authorization: `Basic ${authHeader}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': this.userAgent,
+        },
+        timeout: 10000,
+      }
+    );
+
+    return {
+      accessToken: response.data.access_token,
+      refreshToken: response.data.refresh_token || null,
+      expiresIn: response.data.expires_in || 3600,
     };
   }
 

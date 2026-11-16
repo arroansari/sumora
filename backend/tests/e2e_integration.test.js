@@ -145,12 +145,27 @@ async function runEndToEndVerification() {
   assert.strictEqual(pushPayload.data.videoId, detectedVideo.videoId);
   assert.strictEqual(pushPayload.data.click_action, 'OPEN_SUMMARY_DETAIL');
 
+  const admin = require('firebase-admin');
+  let originalSend = null;
+  if (fcmService.isInitialized) {
+    originalSend = admin.messaging().sendEachForMulticast;
+    admin.messaging().sendEachForMulticast = async (opts) => ({
+      successCount: opts.tokens.length,
+      failureCount: 0,
+      responses: opts.tokens.map(() => ({ success: true })),
+    });
+  }
+
   const dispatchResult = await fcmService.sendToDevices(
     ['device_token_ios_test', 'device_token_android_test'],
     pushPayload
   );
   assert.strictEqual(dispatchResult.successCount, 2);
   console.log('  ✅ Push alert generated with deep link and dispatched to devices.');
+
+  if (originalSend) {
+    admin.messaging().sendEachForMulticast = originalSend;
+  }
 
   // STEP 7: Negative Safety Testing: Missing Captions Must Never Hallucinate
   console.log('\nStep 7: Safety & Compliance: Missing Captions Must Reject Summarization');

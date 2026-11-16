@@ -1,3 +1,41 @@
+export type SpaceType = 'YOUTUBE' | 'REDDIT' | 'TMDB' | 'OPEN_LIBRARY';
+
+export interface ContentSummary {
+  id?: string;
+  postId: string;
+  takeaways: string[];
+  consensus?: string;
+  contrarianViews?: string[];
+  fullSummary?: string;
+  aiProvider?: string;
+  modelName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ContentPostItem {
+  id: string;
+  platform: SpaceType;
+  externalId: string;
+  title: string;
+  description?: string;
+  author?: string;
+  posterUrl?: string;
+  backdropUrl?: string;
+  url?: string;
+  rating?: number;
+  genres?: string[];
+  runtime?: string;
+  trailerUrl?: string;
+  streamingPlatforms?: string[];
+  pageCount?: number;
+  readTime?: string;
+  categories?: string[];
+  releaseYear?: string;
+  publishedAt?: string;
+  summary?: ContentSummary | null;
+}
+
 export type SummaryStatus =
   | 'pending'
   | 'fetching_transcript'

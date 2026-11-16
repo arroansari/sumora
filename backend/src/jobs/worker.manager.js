@@ -17,29 +17,38 @@ class WorkerManager {
   }
 
   async _checkRedisAvailable() {
-    // Quick TCP ping to Redis before attempting to start workers
     return new Promise((resolve) => {
-      const net = require('net');
-      const host = process.env.REDIS_HOST || '127.0.0.1';
-      const port = parseInt(process.env.REDIS_PORT, 10) || 6379;
+      try {
+        const Redis = require('ioredis');
+        const { connection } = require('./index');
+        const client = new Redis({
+          ...connection,
+          lazyConnect: false,
+          connectTimeout: 2000,
+          maxRetriesPerRequest: 0,
+          retryStrategy: null,
+          enableOfflineQueue: false,
+        });
 
-      const socket = new net.Socket();
-      socket.setTimeout(1500);
+        const timer = setTimeout(() => {
+          try { client.disconnect(); } catch {}
+          resolve(false);
+        }, 2500);
 
-      socket.on('connect', () => {
-        socket.destroy();
-        resolve(true);
-      });
-      socket.on('timeout', () => {
-        socket.destroy();
+        client.ping()
+          .then(() => {
+            clearTimeout(timer);
+            try { client.disconnect(); } catch {}
+            resolve(true);
+          })
+          .catch(() => {
+            clearTimeout(timer);
+            try { client.disconnect(); } catch {}
+            resolve(false);
+          });
+      } catch {
         resolve(false);
-      });
-      socket.on('error', () => {
-        socket.destroy();
-        resolve(false);
-      });
-
-      socket.connect(port, host);
+      }
     });
   }
 

@@ -10,6 +10,9 @@ router.use(authenticate);
 // YouTube / General Sources
 router.get('/', (req, res, next) => sourcesController.listSources(req, res, next));
 router.post('/', (req, res, next) => sourcesController.addSource(req, res, next));
+router.post('/:id/toggle', (req, res, next) => sourcesController.toggleSource(req, res, next));
+router.patch('/:id/toggle', (req, res, next) => sourcesController.toggleSource(req, res, next));
+router.patch('/:id', (req, res, next) => sourcesController.toggleSource(req, res, next));
 router.delete('/:id', (req, res, next) => sourcesController.removeSource(req, res, next));
 
 // Reddit Subreddit Sources
