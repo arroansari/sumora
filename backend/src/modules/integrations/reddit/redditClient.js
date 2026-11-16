@@ -262,6 +262,41 @@ class RedditClient {
   }
 
   /**
+   * Refreshes an expired user OAuth access token using a refresh token.
+   * @param {string} refreshToken
+   */
+  async refreshUserToken(refreshToken) {
+    if (!refreshToken) {
+      throw new Error('Refresh token is required');
+    }
+
+    const authHeader = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
+    const params = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    });
+
+    const response = await axios.post(
+      'https://www.reddit.com/api/v1/access_token',
+      params.toString(),
+      {
+        headers: {
+          Authorization: `Basic ${authHeader}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': this.userAgent,
+        },
+        timeout: 10000,
+      }
+    );
+
+    return {
+      accessToken: response.data.access_token,
+      refreshToken: response.data.refresh_token || null,
+      expiresIn: response.data.expires_in || 3600,
+    };
+  }
+
+  /**
    * Fetches authenticated user's Reddit profile details
    * @param {string} userAccessToken
    */

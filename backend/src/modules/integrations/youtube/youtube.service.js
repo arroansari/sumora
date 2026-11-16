@@ -71,7 +71,7 @@ class YouTubeService {
   /**
    * Refreshes an expired access token using the stored encrypted refresh token.
    * @param {string} encryptedRefreshToken
-   * @returns {Promise<{accessToken: string, expiresIn: number}>}
+   * @returns {Promise<{accessToken: string, expiresIn: number, refreshToken: string|null}>}
    */
   async refreshAccessToken(encryptedRefreshToken) {
     const refreshToken = decrypt(encryptedRefreshToken);
@@ -95,6 +95,7 @@ class YouTubeService {
     return {
       accessToken: response.data.access_token,
       expiresIn: response.data.expires_in,
+      refreshToken: response.data.refresh_token || null,
     };
   }
 

@@ -5,9 +5,20 @@ module.exports = {
   port: parseInt(process.env.PORT, 10) || 5000,
   databaseUrl: process.env.DATABASE_URL,
   redis: {
+    url: process.env.REDIS_URL || undefined,
     host: process.env.REDIS_HOST || '127.0.0.1',
     port: parseInt(process.env.REDIS_PORT, 10) || 6379,
     password: process.env.REDIS_PASSWORD || undefined,
+    tls: process.env.REDIS_TLS === 'true' || (process.env.REDIS_URL && process.env.REDIS_URL.startsWith('rediss://')),
+    rejectUnauthorized: process.env.REDIS_REJECT_UNAUTHORIZED === 'true',
+  },
+  cors: {
+    allowedOrigins: process.env.CORS_ALLOWED_ORIGINS
+      ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean)
+      : ['*'],
+  },
+  workers: {
+    runInProcess: process.env.RUN_WORKERS_IN_PROCESS !== 'false',
   },
   jwt: {
     secret: process.env.JWT_SECRET || 'sumora_development_secret_key_12345',

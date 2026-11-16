@@ -5,10 +5,11 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
+    "worker": "node src/worker.js",
     "dev": "nodemon src/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "test": "node tests/auth.test.js && node tests/oauth.test.js && node tests/youtube_integration.test.js && node tests/transcript_engine.test.js && node tests/ai_summarization.test.js && node tests/background_processing.test.js && node tests/notifications.test.js && node tests/e2e_integration.test.js"
+    "test": "node tests/auth.test.js && node tests/oauth.test.js && node tests/redis_config.test.js && node tests/token_refresh.test.js && node tests/fcm_pruning.test.js && node tests/youtube_integration.test.js && node tests/transcript_engine.test.js && node tests/ai_summarization.test.js && node tests/background_processing.test.js && node tests/notifications.test.js && node tests/e2e_integration.test.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

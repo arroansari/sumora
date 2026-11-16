@@ -2,10 +2,13 @@ const prisma = require('../../../config/db');
 const redditClient = require('./redditClient');
 const publicRedditService = require('./redditService');
 const summarizationService = require('../../ai/summarization.service');
-const { encrypt } = require('../../../utils/encryption.util');
+const { encrypt, decrypt } = require('../../../utils/encryption.util');
 const { QUEUE_NAMES, getQueue } = require('../../../jobs');
 
 class RedditService {
+  constructor() {
+    this._refreshPromises = new Map();
+  }
   /**
    * Track a new subreddit for a user
    */
@@ -416,6 +419,93 @@ class RedditService {
       profile,
       importedSubredditsCount: subreddits.length,
     };
+  }
+
+  /**
+   * Retrieves a decrypted, valid Reddit OAuth access token for a user,
+   * automatically refreshing 5 minutes before expiration with mutex concurrency locking,
+   * token rotation, and invalid_grant revocation handling.
+   * @param {string} userId
+   * @returns {Promise<string|null>}
+   */
+  async getValidAccessToken(userId) {
+    if (this._refreshPromises.has(userId)) {
+      return this._refreshPromises.get(userId);
+    }
+
+    const refreshTask = (async () => {
+      try {
+        const account = await prisma.connectedAccount.findUnique({
+          where: { userId_platform: { userId, platform: 'reddit' } },
+          include: { token: true },
+        });
+
+        if (!account || !account.token || account.status === 'revoked') {
+          return null;
+        }
+
+        let accessToken = decrypt(account.token.encryptedAccessToken);
+        const FIVE_MINUTES_MS = 5 * 60 * 1000;
+        const isExpiringSoon =
+          account.token.expiresAt &&
+          new Date(account.token.expiresAt).getTime() <= Date.now() + FIVE_MINUTES_MS;
+
+        if (isExpiringSoon && account.token.encryptedRefreshToken) {
+          try {
+            const rawRefreshToken = decrypt(account.token.encryptedRefreshToken);
+            const refreshed = await redditClient.refreshUserToken(rawRefreshToken);
+            accessToken = refreshed.accessToken;
+
+            const updateData = {
+              encryptedAccessToken: encrypt(refreshed.accessToken),
+              expiresAt: refreshed.expiresIn
+                ? new Date(Date.now() + refreshed.expiresIn * 1000)
+                : null,
+            };
+
+            if (refreshed.refreshToken) {
+              updateData.encryptedRefreshToken = encrypt(refreshed.refreshToken);
+            }
+
+            await prisma.platformToken.update({
+              where: { id: account.token.id },
+              data: updateData,
+            });
+          } catch (refreshErr) {
+            const isInvalidGrant =
+              refreshErr.response?.data?.error === 'invalid_grant' ||
+              refreshErr.message?.toLowerCase().includes('invalid_grant');
+
+            if (isInvalidGrant) {
+              console.warn(`[RedditService] Reddit OAuth token revoked for user ${userId}. Marking status as revoked.`);
+              await prisma.connectedAccount.update({
+                where: { id: account.id },
+                data: { status: 'revoked' },
+              });
+              return null;
+            }
+
+            console.error(`[RedditService] Failed to refresh Reddit token for user ${userId}:`, refreshErr.message);
+            if (account.token.expiresAt && new Date(account.token.expiresAt).getTime() > Date.now()) {
+              return accessToken;
+            }
+            return null;
+          }
+        }
+
+        return accessToken;
+      } catch (err) {
+        console.warn(`[RedditService] Could not retrieve access token for ${userId}:`, err.message);
+        return null;
+      }
+    })();
+
+    this._refreshPromises.set(userId, refreshTask);
+    try {
+      return await refreshTask;
+    } finally {
+      this._refreshPromises.delete(userId);
+    }
   }
 }
 

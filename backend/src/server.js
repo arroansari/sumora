@@ -10,13 +10,15 @@ const server = app.listen(config.port, () => {
   console.log(` Health Check: http://localhost:${config.port}/api/health`);
   console.log(`===============================================`);
 
-  // Attempt to start BullMQ workers (requires Redis).
-  // If Redis is unavailable, the inline pipeline handles transcript + summarization
-  // directly on WebSub notifications — no data is lost, only async queue benefits are skipped.
-  workerManager.startAll();
-
-  // Start background daily feed sync scheduler
-  schedulerService.start();
+  // In development or when explicitly enabled, start BullMQ workers and scheduler in-process.
+  // In production, workers run out-of-process via `npm run worker` (src/worker.js).
+  if (config.workers.runInProcess) {
+    console.log('[Server] RUN_WORKERS_IN_PROCESS=true: Starting workers in-process');
+    workerManager.startAll();
+    schedulerService.start();
+  } else {
+    console.log('[Server] RUN_WORKERS_IN_PROCESS=false: BullMQ workers running out-of-process');
+  }
 
   // Warn about missing Google OAuth credentials at startup
   if (!config.google.clientId || !config.google.clientSecret) {

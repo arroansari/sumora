@@ -5,6 +5,11 @@ const youTubeService = require('./youtube/youtube.service');
 const webSubService = require('./youtube/websub.service');
 
 class IntegrationsService {
+  constructor() {
+    // In-memory mutex map to deduplicate concurrent refresh calls per user
+    this._refreshPromises = new Map();
+  }
+
   /**
    * Retrieves all connected platform accounts for a given user.
    * @param {string} userId
@@ -145,42 +150,86 @@ class IntegrationsService {
   }
 
   /**
-   * Retrieves a decrypted, valid OAuth access token for a user, automatically refreshing if expired.
-   * Returns null if YouTube is not connected.
+   * Retrieves a decrypted, valid OAuth access token for a user, automatically refreshing
+   * 5 minutes before expiration with concurrency locking, token rotation, and revocation handling.
+   * Returns null if YouTube is not connected, revoked, or cannot be refreshed.
    * @param {string} userId
    * @returns {Promise<string|null>}
    */
   async getValidAccessToken(userId) {
-    try {
-      const account = await prisma.connectedAccount.findUnique({
-        where: { userId_platform: { userId, platform: 'youtube' } },
-        include: { token: true },
-      });
+    if (this._refreshPromises.has(userId)) {
+      return this._refreshPromises.get(userId);
+    }
 
-      if (!account || !account.token) return null;
-
-      let accessToken = decrypt(account.token.encryptedAccessToken);
-      const isExpired =
-        account.token.expiresAt && new Date(account.token.expiresAt).getTime() <= Date.now() + 60000;
-
-      if (isExpired && account.token.encryptedRefreshToken) {
-        const refreshed = await youTubeService.refreshAccessToken(account.token.encryptedRefreshToken);
-        accessToken = refreshed.accessToken;
-        await prisma.platformToken.update({
-          where: { id: account.token.id },
-          data: {
-            encryptedAccessToken: encrypt(refreshed.accessToken),
-            expiresAt: refreshed.expiresIn
-              ? new Date(Date.now() + refreshed.expiresIn * 1000)
-              : null,
-          },
+    const refreshTask = (async () => {
+      try {
+        const account = await prisma.connectedAccount.findUnique({
+          where: { userId_platform: { userId, platform: 'youtube' } },
+          include: { token: true },
         });
-      }
 
-      return accessToken;
-    } catch (err) {
-      console.warn(`[IntegrationsService] Could not retrieve access token for ${userId}:`, err.message);
-      return null;
+        if (!account || !account.token || account.status === 'revoked') return null;
+
+        let accessToken = decrypt(account.token.encryptedAccessToken);
+        const FIVE_MINUTES_MS = 5 * 60 * 1000;
+        const isExpiringSoon =
+          account.token.expiresAt &&
+          new Date(account.token.expiresAt).getTime() <= Date.now() + FIVE_MINUTES_MS;
+
+        if (isExpiringSoon && account.token.encryptedRefreshToken) {
+          try {
+            const refreshed = await youTubeService.refreshAccessToken(account.token.encryptedRefreshToken);
+            accessToken = refreshed.accessToken;
+
+            const updateData = {
+              encryptedAccessToken: encrypt(refreshed.accessToken),
+              expiresAt: refreshed.expiresIn
+                ? new Date(Date.now() + refreshed.expiresIn * 1000)
+                : null,
+            };
+
+            if (refreshed.refreshToken) {
+              updateData.encryptedRefreshToken = encrypt(refreshed.refreshToken);
+            }
+
+            await prisma.platformToken.update({
+              where: { id: account.token.id },
+              data: updateData,
+            });
+          } catch (refreshErr) {
+            const isInvalidGrant =
+              refreshErr.response?.data?.error === 'invalid_grant' ||
+              refreshErr.message?.toLowerCase().includes('invalid_grant');
+
+            if (isInvalidGrant) {
+              console.warn(`[IntegrationsService] YouTube OAuth token revoked for user ${userId}. Marking status as revoked.`);
+              await prisma.connectedAccount.update({
+                where: { id: account.id },
+                data: { status: 'revoked' },
+              });
+              return null;
+            }
+
+            console.error(`[IntegrationsService] Failed to refresh YouTube token for user ${userId}:`, refreshErr.message);
+            if (account.token.expiresAt && new Date(account.token.expiresAt).getTime() > Date.now()) {
+              return accessToken;
+            }
+            return null;
+          }
+        }
+
+        return accessToken;
+      } catch (err) {
+        console.warn(`[IntegrationsService] Could not retrieve access token for ${userId}:`, err.message);
+        return null;
+      }
+    })();
+
+    this._refreshPromises.set(userId, refreshTask);
+    try {
+      return await refreshTask;
+    } finally {
+      this._refreshPromises.delete(userId);
     }
   }
 
@@ -190,33 +239,11 @@ class IntegrationsService {
    * @param {string} userId
    */
   async syncYouTubeSubscriptions(userId) {
-    const account = await prisma.connectedAccount.findUnique({
-      where: { userId_platform: { userId, platform: 'youtube' } },
-      include: { token: true },
-    });
-
-    if (!account || !account.token) {
-      const error = new Error('YouTube account is not connected');
-      error.status = 404;
+    const accessToken = await this.getValidAccessToken(userId);
+    if (!accessToken) {
+      const error = new Error('YouTube account is not connected or authorization has expired. Please reconnect YouTube in the app.');
+      error.status = 401;
       throw error;
-    }
-
-    let accessToken = decrypt(account.token.encryptedAccessToken);
-    const isExpired =
-      account.token.expiresAt && new Date(account.token.expiresAt).getTime() <= Date.now() + 60000;
-
-    if (isExpired && account.token.encryptedRefreshToken) {
-      const refreshed = await youTubeService.refreshAccessToken(account.token.encryptedRefreshToken);
-      accessToken = refreshed.accessToken;
-      await prisma.platformToken.update({
-        where: { id: account.token.id },
-        data: {
-          encryptedAccessToken: encrypt(refreshed.accessToken),
-          expiresAt: refreshed.expiresIn
-            ? new Date(Date.now() + refreshed.expiresIn * 1000)
-            : null,
-        },
-      });
     }
 
     const subscribedChannels = await youTubeService.getSubscribedChannels(accessToken);

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const admin = require('firebase-admin');
 const config = require('../../config');
+const prisma = require('../../config/db');
 
 class FCMService {
   constructor() {
@@ -9,11 +10,23 @@ class FCMService {
   }
 
   initFirebase() {
-    const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+    let serviceAccount = null;
 
-    if (serviceAccountPath && fs.existsSync(serviceAccountPath)) {
+    try {
+      if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+      } else if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+        const decoded = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8');
+        serviceAccount = JSON.parse(decoded);
+      } else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH && fs.existsSync(process.env.FIREBASE_SERVICE_ACCOUNT_PATH)) {
+        serviceAccount = JSON.parse(fs.readFileSync(process.env.FIREBASE_SERVICE_ACCOUNT_PATH, 'utf8'));
+      }
+    } catch (parseErr) {
+      console.error('[FCMService] Failed to parse Firebase Service Account credentials:', parseErr.message);
+    }
+
+    if (serviceAccount) {
       try {
-        const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
         admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
         });
@@ -23,9 +36,15 @@ class FCMService {
         console.warn('[FCMService] Failed to initialize Firebase with service account:', err.message);
       }
     } else {
-      console.log(
-        '[FCMService] Running in Development Mode (No Firebase Service Account provided). Push notifications will be logged to console.'
-      );
+      if (process.env.NODE_ENV === 'production') {
+        console.error(
+          '[FCMService] CRITICAL WARNING: No Firebase Service Account configured in production. FCM Push notifications will NOT be delivered!'
+        );
+      } else {
+        console.log(
+          '[FCMService] Running in Development Mode (No Firebase Service Account provided). Push notifications will be logged to console.'
+        );
+      }
     }
   }
 
@@ -61,10 +80,11 @@ class FCMService {
   }
 
   /**
-   * Dispatches push notifications to a list of device tokens.
+   * Dispatches push notifications to a list of device tokens, automatically pruning
+   * invalid, unregistered, or expired device tokens from PostgreSQL.
    * @param {string[]} deviceTokens
    * @param {object} payload - Output from buildNotificationPayload
-   * @returns {Promise<{successCount: number, failureCount: number}>}
+   * @returns {Promise<{successCount: number, failureCount: number, prunedCount?: number}>}
    */
   async sendToDevices(deviceTokens, payload) {
     if (!Array.isArray(deviceTokens) || deviceTokens.length === 0) {
@@ -72,6 +92,15 @@ class FCMService {
     }
 
     if (!this.isInitialized) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('[FCMService] Cannot send push notifications: Firebase Admin SDK is not initialized in production.');
+        return {
+          successCount: 0,
+          failureCount: deviceTokens.length,
+          error: 'Firebase Admin SDK not initialized in production',
+        };
+      }
+
       console.log(
         `[FCMService] [MOCK SEND] Dispatched push alert to ${deviceTokens.length} devices:\n  Title: "${payload.notification.title}"\n  Body: "${payload.notification.body}"\n  Target Video ID: "${payload.data.videoId}"`
       );
@@ -93,9 +122,38 @@ class FCMService {
         `[FCMService] Sent multicast notification: ${response.successCount} succeeded, ${response.failureCount} failed`
       );
 
+      // Automatically prune invalid, unregistered, or mismatched device tokens
+      const invalidTokens = [];
+      if (response.responses && Array.isArray(response.responses)) {
+        response.responses.forEach((resp, index) => {
+          if (!resp.success && resp.error) {
+            const code = resp.error.code;
+            if (
+              code === 'messaging/invalid-registration-token' ||
+              code === 'messaging/registration-token-not-registered' ||
+              code === 'messaging/mismatched-credential'
+            ) {
+              invalidTokens.push(deviceTokens[index]);
+            }
+          }
+        });
+      }
+
+      if (invalidTokens.length > 0) {
+        try {
+          const deleteResult = await prisma.deviceToken.deleteMany({
+            where: { deviceToken: { in: invalidTokens } },
+          });
+          console.log(`[FCMService] Pruned ${deleteResult.count} unregistered/invalid FCM device tokens.`);
+        } catch (pruneErr) {
+          console.warn('[FCMService] Error pruning invalid tokens from database:', pruneErr.message);
+        }
+      }
+
       return {
         successCount: response.successCount,
         failureCount: response.failureCount,
+        prunedCount: invalidTokens.length,
       };
     } catch (error) {
       console.error('[FCMService] Multicast send error:', error.message);
