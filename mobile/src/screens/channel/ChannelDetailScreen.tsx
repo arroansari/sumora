@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,15 @@ import {
   RefreshControl,
   TextInput,
   Modal,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
-import { videosApi, integrationsApi } from '../../services/api';
+import { videosApi, integrationsApi, sourcesApi } from '../../services/api';
 import { VideoItem } from '../../types/models.types';
 import { RootStackParamList } from '../../types/navigation.types';
 import { FilterPills, FilterPillOption } from '../../components/atoms/FilterPills';
@@ -194,6 +196,163 @@ const VideoCard = React.memo<VideoCardProps>(({ item, styles, colors, onPress })
   );
 });
 
+// ─── Sub-Components ──────────────────────────────────────────────────────────
+
+interface ChannelHeroProps {
+  avatarUrl: string | null;
+  channelName: string;
+  trackedDate: string | null;
+  styles: ReturnType<typeof createChannelDetailStyles>;
+  heroAvatarScale: Animated.AnimatedInterpolation<number>;
+  onLayout?: (e: any) => void;
+}
+
+const ChannelHero = React.memo<ChannelHeroProps>(
+  ({ avatarUrl, channelName, trackedDate, styles, heroAvatarScale, onLayout }) => (
+    <View style={styles.channelHeader} onLayout={onLayout}>
+      <Animated.View
+        style={[
+          styles.avatarWrap,
+          {
+            transform: [{ scale: heroAvatarScale }],
+          },
+        ]}>
+        {avatarUrl ? (
+          <FastImage
+            source={{
+              uri: avatarUrl,
+              priority: FastImage.priority.high,
+              cache: FastImage.cacheControl.immutable,
+            }}
+            style={styles.avatarImage as ImageStyle}
+            resizeMode={FastImage.resizeMode.cover}
+          />
+        ) : (
+          <Text style={styles.avatarInitials}>{getInitials(channelName)}</Text>
+        )}
+      </Animated.View>
+      <Text style={styles.channelName}>{channelName}</Text>
+      <Text style={styles.channelMeta}>
+        YouTube{trackedDate ? ` · Tracking since ${trackedDate}` : ''}
+      </Text>
+    </View>
+  )
+);
+
+interface ChannelStickyControlsProps {
+  styles: ReturnType<typeof createChannelDetailStyles>;
+  colors: ReturnType<typeof useAppTheme>['colors'];
+  searchQuery: string;
+  onChangeSearchQuery: (q: string) => void;
+  onClearSearch: () => void;
+  dateOptions: FilterPillOption<DateRange>[];
+  dateRange: DateRange;
+  onSelectDateRange: (range: DateRange) => void;
+  resultCountText?: string;
+}
+
+const ChannelStickyControls = React.memo<ChannelStickyControlsProps>(
+  ({
+    styles,
+    colors,
+    searchQuery,
+    onChangeSearchQuery,
+    onClearSearch,
+    dateOptions,
+    dateRange,
+    onSelectDateRange,
+    resultCountText,
+  }) => (
+    <View style={styles.stickyControlsWrap}>
+      {/* 1. Control Bar: Full-width Live Search */}
+      <View style={styles.controlBar}>
+        <View style={styles.searchWrap}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search videos in channel…"
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={onChangeSearchQuery}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+          {Boolean(searchQuery) && (
+            <TouchableOpacity
+              onPress={onClearSearch}
+              style={styles.clearSearchBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={styles.clearSearchText}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* 2. Date Filter Pills with Custom Date Option */}
+      <FilterPills<DateRange>
+        options={dateOptions}
+        selectedValue={dateRange}
+        onSelect={onSelectDateRange}
+        style={styles.filterRow}
+      />
+
+      {/* 3. Result Count & Feedback */}
+      {Boolean(resultCountText) && (
+        <Text style={styles.resultCount}>{resultCountText}</Text>
+      )}
+    </View>
+  )
+);
+
+interface ChannelEmptyStateProps {
+  styles: ReturnType<typeof createChannelDetailStyles>;
+  searchQuery: string;
+  dateRange: DateRange;
+  customLabel: string;
+  channelName: string;
+  onReset: () => void;
+}
+
+const ChannelEmptyState = React.memo<ChannelEmptyStateProps>(
+  ({ styles, searchQuery, dateRange, customLabel, channelName, onReset }) => (
+    <View style={styles.emptyBox}>
+      <Text style={styles.emptyEmoji}>😔</Text>
+      <Text style={styles.emptyTitle}>
+        {searchQuery
+          ? 'No Matching Videos'
+          : dateRange === 'today'
+          ? 'No Videos Today'
+          : dateRange === 'yesterday'
+          ? 'No Videos Yesterday'
+          : dateRange === 'week'
+          ? 'No Videos This Week'
+          : dateRange === 'month'
+          ? 'No Videos This Month'
+          : dateRange === 'custom_range'
+          ? `No Videos in ${customLabel}`
+          : 'No Videos Yet'}
+      </Text>
+      <Text style={styles.emptySubtitle}>
+        {searchQuery
+          ? `No videos matched "${searchQuery}". Try a different title or keyword.`
+          : `${channelName} hasn't uploaded anything in this time range.`}
+      </Text>
+      <TouchableOpacity style={styles.emptyAction} onPress={onReset} activeOpacity={0.8}>
+        <Text style={styles.emptyActionText}>View All Time</Text>
+      </TouchableOpacity>
+    </View>
+  )
+);
+
+type ChannelListItem =
+  | { key: '__hero__'; type: 'hero' }
+  | { key: '__controls__'; type: 'controls' }
+  | { key: '__loading__'; type: 'loading' }
+  | { key: '__empty__'; type: 'empty' }
+  | { key: string; type: 'video'; video: VideoItem };
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
@@ -201,14 +360,47 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createChannelDetailStyles(colors), [colors]);
 
+  const flatListRef = useRef<any>(null);
+  const scrollYOffset = useRef(0);
+
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(thumbnailUrl || null);
+
+  useEffect(() => {
+    if (thumbnailUrl) {
+      setAvatarUrl(thumbnailUrl);
+      return;
+    }
+    let isMounted = true;
+    sourcesApi
+      .list({ platform: 'youtube' })
+      .then((sources) => {
+        if (!isMounted) return;
+        const found = sources.find((s) => s.sourceId === channelId);
+        if (found?.thumbnailUrl) {
+          setAvatarUrl(found.thumbnailUrl);
+        }
+      })
+      .catch((err) => {
+        console.warn('[ChannelDetail] Failed to resolve channel avatar:', err?.message);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [channelId, thumbnailUrl]);
+
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tabLoading, setTabLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange>('popular');
   const [customBounds, setCustomBounds] = useState<DateBounds | null>(null);
   const [customLabel, setCustomLabel] = useState<string>('📅 Custom');
   const [selectedPresetDays, setSelectedPresetDays] = useState<number | null>(null);
   const [backfilling, setBackfilling] = useState(false);
+  const [heroHeight, setHeroHeight] = useState(150);
+
+  // In-memory tab video cache: guarantees instant 0ms switching without screen reload
+  const tabCache = useRef<Record<string, VideoItem[]>>({});
 
   // Search & Date Modal state
   const [searchQuery, setSearchQuery] = useState('');
@@ -216,6 +408,13 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   // Guard: only run RSS backfill once per screen mount, not on every filter change
   const hasBackfilled = useRef(false);
+
+  const onHeroLayout = useCallback((e: any) => {
+    const h = e.nativeEvent?.layout?.height;
+    if (h && h > 60 && Math.abs(h - heroHeight) > 2) {
+      setHeroHeight(Math.round(h));
+    }
+  }, [heroHeight]);
 
   // ── Data fetching ─────────────────────────────────────────────────────────
 
@@ -246,48 +445,76 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       }
       const all = await fetchVideos('custom', null).catch(() => []);
       if (isMountedRef.current && all.length > 0) {
+        tabCache.current['custom'] = all;
         setVideos(all);
       }
     },
     [channelId, fetchVideos]
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      let isMountedRef = { current: true };
-      setLoading(true);
+  // Initial load: fetches default 'popular' tab once on mount and caches it
+  useEffect(() => {
+    let isMounted = true;
+    fetchVideos('popular')
+      .then(async (vids) => {
+        if (!isMounted) return;
+        tabCache.current['popular'] = vids;
+        setVideos(vids);
+        if (vids.length === 0 && !hasBackfilled.current) {
+          hasBackfilled.current = true;
+          await backfillAndRefetch({ current: isMounted });
+        }
+      })
+      .catch((err) => console.warn('[ChannelDetail] Load error:', err?.message))
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
 
-      fetchVideos(dateRange)
-        .then(async (vids) => {
-          if (!isMountedRef.current) return;
-          setVideos(vids);
-          if (vids.length === 0 && !hasBackfilled.current && dateRange === 'custom') {
-            hasBackfilled.current = true;
-            await backfillAndRefetch(isMountedRef);
-          }
-        })
-        .catch((err) =>
-          console.warn('[ChannelDetail] Load error:', err.message)
-        )
-        .finally(() => {
-          if (isMountedRef.current) setLoading(false);
-        });
+    return () => {
+      isMounted = false;
+    };
+  }, [channelId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-      return () => {
-        isMountedRef.current = false;
-      };
-    }, [fetchVideos, dateRange, backfillAndRefetch])
-  );
-
+  // Tab switch handler: updates videos in-place without unmounting FlatList or bringing hero down
   const handleDateRangeChange = useCallback(
-    (range: DateRange) => {
+    async (range: DateRange) => {
       if (range === 'custom_range') {
         setShowDateModal(true);
         return;
       }
       setDateRange(range);
+      const wasCollapsed = scrollYOffset.current >= heroHeight - 15;
+      const cacheKey = range;
+
+      // 1. Instant Cache Hit: 0ms, zero lag, scroll position stays firmly pinned
+      if (tabCache.current[cacheKey]) {
+        setVideos(tabCache.current[cacheKey]);
+        if (wasCollapsed) {
+          requestAnimationFrame(() => {
+            flatListRef.current?.scrollToOffset({ offset: heroHeight, animated: false });
+          });
+        }
+        return;
+      }
+
+      // 2. Cache Miss: Background fetch, keep list stable and docked
+      setTabLoading(true);
+      try {
+        const vids = await fetchVideos(range);
+        tabCache.current[cacheKey] = vids;
+        setVideos(vids);
+        if (wasCollapsed) {
+          requestAnimationFrame(() => {
+            flatListRef.current?.scrollToOffset({ offset: heroHeight, animated: false });
+          });
+        }
+      } catch (err: any) {
+        console.warn('[ChannelDetail] Tab switch error:', err.message);
+      } finally {
+        setTabLoading(false);
+      }
     },
-    []
+    [fetchVideos, heroHeight]
   );
 
   const handleApplyPreset = useCallback(
@@ -308,34 +535,59 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       setDateRange('custom_range');
       setShowDateModal(false);
 
-      setLoading(true);
+      const wasCollapsed = scrollYOffset.current >= heroHeight - 15;
+      const cacheKey = `custom_range_${bounds.from}_${bounds.to}`;
+      if (tabCache.current[cacheKey]) {
+        setVideos(tabCache.current[cacheKey]);
+        if (wasCollapsed) {
+          requestAnimationFrame(() => {
+            flatListRef.current?.scrollToOffset({ offset: heroHeight, animated: false });
+          });
+        }
+        return;
+      }
+
+      setTabLoading(true);
       try {
         const vids = await fetchVideos('custom_range', bounds);
+        tabCache.current[cacheKey] = vids;
         setVideos(vids);
+        if (wasCollapsed) {
+          requestAnimationFrame(() => {
+            flatListRef.current?.scrollToOffset({ offset: heroHeight, animated: false });
+          });
+        }
+      } catch (err: any) {
+        console.warn('[ChannelDetail] Custom range error:', err.message);
       } finally {
-        setLoading(false);
+        setTabLoading(false);
       }
     },
-    [fetchVideos]
+    [fetchVideos, heroHeight]
   );
 
   const handleResetToAllTime = useCallback(() => {
     setSelectedPresetDays(null);
     setCustomBounds(null);
     setCustomLabel('📅 Custom');
-    setDateRange('custom');
     setShowDateModal(false);
-  }, []);
+    handleDateRangeChange('custom');
+  }, [handleDateRangeChange]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       const vids = await fetchVideos(dateRange);
+      const cacheKey =
+        dateRange === 'custom_range' && customBounds
+          ? `${dateRange}_${customBounds.from}_${customBounds.to}`
+          : dateRange;
+      tabCache.current[cacheKey] = vids;
       setVideos(vids);
     } finally {
       setRefreshing(false);
     }
-  }, [fetchVideos, dateRange]);
+  }, [fetchVideos, dateRange, customBounds]);
 
   const handleVideoPress = useCallback(
     (item: VideoItem) => {
@@ -375,19 +627,32 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     [dateRange, customLabel]
   );
 
-  const keyExtractor = useCallback((item: VideoItem) => item.id, []);
+  // ── WhatsApp-style Collapsible Header & Sticky Controls ────────────────────
+  const scrollYRef = useRef<Animated.Value | null>(null);
+  if (!scrollYRef.current) {
+    scrollYRef.current = new Animated.Value(0);
+  }
+  const scrollY = scrollYRef.current;
 
-  const renderItem = useCallback(
-    ({ item }: ListRenderItemInfo<VideoItem>) => (
-      <VideoCard
-        item={item}
-        styles={styles}
-        colors={colors}
-        onPress={handleVideoPress}
-      />
-    ),
-    [styles, colors, handleVideoPress]
-  );
+  // Header compact profile (avatar + title) smoothly animates in ONLY when hero reaches header
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, Math.max(heroHeight - 30, 80), heroHeight],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+
+  const headerTranslateY = scrollY.interpolate({
+    inputRange: [0, Math.max(heroHeight - 30, 80), heroHeight],
+    outputRange: [8, 8, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Hero avatar subtly scales on pull-down
+  const heroAvatarScale = scrollY.interpolate({
+    inputRange: [-60, 0, heroHeight],
+    outputRange: [1.12, 1, 0.95],
+    extrapolate: 'clamp',
+  });
 
   const trackedDate = trackedSince
     ? new Date(trackedSince).toLocaleDateString('en-US', {
@@ -397,164 +662,199 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       })
     : null;
 
-  const ListHeader = useMemo(
-    () => (
-      <View>
-        {/* Channel Profile Header */}
-        <View style={styles.channelHeader}>
-          <View style={styles.avatarWrap}>
-            {thumbnailUrl ? (
-              <FastImage
-                source={{
-                  uri: thumbnailUrl,
-                  priority: FastImage.priority.high,
-                  cache: FastImage.cacheControl.immutable,
-                }}
-                style={styles.avatarImage as ImageStyle}
-                resizeMode={FastImage.resizeMode.cover}
-              />
-            ) : (
-              <Text style={styles.avatarInitials}>{getInitials(channelName)}</Text>
-            )}
-          </View>
-          <Text style={styles.channelName}>{channelName}</Text>
-          <Text style={styles.channelMeta}>
-            YouTube{trackedDate ? ` · Tracking since ${trackedDate}` : ''}
-          </Text>
-        </View>
+  const listItems = useMemo<ChannelListItem[]>(() => {
+    const items: ChannelListItem[] = [
+      { key: '__hero__', type: 'hero' },
+      { key: '__controls__', type: 'controls' },
+    ];
 
-        {/* 1. Control Bar: Full-width Live Search */}
-        <View style={styles.controlBar}>
-          <View style={styles.searchWrap}>
-            <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search videos in channel…"
-              placeholderTextColor={colors.textMuted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              returnKeyType="search"
-              clearButtonMode="while-editing"
+    if (loading && videos.length === 0) {
+      items.push({ key: '__loading__', type: 'loading' });
+    } else if (!loading && !tabLoading && filteredVideos.length === 0) {
+      items.push({ key: '__empty__', type: 'empty' });
+    } else {
+      for (const v of filteredVideos) {
+        items.push({ key: v.id, type: 'video', video: v });
+      }
+    }
+
+    return items;
+  }, [filteredVideos, loading, tabLoading, videos.length]);
+
+  const keyExtractor = useCallback((item: ChannelListItem) => item.key, []);
+
+  const renderItem = useCallback(
+    ({ item }: ListRenderItemInfo<ChannelListItem>) => {
+      switch (item.type) {
+        case 'hero':
+          return (
+            <ChannelHero
+              avatarUrl={avatarUrl}
+              channelName={channelName}
+              trackedDate={trackedDate}
+              styles={styles}
+              heroAvatarScale={heroAvatarScale}
+              onLayout={onHeroLayout}
             />
-            {Boolean(searchQuery) && (
-              <TouchableOpacity
-                onPress={() => setSearchQuery('')}
-                style={styles.clearSearchBtn}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Text style={styles.clearSearchText}>✕</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {/* 2. Date Filter Pills with Custom Date Option */}
-        <FilterPills<DateRange>
-          options={dateOptions}
-          selectedValue={dateRange}
-          onSelect={handleDateRangeChange}
-          style={styles.filterRow}
-        />
-
-        {/* 3. Result Count & Feedback */}
-        {!loading && (
-          <Text style={styles.resultCount}>
-            {searchQuery
-              ? `${filteredVideos.length} matching "${searchQuery}"`
-              : dateRange === 'popular'
-              ? `🔥 Top ${videos.length} Most Popular Videos`
-              : `${videos.length} video${videos.length !== 1 ? 's' : ''}`}
-          </Text>
-        )}
-      </View>
-    ),
+          );
+        case 'controls':
+          return (
+            <ChannelStickyControls
+              styles={styles}
+              colors={colors}
+              searchQuery={searchQuery}
+              onChangeSearchQuery={setSearchQuery}
+              onClearSearch={() => setSearchQuery('')}
+              dateOptions={dateOptions}
+              dateRange={dateRange}
+              onSelectDateRange={handleDateRangeChange}
+              resultCountText={
+                tabLoading
+                  ? '⚡ Loading uploads…'
+                  : !loading
+                  ? searchQuery
+                    ? `${filteredVideos.length} matching "${searchQuery}"`
+                    : dateRange === 'popular'
+                    ? `🔥 Top ${videos.length} Most Popular Videos`
+                    : `${videos.length} video${videos.length !== 1 ? 's' : ''}`
+                  : undefined
+              }
+            />
+          );
+        case 'loading':
+          return (
+            <View style={styles.tabLoadingBox}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.tabLoadingText}>Loading uploads…</Text>
+            </View>
+          );
+        case 'empty':
+          return (
+            <ChannelEmptyState
+              styles={styles}
+              searchQuery={searchQuery}
+              dateRange={dateRange}
+              customLabel={customLabel}
+              channelName={channelName}
+              onReset={() => {
+                setSearchQuery('');
+                handleResetToAllTime();
+              }}
+            />
+          );
+        case 'video':
+          return (
+            <VideoCard
+              item={item.video}
+              styles={styles}
+              colors={colors}
+              onPress={handleVideoPress}
+            />
+          );
+      }
+    },
     [
-      styles,
-      thumbnailUrl,
+      avatarUrl,
       channelName,
       trackedDate,
-      colors.textMuted,
+      styles,
+      colors,
+      heroAvatarScale,
+      onHeroLayout,
       searchQuery,
       dateOptions,
       dateRange,
       handleDateRangeChange,
       loading,
+      tabLoading,
       filteredVideos.length,
       videos.length,
+      customLabel,
+      handleResetToAllTime,
+      handleVideoPress,
     ]
   );
 
-  const ListEmpty = useMemo(() => {
-    if (loading) return null;
-    return (
-      <View style={styles.emptyBox}>
-        <Text style={styles.emptyEmoji}>😔</Text>
-        <Text style={styles.emptyTitle}>
-          {searchQuery
-            ? 'No Matching Videos'
-            : dateRange === 'today'
-            ? 'No Videos Today'
-            : dateRange === 'yesterday'
-            ? 'No Videos Yesterday'
-            : dateRange === 'week'
-            ? 'No Videos This Week'
-            : dateRange === 'month'
-            ? 'No Videos This Month'
-            : dateRange === 'custom_range'
-            ? `No Videos in ${customLabel}`
-            : 'No Videos Yet'}
-        </Text>
-        <Text style={styles.emptySubtitle}>
-          {searchQuery
-            ? `No videos matched "${searchQuery}". Try a different title or keyword.`
-            : `${channelName} hasn't uploaded anything in this time range.`}
-        </Text>
-        <TouchableOpacity
-          style={styles.emptyAction}
-          onPress={() => {
-            setSearchQuery('');
-            handleResetToAllTime();
-          }}
-          activeOpacity={0.8}>
-          <Text style={styles.emptyActionText}>View All Time</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }, [loading, searchQuery, dateRange, customLabel, channelName, handleResetToAllTime, styles]);
-
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      {loading ? (
-        <>
-          {ListHeader}
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>
-              {backfilling ? 'Fetching recent videos…' : 'Loading videos…'}
-            </Text>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
+      {/* ── Top Navigation Bar: WhatsApp-style with Animated Profile ── */}
+      <View style={styles.navBar}>
+        <TouchableOpacity
+          style={styles.navBackBtn}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Text style={styles.navBackChevron}>‹</Text>
+          <Text style={styles.navBackText}>Following</Text>
+        </TouchableOpacity>
+
+        <Animated.View
+          style={[
+            styles.navProfileWrap,
+            {
+              opacity: headerOpacity,
+              transform: [{ translateY: headerTranslateY }],
+            },
+          ]}>
+          <View style={styles.navAvatar}>
+            {avatarUrl ? (
+              <FastImage
+                source={{
+                  uri: avatarUrl,
+                  priority: FastImage.priority.high,
+                  cache: FastImage.cacheControl.immutable,
+                }}
+                style={styles.navAvatarImage as ImageStyle}
+                resizeMode={FastImage.resizeMode.cover}
+              />
+            ) : (
+              <Text style={styles.navAvatarInitials}>{getInitials(channelName)}</Text>
+            )}
           </View>
-        </>
-      ) : (
-        <FlatList
-          data={filteredVideos}
-          keyExtractor={keyExtractor}
-          renderItem={renderItem}
-          ListHeaderComponent={ListHeader}
-          ListEmptyComponent={ListEmpty ?? undefined}
-          contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
-          initialNumToRender={10}
-          maxToRenderPerBatch={6}
-          windowSize={5}
-          removeClippedSubviews={true}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={colors.primary}
-            />
+          <Text style={styles.navTitle} numberOfLines={1}>
+            {channelName}
+          </Text>
+        </Animated.View>
+
+        <View style={styles.navPlaceholderRight} />
+      </View>
+
+      <Animated.FlatList
+        ref={flatListRef}
+        data={listItems}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        stickyHeaderIndices={[1]}
+        snapToOffsets={[0, heroHeight]}
+        snapToEnd={false}
+        decelerationRate="fast"
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          {
+            useNativeDriver: true,
+            listener: (e: any) => {
+              scrollYOffset.current = e.nativeEvent?.contentOffset?.y ?? 0;
+            },
           }
-        />
-      )}
+        )}
+        scrollEventThrottle={16}
+        contentContainerStyle={[
+          styles.listContent,
+          { minHeight: SCREEN_HEIGHT + heroHeight + 50 },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        initialNumToRender={10}
+        maxToRenderPerBatch={6}
+        windowSize={5}
+        removeClippedSubviews={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      />
 
       {/* ── Modal 1: Custom Date Presets Picker ───────────────────────────── */}
       <Modal

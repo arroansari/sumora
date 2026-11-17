@@ -40,22 +40,17 @@ class InlinePipelineService {
 
       if (transcriptResult.status === 'transcript_unavailable' || !transcriptResult.transcript) {
         console.log(
-          `[InlinePipeline] Transcript unavailable for ${videoId}. Generating grounded metadata-based summary with Gemini...`
+          `[InlinePipeline] Native transcript unavailable for ${videoId}. Utilizing direct Gemini video/audio ingestion pipeline.`
         );
-        const existingVideo = await prisma.video.findUnique({
-          where: { videoId },
-          select: { description: true },
-        });
 
-        await summarizationService.generateSummaryFromMetadata({
+        await summarizationService.generateSummaryFromVideo({
           videoId,
           title,
           channelName: channelSource?.sourceName || undefined,
-          description: existingVideo?.description || undefined,
-          videoUrl,
+          videoUrl: videoUrl || `https://www.youtube.com/watch?v=${videoId}`,
         });
 
-        console.log(`[InlinePipeline] Metadata summary complete for video: ${videoId}`);
+        console.log(`[InlinePipeline] Direct video pipeline complete for video: ${videoId}`);
         return { videoId, status: 'completed' };
       }
 

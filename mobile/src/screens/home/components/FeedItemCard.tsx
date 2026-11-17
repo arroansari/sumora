@@ -26,6 +26,7 @@ export interface FeedCardProps {
   onShareVideo: (item: VideoItem) => void;
   onMarkDone?: (videoId: string, title: string) => void;
   onRestoreVideo?: (videoId: string) => void;
+  onChannelPress?: (channelId: string, channelName?: string) => void;
 }
 
 const getStatusConfig = (status: SummaryStatus) => {
@@ -60,6 +61,7 @@ export const FeedItemCard = React.memo<FeedCardProps>(
     onShareVideo,
     onMarkDone,
     onRestoreVideo,
+    onChannelPress,
   }) => {
     const { accentTheme } = useAppTheme();
     const publishedFormatted = item.publishedAt
@@ -70,22 +72,44 @@ export const FeedItemCard = React.memo<FeedCardProps>(
       })
       : 'Recently';
 
-    const shortOverview =
-      item.summary?.overview ||
-      (item.summaryStatus === 'completed'
-        ? 'Summary ready to read.'
+    const isDetailedReady = item.summaryStatus === 'completed' && !!item.summary?.videoOverview;
+    const isProcessing = item.summaryStatus === 'processing';
+
+    const shortOverview = isDetailedReady
+      ? item.summary?.videoOverview?.whatViewerLearns || item.summary?.overview || 'Summary ready to read.'
+      : isProcessing
+        ? 'Distilling video summary…'
         : item.summaryStatus === 'transcript_unavailable'
           ? 'An accessible transcript could not be retrieved, so a summary cannot be generated yet.'
           : item.summaryStatus === 'failed'
-            ? 'Unable to generate summary. We will retry where appropriate.'
-            : 'Your video summary is being prepared.');
+            ? 'Unable to generate summary. Tap to retry.'
+            : 'Tap Read Summary to generate a detailed breakdown with facts & timestamps.';
 
-    const statusConfig = getStatusConfig(item.summaryStatus);
+    const statusConfig = isDetailedReady
+      ? { dot: '#10B981', label: 'Summary Ready' }
+      : isProcessing
+        ? { dot: '#60A5FA', label: 'Generating Summary...' }
+        : { dot: '#8B5CF6', label: 'Tap to Distill' };
+
     const isCustom = item.isCustomImport || item.channelId === 'imported';
 
     const takeawayBullets = useMemo(() => {
+      if (!isDetailedReady && !item.summary?.keyTakeaways?.length) {
+        return [
+          'Tap "Read Summary" below to analyze this video.',
+          'Extracts chronological timestamps, key facts, and deep insights.',
+        ];
+      }
+
       const points: string[] = [];
-      if (item.summary?.keyPoints && item.summary.keyPoints.length > 0) {
+      if (item.summary?.keyTakeaways && Array.isArray(item.summary.keyTakeaways) && item.summary.keyTakeaways.length > 0) {
+        item.summary.keyTakeaways.forEach((p) => {
+          const cleaned = p.replace(/^[-•*]\s*/, '').trim();
+          if (cleaned && !points.includes(cleaned)) {
+            points.push(cleaned);
+          }
+        });
+      } else if (item.summary?.keyPoints && item.summary.keyPoints.length > 0) {
         item.summary.keyPoints.forEach((p) => {
           const cleaned = p.replace(/^[-•*]\s*/, '').trim();
           if (cleaned && !points.includes(cleaned)) {
@@ -164,18 +188,9 @@ export const FeedItemCard = React.memo<FeedCardProps>(
               </View>
             )}
             <View style={styles.badgeOverlay}>
-              {item.summaryStatus === 'completed' ? (
+              {isDetailedReady ? (
                 <View style={styles.statusBadgeShadowWrapper}>
                   <View style={styles.statusBadgeGradientWrapper}>
-                    <View
-                      style={[StyleSheet.absoluteFill, styles.statusBadgeInnerClip]}
-                      pointerEvents="none">
-                      <Image
-                        source={accentTheme.assets.button}
-                        style={styles.fullSizeImage}
-                        resizeMode="cover"
-                      />
-                    </View>
                     <Text style={styles.statusSparkle}>✦</Text>
                     <Text style={styles.statusBadgeGradientText}>Summary Ready</Text>
                   </View>
@@ -208,12 +223,18 @@ export const FeedItemCard = React.memo<FeedCardProps>(
 
               <View style={styles.channelRow}>
                 <View style={styles.channelInfoCol}>
-                  <Text
-                    style={styles.channelName}
-                    numberOfLines={1}
-                    ellipsizeMode="tail">
-                    {item.channelName || (isCustom ? 'Custom Link' : 'YouTube Creator')}
-                  </Text>
+                  <TouchableOpacity
+                    onPress={() => onChannelPress?.(item.channelId, item.channelName)}
+                    disabled={!onChannelPress || !item.channelId}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 6 }}>
+                    <Text
+                      style={styles.channelName}
+                      numberOfLines={1}
+                      ellipsizeMode="tail">
+                      {item.channelName || (isCustom ? 'Custom Link' : 'YouTube Creator')}
+                    </Text>
+                  </TouchableOpacity>
                   <Text style={styles.dot}>•</Text>
                   <Text style={styles.dateText}>{publishedFormatted}</Text>
                 </View>
@@ -279,18 +300,20 @@ export const FeedItemCard = React.memo<FeedCardProps>(
 
             <View>
               <View style={styles.actionsRow}>
-                <TouchableOpacity
-                  style={styles.readButtonLavender}
-                  onPress={() => onReadSummary(item.videoId, item.title)}
-                  activeOpacity={0.8}>
-                  <Text style={styles.readButtonTextLavender}>Read Summary</Text>
-                </TouchableOpacity>
-
                 <GradientButton
-                  title="Watch"
-                  onPress={() => onWatchVideo(item.videoUrl)}
-                  style={styles.watchGradientBtn}
+                  title="Read Summary"
+                  onPress={() => onReadSummary(item.videoId, item.title)}
+                  style={styles.readGradientBtn}
                 />
+
+                <TouchableOpacity
+                  style={styles.secondaryActionBtn}
+                  onPress={() => onWatchVideo(item.videoUrl)}
+                  activeOpacity={0.75}>
+                  <Text style={styles.secondaryActionBtnText} numberOfLines={1}>
+                    Watch
+                  </Text>
+                </TouchableOpacity>
 
                 {isCompletedView ? (
                   <TouchableOpacity

@@ -49,6 +49,81 @@ export interface ConceptItem {
   explanation: string;
 }
 
+export interface VideoOverviewData {
+  title?: string;
+  channel?: string;
+  duration?: string;
+  mainSubject?: string;
+  mainPurpose?: string;
+  whatViewerLearns?: string;
+}
+
+export interface BackgroundAndContext {
+  whyDiscussed?: string;
+  precedingEvents?: string;
+  keyEntities?: string[];
+  historicalOrTechnicalContext?: string;
+  whyItMatters?: string;
+}
+
+export interface BreakdownItem {
+  timestampRange?: string;
+  topic: string;
+  explanation: string;
+  developments?: string;
+  keyFigures?: string[];
+  evidenceOrNumbers?: string;
+  significance?: string;
+}
+
+export interface ActualEventsAndClaims {
+  establishedFacts?: string[];
+  speakerClaims?: string[];
+  allegationsAndAccusations?: string[];
+  opinionsAndInterpretations?: string[];
+  unverifiedOrDisputed?: string[];
+}
+
+export interface PersonOrOrg {
+  name: string;
+  role?: string;
+  context?: string;
+  connection?: string;
+}
+
+export interface PronunciationItem {
+  term: string;
+  readablePhonetic: string;
+  ipa?: string;
+  meaning: string;
+  contextInVideo?: string;
+}
+
+export interface StatementItem {
+  statement: string;
+  isDirectQuote?: boolean;
+  context?: string;
+  significance?: string;
+}
+
+export interface ExampleItem {
+  example: string;
+  explanation: string;
+  purpose?: string;
+}
+
+export interface FinalConclusionData {
+  bottomLine?: string;
+  supportingArguments?: string[];
+  unansweredQuestions?: string;
+}
+
+export interface TimestampItem {
+  timestamp: string;
+  label: string;
+  seconds?: number;
+}
+
 export interface VideoSummary {
   id?: string;
   videoId: string;
@@ -61,6 +136,26 @@ export interface VideoSummary {
   originalVideoUrl?: string;
   aiProvider?: string;
   modelName?: string;
+
+  // ── Advanced 11-Section Distillation Schema ──
+  videoOverview?: VideoOverviewData | null;
+  backgroundAndContext?: BackgroundAndContext | null;
+  detailedBreakdown?: BreakdownItem[];
+  actualEventsAndClaims?: ActualEventsAndClaims | null;
+  peopleAndOrganizations?: PersonOrOrg[];
+  pronunciationGuide?: PronunciationItem[];
+  importantStatements?: StatementItem[];
+  examplesAndConnections?: ExampleItem[];
+  finalConclusion?: FinalConclusionData | null;
+  keyTakeaways?: string[];
+  importantTimestamps?: TimestampItem[];
+
+  // ── Metrics ──
+  inputTokens?: number;
+  outputTokens?: number;
+  processingCost?: number;
+  processingDurationMs?: number;
+
   createdAt?: string;
   updatedAt?: string;
 }

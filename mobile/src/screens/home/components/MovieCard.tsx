@@ -263,21 +263,20 @@ export const MovieCard = React.memo<MovieCardProps>(
             {/* Action Row */}
             <View>
               <View style={styles.actionsRow}>
-                <TouchableOpacity
-                  style={styles.readButtonLavender}
+                <GradientButton
+                  title="Read Review"
                   onPress={() => onReadReview(item)}
-                  activeOpacity={0.8}>
-                  <Text style={styles.readButtonTextLavender} numberOfLines={1}>
-                    Read Review
+                  style={styles.readGradientBtn}
+                />
+
+                <TouchableOpacity
+                  style={styles.secondaryActionBtn}
+                  onPress={handleWatchTrailer}
+                  activeOpacity={0.75}>
+                  <Text style={styles.secondaryActionBtnText} numberOfLines={1}>
+                    Watch Trailer
                   </Text>
                 </TouchableOpacity>
-
-                <GradientButton
-                  title="Watch Trailer"
-                  onPress={handleWatchTrailer}
-                  style={styles.watchGradientBtn}
-                  textStyle={{ fontSize: 13, letterSpacing: -0.2 }}
-                />
 
                 {isCompletedView ? (
                   <TouchableOpacity
