@@ -125,6 +125,24 @@ class SourcesService {
 
     const normPlatform = (platform || 'youtube').toLowerCase();
 
+    const activeCount = await prisma.trackedSource.count({
+      where: { userId, platform: normPlatform, isActive: true },
+    });
+    const existing = await prisma.trackedSource.findUnique({
+      where: {
+        userId_platform_sourceId: {
+          userId,
+          platform: normPlatform,
+          sourceId,
+        },
+      },
+    });
+    if (!existing && activeCount >= 15) {
+      const error = new Error('Tracking limit reached: Maximum of 15 tracked channels allowed.');
+      error.status = 400;
+      throw error;
+    }
+
     const tracked = await prisma.trackedSource.upsert({
       where: {
         userId_platform_sourceId: {

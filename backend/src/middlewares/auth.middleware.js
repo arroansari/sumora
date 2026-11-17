@@ -22,8 +22,16 @@ async function authenticate(req, res, next) {
       });
     }
 
+    const userId = decoded?.userId || decoded?.id || decoded?.sub;
+    if (!userId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Invalid token payload',
+      });
+    }
+
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
+      where: { id: userId },
       select: {
         id: true,
         email: true,

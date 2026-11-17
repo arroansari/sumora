@@ -10,6 +10,8 @@ import {
   Alert,
   Image,
   StyleSheet,
+  Modal,
+  TextInput,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,6 +24,7 @@ import { RootStackParamList } from '../../types/navigation.types';
 import { createSummaryDetailStyles } from './SummaryDetailScreen.styles';
 import { GradientButton, TextScaleScrollbar } from '../../components/atoms';
 import { SpaceIcon } from '../../components/atoms/SpaceIcon';
+import { SummaryProgressCard } from './components/SummaryProgressCard';
 
 const READ_VIDEOS_KEY = 'sumora:read_video_ids';
 
@@ -67,6 +70,38 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [copied, setCopied] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [isScaleVisible, setIsScaleVisible] = useState<boolean>(false);
+  const [showTranscriptModal, setShowTranscriptModal] = useState<boolean>(false);
+  const [manualTranscriptText, setManualTranscriptText] = useState<string>('');
+  const [submittingTranscript, setSubmittingTranscript] = useState<boolean>(false);
+  const scrollViewRef = useRef<any>(null);
+
+  const handleOpenTimestamp = useCallback(
+    (timestampStr?: string, seconds?: number) => {
+      const targetUrl = video?.videoUrl || passedUrl;
+      if (!targetUrl) return;
+
+      let sec = seconds;
+      if (sec === undefined && timestampStr) {
+        // Parse "MM:SS" or "HH:MM:SS"
+        const cleanTs = timestampStr.split('-')[0].trim();
+        const parts = cleanTs.split(':').map((p) => parseInt(p.trim(), 10));
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          sec = parts[0] * 60 + parts[1];
+        } else if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+          sec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        }
+      }
+
+      if (sec !== undefined && sec > 0) {
+        const sep = targetUrl.includes('?') ? '&' : '?';
+        const urlWithTime = `${targetUrl}${sep}t=${Math.floor(sec)}s`;
+        Linking.openURL(urlWithTime).catch(() => Linking.openURL(targetUrl));
+      } else {
+        Linking.openURL(targetUrl).catch(() => {});
+      }
+    },
+    [video, passedUrl]
+  );
 
   useEffect(() => {
     async function checkCompleted() {
@@ -141,7 +176,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     pollTimerRef.current = setInterval(async () => {
       try {
         const freshVideo = await videosApi.getVideo(videoId);
-        if (freshVideo.summaryStatus === 'completed' && freshVideo.summary) {
+        if (freshVideo.summaryStatus === 'completed' && freshVideo.summary && freshVideo.summary.videoOverview) {
           setVideo(freshVideo);
           setSummary(freshVideo.summary);
           setStatus('completed');
@@ -180,6 +215,28 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       setGenerating(false);
     }
   }, [activeSpace, videoId, startPolling]);
+
+  const handleSubmitManualTranscript = useCallback(async () => {
+    if (!manualTranscriptText.trim()) {
+      Alert.alert('Empty Transcript', 'Please paste or enter the video transcript text.');
+      return;
+    }
+    setSubmittingTranscript(true);
+    try {
+      await videosApi.submitTranscript(videoId, {
+        text: manualTranscriptText.trim(),
+      });
+      setShowTranscriptModal(false);
+      setManualTranscriptText('');
+      setStatus('processing');
+      setStatusMessage('Analyzing and distilling comprehensive 11-section summary…');
+      handleTriggerSummary();
+    } catch (err: any) {
+      Alert.alert('Submission Error', err.message || 'Could not submit transcript.');
+    } finally {
+      setSubmittingTranscript(false);
+    }
+  }, [videoId, manualTranscriptText, handleTriggerSummary]);
 
   // Load or apply summary data
   useEffect(() => {
@@ -220,6 +277,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           summaryStatus: 'completed',
         });
         setSummary({
+          ...passedSummary,
           videoId,
           overview: passedSummary.overview,
           keyPoints: keyPts,
@@ -236,15 +294,24 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               ? ['Debate', 'Community']
               : ['Video Summary']),
           aiProvider:
-            activeSpace === 'OPEN_LIBRARY'
+            passedSummary.aiProvider ||
+            (activeSpace === 'OPEN_LIBRARY'
               ? 'Open Library Distilled Engine'
               : activeSpace === 'TMDB'
               ? 'TMDB Critic Engine'
-              : 'Grounded Engine',
+              : 'Grounded Engine'),
         });
-        setStatus('completed');
-        setLoading(false);
-        return;
+        if (activeSpace === 'YOUTUBE' && !passedSummary.videoOverview) {
+          setStatus('processing');
+          setStatusMessage('Distilling video summary…');
+          setGenerating(true);
+        } else {
+          setStatus('completed');
+        }
+        if (activeSpace !== 'YOUTUBE') {
+          setLoading(false);
+          return;
+        }
       }
 
       // 2. Reddit Space fetch fallback
@@ -328,7 +395,8 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           setSummary(videoData.summary || null);
           setStatus(videoData.summaryStatus);
 
-          if (videoData.summaryStatus === 'completed') {
+          const hasDetailed = videoData.summary && videoData.summary.videoOverview;
+          if (videoData.summaryStatus === 'completed' && hasDetailed) {
             setLoading(false);
             return;
           }
@@ -612,7 +680,10 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
       </View>
 
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollViewRef}
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           {/* 1. Media Preview Area (Adapts to Space) */}
           <View
@@ -695,28 +766,30 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
           </View>
 
-          {/* Processing / Distilling State Banner (Only when processing) */}
-          {status !== 'completed' && (
-            <View style={styles.statusBox}>
-              <ActivityIndicator color={domainMeta.themeColor} size="small" />
-              <Text style={styles.statusBoxTitle}>{statusMessage}</Text>
-              <Text style={styles.statusBoxSub}>
-                Extracting the core takeaways into easy, bite-sized points…
+          {/* Honest Unavailable State Card */}
+          {status === 'transcript_unavailable' && (
+            <View style={styles.unavailableCard}>
+              <Text style={styles.unavailableIcon}>📝</Text>
+              <Text style={styles.unavailableTitle}>No Public Captions Available</Text>
+              <Text style={styles.unavailableSubtitle}>
+                This video does not have accessible public subtitles. Per our strict zero-hallucination policy, we never generate summaries using only video titles or descriptions.
               </Text>
-              {status === 'failed' && (
-                <TouchableOpacity
-                  style={{
-                    marginTop: 14,
-                    paddingHorizontal: 20,
-                    paddingVertical: 10,
-                    borderRadius: 10,
-                    backgroundColor: domainMeta.themeColor,
-                  }}
-                  onPress={handleTriggerSummary}>
-                  <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Retry Distillation</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={styles.manualInputBtn}
+                activeOpacity={0.8}
+                onPress={() => setShowTranscriptModal(true)}>
+                <Text style={styles.manualInputBtnText}>+ Paste / Upload Transcript</Text>
+              </TouchableOpacity>
             </View>
+          )}
+
+          {/* Dynamic Step-by-Step Progress Card */}
+          {status !== 'completed' && status !== 'transcript_unavailable' && (
+            <SummaryProgressCard
+              status={status}
+              themeColor={domainMeta.themeColor}
+              onRetry={handleTriggerSummary}
+            />
           )}
 
           {/* Summary Content */}
@@ -768,7 +841,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                       </View>
                       <View style={[styles.heroBadge, { backgroundColor: `${domainMeta.themeColor}22` }]}>
                         <Text style={[styles.heroBadgeText, { color: domainMeta.themeColor }]}>
-                          {domainMeta.heroBadge}
+                          {summary.videoOverview?.mainSubject ? 'Distillation' : domainMeta.heroBadge}
                         </Text>
                       </View>
                     </View>
@@ -780,18 +853,52 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                           lineHeight: Math.round(25 * textScale),
                         },
                       ]}>
-                      {summary.overview}
+                      {summary.videoOverview?.whatViewerLearns || summary.overview}
                     </Text>
                   </View>
 
-                  {/* 2. Key Takeaways */}
-                  {summary.keyPoints && summary.keyPoints.length > 0 && (
+                  {/* 2. Background and Context Card */}
+                  {summary.backgroundAndContext && (
+                    <View style={styles.sectionCard}>
+                      <View style={styles.sectionHeadingRow}>
+                        <Text style={styles.sectionHeading}>🏛️ Background & Context</Text>
+                      </View>
+                      {summary.backgroundAndContext.whyDiscussed && (
+                        <View style={{ marginBottom: 8 }}>
+                          <Text style={styles.breakdownSubLabel}>Why This Matters Now</Text>
+                          <Text style={styles.breakdownSubText}>
+                            {summary.backgroundAndContext.whyDiscussed}
+                          </Text>
+                        </View>
+                      )}
+                      {summary.backgroundAndContext.precedingEvents && (
+                        <View style={{ marginBottom: 8 }}>
+                          <Text style={styles.breakdownSubLabel}>Preceding Events</Text>
+                          <Text style={styles.breakdownSubText}>
+                            {summary.backgroundAndContext.precedingEvents}
+                          </Text>
+                        </View>
+                      )}
+                      {summary.backgroundAndContext.historicalOrTechnicalContext && (
+                        <View style={{ marginBottom: 8 }}>
+                          <Text style={styles.breakdownSubLabel}>Context & Key Entities</Text>
+                          <Text style={styles.breakdownSubText}>
+                            {summary.backgroundAndContext.historicalOrTechnicalContext}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* 3. Key Takeaways */}
+                  {((summary.keyTakeaways && summary.keyTakeaways.length > 0) ||
+                    (summary.keyPoints && summary.keyPoints.length > 0)) && (
                     <View style={styles.sectionCard}>
                       <View style={styles.sectionHeadingRow}>
                         <Text style={styles.sectionHeading}>{domainMeta.takeawaysTitle}</Text>
                       </View>
                       <View style={styles.takeawaysList}>
-                        {summary.keyPoints.map((point, index) => (
+                        {(summary.keyTakeaways?.length ? summary.keyTakeaways : summary.keyPoints).map((point, index) => (
                           <View key={index} style={styles.takeawayItem}>
                             <View
                               style={[
@@ -822,7 +929,141 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     </View>
                   )}
 
-                  {/* 3. Important Concepts */}
+                  {/* 4. Facts vs Allegations vs Opinions */}
+                  {summary.actualEventsAndClaims &&
+                    ((summary.actualEventsAndClaims.establishedFacts && summary.actualEventsAndClaims.establishedFacts.length > 0) ||
+                      (summary.actualEventsAndClaims.speakerClaims && summary.actualEventsAndClaims.speakerClaims.length > 0) ||
+                      (summary.actualEventsAndClaims.allegationsAndAccusations && summary.actualEventsAndClaims.allegationsAndAccusations.length > 0) ||
+                      (summary.actualEventsAndClaims.opinionsAndInterpretations && summary.actualEventsAndClaims.opinionsAndInterpretations.length > 0)) && (
+                    <View style={styles.sectionCard}>
+                      <View style={styles.sectionHeadingRow}>
+                        <Text style={styles.sectionHeading}>
+                          {summary.actualEventsAndClaims.allegationsAndAccusations &&
+                          summary.actualEventsAndClaims.allegationsAndAccusations.length > 0
+                            ? '⚖️ Events, Claims & Allegations'
+                            : '💡 Key Facts & Insights'}
+                        </Text>
+                      </View>
+
+                      {/* Established Facts */}
+                      {summary.actualEventsAndClaims.establishedFacts &&
+                        summary.actualEventsAndClaims.establishedFacts.length > 0 && (
+                          <View style={styles.claimGroup}>
+                            <View style={[styles.claimBadge, { backgroundColor: '#10B98118' }]}>
+                              <Text style={[styles.claimBadgeText, { color: '#059669' }]}>
+                                ✓ ESTABLISHED FACTS
+                              </Text>
+                            </View>
+                            {summary.actualEventsAndClaims.establishedFacts.map((fact, idx) => (
+                              <View key={idx} style={styles.claimRow}>
+                                <Text style={[styles.claimDot, { color: '#059669' }]}>•</Text>
+                                <Text style={styles.claimText}>{fact}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+
+                      {/* Speaker Claims */}
+                      {summary.actualEventsAndClaims.speakerClaims &&
+                        summary.actualEventsAndClaims.speakerClaims.length > 0 && (
+                          <View style={styles.claimGroup}>
+                            <View style={[styles.claimBadge, { backgroundColor: '#6366F118' }]}>
+                              <Text style={[styles.claimBadgeText, { color: '#4F46E5' }]}>
+                                📢 SPEAKER CLAIMS
+                              </Text>
+                            </View>
+                            {summary.actualEventsAndClaims.speakerClaims.map((claim, idx) => (
+                              <View key={idx} style={styles.claimRow}>
+                                <Text style={[styles.claimDot, { color: '#4F46E5' }]}>•</Text>
+                                <Text style={styles.claimText}>{claim}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+
+                      {/* Allegations & Accusations */}
+                      {summary.actualEventsAndClaims.allegationsAndAccusations &&
+                        summary.actualEventsAndClaims.allegationsAndAccusations.length > 0 && (
+                          <View style={styles.claimGroup}>
+                            <View style={[styles.claimBadge, { backgroundColor: '#F59E0B18' }]}>
+                              <Text style={[styles.claimBadgeText, { color: '#D97706' }]}>
+                                ⚠️ ALLEGATIONS & PROBES
+                              </Text>
+                            </View>
+                            {summary.actualEventsAndClaims.allegationsAndAccusations.map((item, idx) => (
+                              <View key={idx} style={styles.claimRow}>
+                                <Text style={[styles.claimDot, { color: '#D97706' }]}>•</Text>
+                                <Text style={styles.claimText}>{item}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+
+                      {/* Opinions & Commentary */}
+                      {summary.actualEventsAndClaims.opinionsAndInterpretations &&
+                        summary.actualEventsAndClaims.opinionsAndInterpretations.length > 0 && (
+                          <View style={styles.claimGroup}>
+                            <View style={[styles.claimBadge, { backgroundColor: '#8B5CF618' }]}>
+                              <Text style={[styles.claimBadgeText, { color: '#7C3AED' }]}>
+                                💬 OPINIONS & INTERPRETATIONS
+                              </Text>
+                            </View>
+                            {summary.actualEventsAndClaims.opinionsAndInterpretations.map((op, idx) => (
+                              <View key={idx} style={styles.claimRow}>
+                                <Text style={[styles.claimDot, { color: '#7C3AED' }]}>•</Text>
+                                <Text style={styles.claimText}>{op}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+
+                      {/* Unverified / Disputed */}
+                      {summary.actualEventsAndClaims.unverifiedOrDisputed &&
+                        summary.actualEventsAndClaims.unverifiedOrDisputed.length > 0 && (
+                          <View style={styles.claimGroup}>
+                            <View style={[styles.claimBadge, { backgroundColor: '#64748B18' }]}>
+                              <Text style={[styles.claimBadgeText, { color: '#475569' }]}>
+                                ❓ UNVERIFIED / DISPUTED
+                              </Text>
+                            </View>
+                            {summary.actualEventsAndClaims.unverifiedOrDisputed.map((unv, idx) => (
+                              <View key={idx} style={styles.claimRow}>
+                                <Text style={[styles.claimDot, { color: '#475569' }]}>•</Text>
+                                <Text style={styles.claimText}>{unv}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                    </View>
+                  )}
+
+                  {/* 5. Pronunciation Guide */}
+                  {summary.pronunciationGuide && summary.pronunciationGuide.length > 0 && (
+                    <View style={styles.sectionCard}>
+                      <View style={styles.sectionHeadingRow}>
+                        <Text style={styles.sectionHeading}>🗣️ Pronunciation & Terminology</Text>
+                      </View>
+                      {summary.pronunciationGuide.map((item, index) => (
+                        <View key={index} style={styles.pronunciationCard}>
+                          <View style={styles.pronunciationHeader}>
+                            <Text style={styles.pronunciationTerm}>{item.term}</Text>
+                            <View style={styles.phoneticPill}>
+                              <Text style={styles.phoneticText}>{item.readablePhonetic}</Text>
+                            </View>
+                          </View>
+                          {item.ipa ? <Text style={styles.ipaText}>IPA: {item.ipa}</Text> : null}
+                          <Text style={styles.pronunciationMeaning}>{item.meaning}</Text>
+                          {item.contextInVideo ? (
+                            <Text style={styles.pronunciationContext}>
+                              Usage in video: {item.contextInVideo}
+                            </Text>
+                          ) : null}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* 6. Important Concepts */}
                   {summary.importantConcepts && summary.importantConcepts.length > 0 && (
                     <View style={styles.sectionCard}>
                       <View style={styles.sectionHeadingRow}>
@@ -862,8 +1103,51 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               {/* TAB 2: Deep Dive (Full Story Breakdown) */}
               {viewMode === 'deepdive' && (
                 <>
-                  {/* Detailed Breakdown */}
-                  {summary.detailedSummary && (
+                  {/* 1. Chronological Video Breakdown */}
+                  {summary.detailedBreakdown && summary.detailedBreakdown.length > 0 ? (
+                    <View style={styles.sectionCard}>
+                      <View style={styles.sectionHeadingRow}>
+                        <Text style={styles.sectionHeading}>📑 Chronological Video Breakdown</Text>
+                      </View>
+                      {summary.detailedBreakdown.map((section, idx) => (
+                        <View key={idx} style={styles.breakdownCard}>
+                          <View style={styles.breakdownHeader}>
+                            {section.timestampRange ? (
+                              <TouchableOpacity
+                                style={styles.timestampButton}
+                                activeOpacity={0.7}
+                                onPress={() => handleOpenTimestamp(section.timestampRange)}>
+                                <Text style={styles.timestampText}>⏱️ {section.timestampRange}</Text>
+                              </TouchableOpacity>
+                            ) : null}
+                            <Text style={styles.breakdownTopic}>{section.topic}</Text>
+                          </View>
+                          <Text style={styles.breakdownBody}>{section.explanation}</Text>
+
+                          {section.developments ? (
+                            <View style={styles.breakdownSubSection}>
+                              <Text style={styles.breakdownSubLabel}>Key Developments</Text>
+                              <Text style={styles.breakdownSubText}>{section.developments}</Text>
+                            </View>
+                          ) : null}
+
+                          {section.evidenceOrNumbers ? (
+                            <View style={styles.breakdownSubSection}>
+                              <Text style={styles.breakdownSubLabel}>Evidence & Details</Text>
+                              <Text style={styles.breakdownSubText}>{section.evidenceOrNumbers}</Text>
+                            </View>
+                          ) : null}
+
+                          {section.significance ? (
+                            <View style={styles.breakdownSubSection}>
+                              <Text style={styles.breakdownSubLabel}>Significance</Text>
+                              <Text style={styles.breakdownSubText}>{section.significance}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      ))}
+                    </View>
+                  ) : summary.detailedSummary ? (
                     <View style={styles.sectionCard}>
                       <View style={styles.sectionHeadingRow}>
                         <Text style={styles.sectionHeading}>{domainMeta.deepDiveTitle}</Text>
@@ -879,10 +1163,82 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                         {summary.detailedSummary}
                       </Text>
                     </View>
+                  ) : null}
+
+                  {/* 2. Important People & Organizations */}
+                  {summary.peopleAndOrganizations && summary.peopleAndOrganizations.length > 0 && (
+                    <View style={styles.sectionCard}>
+                      <View style={styles.sectionHeadingRow}>
+                        <Text style={styles.sectionHeading}>👥 Key People & Organizations</Text>
+                      </View>
+                      {summary.peopleAndOrganizations.map((person, idx) => (
+                        <View key={idx} style={styles.personCard}>
+                          <View style={styles.personAvatarBox}>
+                            <Text style={styles.personAvatarText}>
+                              {person.name ? person.name.charAt(0).toUpperCase() : '?'}
+                            </Text>
+                          </View>
+                          <View style={styles.personDetails}>
+                            <View style={styles.personNameRow}>
+                              <Text style={styles.personName}>{person.name}</Text>
+                              {person.role ? <Text style={styles.personRole}>{person.role}</Text> : null}
+                            </View>
+                            {person.connection ? (
+                              <Text style={styles.personConnection}>{person.connection}</Text>
+                            ) : person.context ? (
+                              <Text style={styles.personConnection}>{person.context}</Text>
+                            ) : null}
+                          </View>
+                        </View>
+                      ))}
+                    </View>
                   )}
 
-                  {/* Final Verdict */}
-                  {summary.conclusion && (
+                  {/* 3. Meaningful Statements & Arguments */}
+                  {summary.importantStatements && summary.importantStatements.length > 0 && (
+                    <View style={styles.sectionCard}>
+                      <View style={styles.sectionHeadingRow}>
+                        <Text style={styles.sectionHeading}>💬 Notable Statements & Arguments</Text>
+                      </View>
+                      {summary.importantStatements.map((stmt, idx) => (
+                        <View key={idx} style={styles.statementCard}>
+                          <View style={styles.statementBadgeRow}>
+                            <Text style={styles.statementQuoteBadge}>
+                              {stmt.isDirectQuote ? '“ DIRECT QUOTE ”' : 'ARGUMENT SUMMARY'}
+                            </Text>
+                          </View>
+                          <Text style={styles.statementText}>"{stmt.statement}"</Text>
+                          {stmt.context ? (
+                            <Text style={styles.statementMeta}>Context: {stmt.context}</Text>
+                          ) : null}
+                          {stmt.significance ? (
+                            <Text style={styles.statementMeta}>Why it matters: {stmt.significance}</Text>
+                          ) : null}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* 4. Examples & Real-World Connections */}
+                  {summary.examplesAndConnections && summary.examplesAndConnections.length > 0 && (
+                    <View style={styles.sectionCard}>
+                      <View style={styles.sectionHeadingRow}>
+                        <Text style={styles.sectionHeading}>🌍 Examples & Real-World Connections</Text>
+                      </View>
+                      {summary.examplesAndConnections.map((ex, idx) => (
+                        <View key={idx} style={{ marginBottom: 12 }}>
+                          <Text style={styles.conceptTitle}>{ex.example}</Text>
+                          <Text style={styles.conceptExplanation}>{ex.explanation}</Text>
+                          {ex.purpose ? (
+                            <Text style={styles.pronunciationContext}>Purpose: {ex.purpose}</Text>
+                          ) : null}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* 5. Final Conclusion */}
+                  {(summary.finalConclusion || summary.conclusion) && (
                     <View style={styles.sectionCard}>
                       <View style={styles.sectionHeadingRow}>
                         <Text style={styles.sectionHeading}>{domainMeta.verdictTitle}</Text>
@@ -895,26 +1251,31 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                             lineHeight: Math.round(24 * textScale),
                           },
                         ]}>
-                        {summary.conclusion}
+                        {summary.finalConclusion?.bottomLine || summary.conclusion}
                       </Text>
+                      {summary.finalConclusion?.supportingArguments &&
+                        summary.finalConclusion.supportingArguments.length > 0 && (
+                          <View style={{ marginTop: 10 }}>
+                            <Text style={styles.breakdownSubLabel}>Core Pillars</Text>
+                            {summary.finalConclusion.supportingArguments.map((arg, idx) => (
+                              <Text key={idx} style={[styles.claimText, { marginTop: 4 }]}>
+                                • {arg}
+                              </Text>
+                            ))}
+                          </View>
+                        )}
+                      {summary.finalConclusion?.unansweredQuestions ? (
+                        <View style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.borderSubtle }}>
+                          <Text style={styles.breakdownSubLabel}>Unanswered Questions</Text>
+                          <Text style={styles.breakdownSubText}>
+                            {summary.finalConclusion.unansweredQuestions}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
                   )}
 
-                  {/* Topics Covered */}
-                  {summary.topicsCovered && summary.topicsCovered.length > 0 && (
-                    <View style={styles.sectionCard}>
-                      <View style={styles.sectionHeadingRow}>
-                        <Text style={styles.sectionHeading}>🏷️ Topics Covered</Text>
-                      </View>
-                      <View style={styles.topicsRow}>
-                        {summary.topicsCovered.map((topic, index) => (
-                          <View key={index} style={styles.topicBadge}>
-                            <Text style={styles.topicBadgeText}>#{topic}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  )}
+
                 </>
               )}
             </>
@@ -1003,6 +1364,54 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         showFloatingTrigger={false}
         style={{ top: insets.top + 70, right: 18 }}
       />
+
+      {/* User-Provided Transcript Input Modal */}
+      <Modal
+        visible={showTranscriptModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowTranscriptModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Paste / Upload Transcript</Text>
+            <Text style={styles.modalSubtitle}>
+              Paste video captions, subtitles, or full transcript (plain text or SRT format) below.
+            </Text>
+
+            <TextInput
+              style={styles.modalTextInput}
+              multiline={true}
+              placeholder="Paste transcript or subtitles here..."
+              placeholderTextColor={colors.textMuted}
+              value={manualTranscriptText}
+              onChangeText={setManualTranscriptText}
+              autoFocus={true}
+            />
+
+            <View style={styles.modalActionsRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                activeOpacity={0.75}
+                onPress={() => setShowTranscriptModal(false)}
+                disabled={submittingTranscript}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalSubmitBtn}
+                activeOpacity={0.8}
+                onPress={handleSubmitManualTranscript}
+                disabled={submittingTranscript}>
+                {submittingTranscript ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.modalSubmitText}>Submit & Summarize</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };

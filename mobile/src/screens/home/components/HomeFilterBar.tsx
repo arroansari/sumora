@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { useAppTheme } from '../../../context/ThemeContext';
 import { createHomeStyles } from '../HomeScreen.styles';
 import { SpaceType } from '../../../types/models.types';
 
@@ -42,7 +43,56 @@ export const HomeFilterBar: React.FC<HomeFilterBarProps> = React.memo(
     activeFilter,
     onSelectFilter,
   }) => {
+    const { accentTheme } = useAppTheme();
     const currentSpace = space || (platform === 'REDDIT' ? 'REDDIT' : 'YOUTUBE');
+
+    const renderTabItem = (
+      key: string,
+      label: string,
+      isActive: boolean,
+      onPress: () => void,
+      count?: number
+    ) => (
+      <TouchableOpacity
+        key={key}
+        style={[
+          styles.filterTab,
+          isActive && styles.filterTabActive,
+          isActive && { backgroundColor: accentTheme.primary },
+        ]}
+        onPress={onPress}
+        activeOpacity={0.75}>
+        {isActive && (
+          <View
+            style={[StyleSheet.absoluteFill, styles.filterTabGradientClip]}
+            pointerEvents="none">
+            <Image
+              source={accentTheme.assets.button}
+              style={styles.fullSizeImage}
+              resizeMode="cover"
+            />
+          </View>
+        )}
+        <Text style={[styles.filterTabText, isActive && styles.filterTabTextActive]}>
+          {label}
+        </Text>
+        {typeof count === 'number' && count > 0 && (
+          <View
+            style={[
+              styles.filterTabCount,
+              isActive && styles.filterTabCountActive,
+            ]}>
+            <Text
+              style={[
+                styles.filterTabCountText,
+                isActive && styles.filterTabCountTextActive,
+              ]}>
+              {count}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
 
     // ── Cinema & OTT Filters ──
     if (currentSpace === 'TMDB') {
@@ -53,35 +103,15 @@ export const HomeFilterBar: React.FC<HomeFilterBarProps> = React.memo(
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterScrollContent}>
-            {CINEMA_FILTERS.map((f) => {
-              const isSelected = selected === f;
-              return (
-                <TouchableOpacity
-                  key={f}
-                  style={[styles.filterTab, isSelected && styles.filterTabActive]}
-                  onPress={() => onSelectFilter?.(f)}
-                  activeOpacity={0.75}>
-                  <Text style={[styles.filterTabText, isSelected && styles.filterTabTextActive]}>
-                    {f}
-                  </Text>
-                  {f === 'Saved' && savedCount > 0 && (
-                    <View
-                      style={[
-                        styles.filterTabCount,
-                        isSelected && styles.filterTabCountActive,
-                      ]}>
-                      <Text
-                        style={[
-                          styles.filterTabCountText,
-                          isSelected && styles.filterTabCountTextActive,
-                        ]}>
-                        {savedCount}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+            {CINEMA_FILTERS.map((f) =>
+              renderTabItem(
+                f,
+                f,
+                selected === f,
+                () => onSelectFilter?.(f),
+                f === 'Saved' ? savedCount : undefined
+              )
+            )}
           </ScrollView>
         </View>
       );
@@ -96,35 +126,15 @@ export const HomeFilterBar: React.FC<HomeFilterBarProps> = React.memo(
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterScrollContent}>
-            {BOOK_FILTERS.map((f) => {
-              const isSelected = selected === f;
-              return (
-                <TouchableOpacity
-                  key={f}
-                  style={[styles.filterTab, isSelected && styles.filterTabActive]}
-                  onPress={() => onSelectFilter?.(f)}
-                  activeOpacity={0.75}>
-                  <Text style={[styles.filterTabText, isSelected && styles.filterTabTextActive]}>
-                    {f}
-                  </Text>
-                  {f === 'Saved' && savedCount > 0 && (
-                    <View
-                      style={[
-                        styles.filterTabCount,
-                        isSelected && styles.filterTabCountActive,
-                      ]}>
-                      <Text
-                        style={[
-                          styles.filterTabCountText,
-                          isSelected && styles.filterTabCountTextActive,
-                        ]}>
-                        {savedCount}
-                      </Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+            {BOOK_FILTERS.map((f) =>
+              renderTabItem(
+                f,
+                f,
+                selected === f,
+                () => onSelectFilter?.(f),
+                f === 'Saved' ? savedCount : undefined
+              )
+            )}
           </ScrollView>
         </View>
       );
@@ -139,69 +149,41 @@ export const HomeFilterBar: React.FC<HomeFilterBarProps> = React.memo(
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterScrollContent}>
             {/* All Subreddits */}
-            <TouchableOpacity
-              style={[
-                styles.filterTab,
-                activeTab !== 'saved' && activeSubreddit === 'all' && styles.filterTabActive,
-              ]}
-              onPress={() => {
+            {renderTabItem(
+              'all',
+              'All Subreddits',
+              activeTab !== 'saved' && activeSubreddit === 'all',
+              () => {
                 onSelectTab('all');
                 onSelectSubreddit?.('all');
-              }}
-              activeOpacity={0.75}>
-              <Text
-                style={[
-                  styles.filterTabText,
-                  activeTab !== 'saved' && activeSubreddit === 'all' && styles.filterTabTextActive,
-                ]}>
-                All Subreddits
-              </Text>
-            </TouchableOpacity>
+              }
+            )}
 
             {/* Individual Subreddits e.g. r/technology, r/stocks */}
             {subreddits.map((sub) => {
               const cleanSub = sub.replace(/^r\//i, '');
-              const isSubActive = activeTab !== 'saved' && activeSubreddit.toLowerCase() === cleanSub.toLowerCase();
-              return (
-                <TouchableOpacity
-                  key={cleanSub}
-                  style={[styles.filterTab, isSubActive && styles.filterTabActive]}
-                  onPress={() => {
-                    onSelectTab('all');
-                    onSelectSubreddit?.(cleanSub);
-                  }}
-                  activeOpacity={0.75}>
-                  <Text style={[styles.filterTabText, isSubActive && styles.filterTabTextActive]}>
-                    r/{cleanSub}
-                  </Text>
-                </TouchableOpacity>
+              const isSubActive =
+                activeTab !== 'saved' &&
+                activeSubreddit.toLowerCase() === cleanSub.toLowerCase();
+              return renderTabItem(
+                cleanSub,
+                `r/${cleanSub}`,
+                isSubActive,
+                () => {
+                  onSelectTab('all');
+                  onSelectSubreddit?.(cleanSub);
+                }
               );
             })}
 
             {/* Saved Reddit Debates */}
-            <TouchableOpacity
-              style={[styles.filterTab, activeTab === 'saved' && styles.filterTabActive]}
-              onPress={() => onSelectTab('saved')}
-              activeOpacity={0.75}>
-              <Text style={[styles.filterTabText, activeTab === 'saved' && styles.filterTabTextActive]}>
-                Saved
-              </Text>
-              {savedCount > 0 && (
-                <View
-                  style={[
-                    styles.filterTabCount,
-                    activeTab === 'saved' && styles.filterTabCountActive,
-                  ]}>
-                  <Text
-                    style={[
-                      styles.filterTabCountText,
-                      activeTab === 'saved' && styles.filterTabCountTextActive,
-                    ]}>
-                    {savedCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
+            {renderTabItem(
+              'saved',
+              'Saved',
+              activeTab === 'saved',
+              () => onSelectTab('saved'),
+              savedCount
+            )}
           </ScrollView>
         </View>
       );
@@ -214,95 +196,44 @@ export const HomeFilterBar: React.FC<HomeFilterBarProps> = React.memo(
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterScrollContent}>
-          <TouchableOpacity
-            style={[styles.filterTab, activeTab === 'all' && styles.filterTabActive]}
-            onPress={() => onSelectTab('all')}
-            activeOpacity={0.75}>
-            <Text style={[styles.filterTabText, activeTab === 'all' && styles.filterTabTextActive]}>
-              All Activity
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterTab, activeTab === 'saved' && styles.filterTabActive]}
-            onPress={() => onSelectTab('saved')}
-            activeOpacity={0.75}>
-            <Text style={[styles.filterTabText, activeTab === 'saved' && styles.filterTabTextActive]}>
-              Saved
-            </Text>
-            {savedCount > 0 && (
-              <View
-                style={[
-                  styles.filterTabCount,
-                  activeTab === 'saved' && styles.filterTabCountActive,
-                ]}>
-                <Text
-                  style={[
-                    styles.filterTabCountText,
-                    activeTab === 'saved' && styles.filterTabCountTextActive,
-                  ]}>
-                  {savedCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterTab, activeTab === 'custom' && styles.filterTabActive]}
-            onPress={() => onSelectTab('custom')}
-            activeOpacity={0.75}>
-            <Text style={[styles.filterTabText, activeTab === 'custom' && styles.filterTabTextActive]}>
-              Custom Links
-            </Text>
-            {customCount > 0 && (
-              <View
-                style={[
-                  styles.filterTabCount,
-                  activeTab === 'custom' && styles.filterTabCountActive,
-                ]}>
-                <Text
-                  style={[
-                    styles.filterTabCountText,
-                    activeTab === 'custom' && styles.filterTabCountTextActive,
-                  ]}>
-                  {customCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterTab, activeTab === 'favorites' && styles.filterTabActive]}
-            onPress={() => onSelectTab('favorites')}
-            activeOpacity={0.75}>
-            <Text style={[styles.filterTabText, activeTab === 'favorites' && styles.filterTabTextActive]}>
-              Priority
-            </Text>
-          </TouchableOpacity>
-
-          {completedCount > 0 && (
-            <TouchableOpacity
-              style={[styles.filterTab, activeTab === 'completed' && styles.filterTabActive]}
-              onPress={() => onSelectTab('completed')}
-              activeOpacity={0.75}>
-              <Text style={[styles.filterTabText, activeTab === 'completed' && styles.filterTabTextActive]}>
-                Completed
-              </Text>
-              <View
-                style={[
-                  styles.filterTabCount,
-                  activeTab === 'completed' && styles.filterTabCountActive,
-                ]}>
-                <Text
-                  style={[
-                    styles.filterTabCountText,
-                    activeTab === 'completed' && styles.filterTabCountTextActive,
-                  ]}>
-                  {completedCount}
-                </Text>
-              </View>
-            </TouchableOpacity>
+          {renderTabItem(
+            'all',
+            'All Activity',
+            activeTab === 'all',
+            () => onSelectTab('all')
           )}
+
+          {renderTabItem(
+            'saved',
+            'Saved',
+            activeTab === 'saved',
+            () => onSelectTab('saved'),
+            savedCount
+          )}
+
+          {renderTabItem(
+            'custom',
+            'Custom Links',
+            activeTab === 'custom',
+            () => onSelectTab('custom'),
+            customCount
+          )}
+
+          {renderTabItem(
+            'favorites',
+            'Priority',
+            activeTab === 'favorites',
+            () => onSelectTab('favorites')
+          )}
+
+          {completedCount > 0 &&
+            renderTabItem(
+              'completed',
+              'Completed',
+              activeTab === 'completed',
+              () => onSelectTab('completed'),
+              completedCount
+            )}
         </ScrollView>
       </View>
     );

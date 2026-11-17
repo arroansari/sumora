@@ -8,6 +8,105 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
       backgroundColor: colors.background,
     },
 
+    // ── WhatsApp Collapsing Header ──────────────────────────────────────────
+    navBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      height: 52,
+      paddingHorizontal: 16,
+      backgroundColor: colors.surface,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+      zIndex: 100,
+    },
+    navBackBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceSubtle,
+      gap: 4,
+    },
+    navBackChevron: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    navBackText: {
+      fontSize: 14,
+      fontFamily: 'PlusJakartaSans-Bold',
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    navProfileWrap: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginLeft: 12,
+      gap: 8,
+    },
+    navAvatar: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      overflow: 'hidden',
+      backgroundColor: `${colors.primary}20`,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    navAvatarImage: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+    },
+    navAvatarInitials: {
+      fontSize: 12,
+      fontFamily: 'PlusJakartaSans-ExtraBold',
+      fontWeight: '800',
+      color: colors.primary,
+    },
+    navTitle: {
+      fontSize: 16,
+      fontFamily: 'PlusJakartaSans-Bold',
+      fontWeight: '700',
+      color: colors.textPrimary,
+      flexShrink: 1,
+    },
+    navPlaceholderRight: {
+      width: 20,
+    },
+
+    // ── Sticky Controls (Search + Tabs) ─────────────────────────────────────
+    stickyControlsWrap: {
+      backgroundColor: colors.surface,
+      paddingTop: 10,
+      paddingBottom: 6,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+      zIndex: 90,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.04,
+      shadowRadius: 3,
+      elevation: 3,
+    },
+
+    tabLoadingBox: {
+      paddingVertical: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    tabLoadingText: {
+      marginTop: 10,
+      fontSize: 13,
+      fontFamily: 'PlusJakartaSans-SemiBold',
+      color: colors.textMuted,
+    },
+
     // ── Channel Header ────────────────────────────────────────────────────────
     channelHeader: {
       alignItems: 'center',

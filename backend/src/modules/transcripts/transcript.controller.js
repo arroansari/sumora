@@ -1,4 +1,6 @@
 const transcriptService = require('./transcript.service');
+const prisma = require('../../config/db');
+const inlinePipeline = require('../pipeline/inline-pipeline.service');
 
 class TranscriptController {
   async getTranscript(req, res, next) {
@@ -43,9 +45,20 @@ class TranscriptController {
         language,
       });
 
+      // Automatically trigger summarization now that transcript is persisted
+      const video = await prisma.video.findUnique({ where: { videoId } });
+      if (video) {
+        inlinePipeline.fireAndForget({
+          videoId,
+          channelId: video.channelId,
+          title: video.title,
+          videoUrl: video.videoUrl,
+        });
+      }
+
       res.status(201).json({
         success: true,
-        message: 'Transcript processed and normalized successfully',
+        message: 'Transcript processed and normalized successfully. Summarization initiated.',
         data: result.transcript,
       });
     } catch (error) {

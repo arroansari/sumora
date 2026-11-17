@@ -259,21 +259,20 @@ export const BookCard = React.memo<BookCardProps>(
             {/* Action Row */}
             <View>
               <View style={styles.actionsRow}>
-                <TouchableOpacity
-                  style={styles.readButtonLavender}
+                <GradientButton
+                  title="Read Summary"
                   onPress={() => onReadSummary(item)}
-                  activeOpacity={0.8}>
-                  <Text style={styles.readButtonTextLavender} numberOfLines={1}>
-                    Read Summary
+                  style={styles.readGradientBtn}
+                />
+
+                <TouchableOpacity
+                  style={styles.secondaryActionBtn}
+                  onPress={handleAudioDigest}
+                  activeOpacity={0.75}>
+                  <Text style={styles.secondaryActionBtnText} numberOfLines={1}>
+                    Audio Digest
                   </Text>
                 </TouchableOpacity>
-
-                <GradientButton
-                  title="Audio Digest"
-                  onPress={handleAudioDigest}
-                  style={styles.watchGradientBtn}
-                  textStyle={{ fontSize: 13, letterSpacing: -0.2 }}
-                />
 
                 {isCompletedView ? (
                   <TouchableOpacity

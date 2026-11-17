@@ -59,6 +59,9 @@ function normalizeTranscript({ videoId, language = 'en', source, rawSegments }) 
     }
 
     const start = Math.max(0, Math.round(parseFloat(raw.start || 0) * 100) / 100);
+    if (start > 1800) {
+      break; // Cap processing to first 30 minutes per constraint
+    }
     const duration = Math.max(0, Math.round(parseFloat(raw.duration || 0) * 100) / 100);
 
     normalizedSegments.push({

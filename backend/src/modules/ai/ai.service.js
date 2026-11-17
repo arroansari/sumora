@@ -38,13 +38,14 @@ class AIService {
    * @param {object} params
    * @param {string} params.prompt
    * @param {string} [params.systemInstruction]
+   * @param {string} [params.videoUrl]
    * @param {import('./ai.provider').BaseAIProvider} [params.preferredProvider]
    */
-  async generateStructuredJson({ prompt, systemInstruction, preferredProvider = null }) {
+  async generateStructuredJson({ prompt, systemInstruction, videoUrl = null, preferredProvider = null }) {
     const primary = preferredProvider || this.getActiveProvider();
 
     try {
-      return await primary.generateStructuredJson({ prompt, systemInstruction });
+      return await primary.generateStructuredJson({ prompt, systemInstruction, videoUrl });
     } catch (primaryErr) {
       const isRateLimit =
         primaryErr.message?.includes('RESOURCE_EXHAUSTED') ||
@@ -59,7 +60,7 @@ class AIService {
 
         if (fallback && fallback.client) {
           console.log(`[AIService] 🔀 Seamlessly switched to fallback provider "${fallback.name}"`);
-          return await fallback.generateStructuredJson({ prompt, systemInstruction });
+          return await fallback.generateStructuredJson({ prompt, systemInstruction, videoUrl });
         }
       }
 

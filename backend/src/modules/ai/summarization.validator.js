@@ -1,9 +1,38 @@
 const { z } = require('zod');
 
+// Flexible string: handles string, array of strings (joins with ' • '), number, or null
+const flexibleString = z
+  .union([z.string(), z.array(z.any()), z.number()])
+  .optional()
+  .nullable()
+  .transform((val) => {
+    if (Array.isArray(val)) {
+      return val.map((x) => String(x).trim()).filter(Boolean).join(' • ');
+    }
+    if (typeof val === 'number') return String(val);
+    return (val || '').trim();
+  });
+
+// Flexible string array: handles array of strings, or single string (splits by newlines/bullets), or empty
+const flexibleStringArray = z
+  .union([z.array(z.any()), z.string(), z.number()])
+  .optional()
+  .nullable()
+  .transform((val) => {
+    if (Array.isArray(val)) {
+      return val.map((x) => String(x).trim()).filter(Boolean);
+    }
+    if (typeof val === 'string' && val.trim()) {
+      return val.split(/\n|•/).map((x) => x.trim()).filter(Boolean);
+    }
+    if (typeof val === 'number') return [String(val)];
+    return [];
+  });
+
 const conceptItemSchema = z.union([
   z.object({
     concept: z.string().trim().min(1),
-    explanation: z.string().trim().min(1),
+    explanation: flexibleString,
   }),
   z.string().trim().min(1).transform((val) => ({
     concept: val,
@@ -11,14 +40,136 @@ const conceptItemSchema = z.union([
   })),
 ]);
 
+const videoOverviewSchema = z
+  .object({
+    title: flexibleString,
+    channel: flexibleString,
+    duration: flexibleString,
+    mainSubject: flexibleString,
+    mainPurpose: flexibleString,
+    whatViewerLearns: flexibleString,
+  })
+  .optional()
+  .nullable();
+
+const backgroundAndContextSchema = z
+  .object({
+    whyDiscussed: flexibleString,
+    precedingEvents: flexibleString,
+    keyEntities: flexibleStringArray,
+    historicalOrTechnicalContext: flexibleString,
+    whyItMatters: flexibleString,
+  })
+  .optional()
+  .nullable();
+
+const breakdownItemSchema = z.object({
+  timestampRange: flexibleString,
+  topic: flexibleString,
+  explanation: flexibleString,
+  developments: flexibleString,
+  keyFigures: flexibleStringArray,
+  evidenceOrNumbers: flexibleString,
+  significance: flexibleString,
+});
+
+const actualEventsAndClaimsSchema = z
+  .object({
+    establishedFacts: flexibleStringArray,
+    speakerClaims: flexibleStringArray,
+    allegationsAndAccusations: flexibleStringArray,
+    opinionsAndInterpretations: flexibleStringArray,
+    unverifiedOrDisputed: flexibleStringArray,
+  })
+  .optional()
+  .nullable();
+
+const personOrOrgSchema = z.object({
+  name: flexibleString,
+  role: flexibleString,
+  context: flexibleString,
+  connection: flexibleString,
+});
+
+const pronunciationItemSchema = z.object({
+  term: flexibleString,
+  readablePhonetic: flexibleString,
+  ipa: flexibleString,
+  meaning: flexibleString,
+  contextInVideo: flexibleString,
+});
+
+const statementItemSchema = z.object({
+  statement: flexibleString,
+  isDirectQuote: z.boolean().optional().default(false),
+  context: flexibleString,
+  significance: flexibleString,
+});
+
+const exampleItemSchema = z.object({
+  example: flexibleString,
+  explanation: flexibleString,
+  purpose: flexibleString,
+});
+
+const finalConclusionSchema = z
+  .object({
+    bottomLine: flexibleString,
+    supportingArguments: flexibleStringArray,
+    unansweredQuestions: flexibleString,
+  })
+  .optional()
+  .nullable();
+
+const timestampItemSchema = z.object({
+  timestamp: flexibleString,
+  label: flexibleString,
+  seconds: z.number().optional().default(0),
+});
+
 const videoSummaryOutputSchema = z.object({
-  overview: z.string().trim().min(10, 'Overview must be at least 10 characters long'),
-  keyPoints: z.array(z.string().trim().min(1)).min(1, 'At least one key point is required'),
+  // Legacy / core compatible fields
+  overview: z
+    .union([z.string(), z.array(z.any()), z.number()])
+    .transform((val) => {
+      if (Array.isArray(val)) return val.map((x) => String(x).trim()).filter(Boolean).join(' • ');
+      if (typeof val === 'number') return String(val);
+      return (val || '').trim();
+    })
+    .pipe(z.string().min(5, 'Overview is required')),
+  keyPoints: flexibleStringArray,
   importantConcepts: z.array(conceptItemSchema).default([]),
-  detailedSummary: z.string().trim().min(20, 'Detailed summary must be at least 20 characters long'),
-  conclusion: z.string().trim().min(5, 'Conclusion must be at least 5 characters long'),
-  topicsCovered: z.array(z.string().trim().min(1)).min(1, 'At least one topic must be listed'),
+  detailedSummary: z
+    .union([z.string(), z.array(z.any()), z.number()])
+    .transform((val) => {
+      if (Array.isArray(val)) return val.map((x) => String(x).trim()).filter(Boolean).join('\n\n');
+      if (typeof val === 'number') return String(val);
+      return (val || '').trim();
+    })
+    .pipe(z.string().min(5, 'Detailed summary is required')),
+  conclusion: z
+    .union([z.string(), z.array(z.any()), z.number()])
+    .transform((val) => {
+      if (Array.isArray(val)) return val.map((x) => String(x).trim()).filter(Boolean).join(' • ');
+      if (typeof val === 'number') return String(val);
+      return (val || '').trim();
+    })
+    .pipe(z.string().min(2, 'Conclusion is required')),
+  topicsCovered: flexibleStringArray,
   originalVideoUrl: z.string().optional().default(''),
+
+  // 11-section advanced fields
+  videoOverview: videoOverviewSchema,
+  backgroundAndContext: backgroundAndContextSchema,
+  detailedBreakdown: z.array(breakdownItemSchema).optional().default([]),
+  actualEventsAndClaims: actualEventsAndClaimsSchema,
+  peopleAndOrganizations: z.array(personOrOrgSchema).optional().default([]),
+  pronunciationGuide: z.array(pronunciationItemSchema).optional().default([]),
+  importantStatements: z.array(statementItemSchema).optional().default([]),
+  examplesAndConnections: z.array(exampleItemSchema).optional().default([]),
+  finalConclusion: finalConclusionSchema,
+  keyTakeaways: flexibleStringArray,
+  importantTimestamps: z.array(timestampItemSchema).optional().default([]),
 });
 
 /**
@@ -27,6 +178,26 @@ const videoSummaryOutputSchema = z.object({
  * @returns {object} Validated and formatted summary object
  */
 function validateStructuredSummary(rawOutput) {
+  if (!rawOutput || typeof rawOutput !== 'object') {
+    throw new Error('Summary output must be a valid object');
+  }
+
+  // Graceful fallbacks for legacy fields if model only returned the 11-section schema
+  if (!rawOutput.overview && rawOutput.videoOverview?.whatViewerLearns) {
+    rawOutput.overview = rawOutput.videoOverview.whatViewerLearns;
+  }
+  if ((!rawOutput.keyPoints || rawOutput.keyPoints.length === 0) && rawOutput.keyTakeaways?.length > 0) {
+    rawOutput.keyPoints = rawOutput.keyTakeaways;
+  }
+  if (!rawOutput.conclusion && rawOutput.finalConclusion?.bottomLine) {
+    rawOutput.conclusion = rawOutput.finalConclusion.bottomLine;
+  }
+  if (!rawOutput.detailedSummary && rawOutput.detailedBreakdown?.length > 0) {
+    rawOutput.detailedSummary = rawOutput.detailedBreakdown
+      .map((b) => `### ${b.timestampRange ? `[${b.timestampRange}] ` : ''}${b.topic}\n\n${b.explanation}`)
+      .join('\n\n');
+  }
+
   return videoSummaryOutputSchema.parse(rawOutput);
 }
 
@@ -34,4 +205,3 @@ module.exports = {
   videoSummaryOutputSchema,
   validateStructuredSummary,
 };
-

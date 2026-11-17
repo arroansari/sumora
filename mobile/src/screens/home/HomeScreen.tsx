@@ -46,6 +46,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     setActiveTab,
     favoriteChannelIds,
     bookmarkedVideoIds,
+    channelAvatarMap,
     displayedVideos,
     handleRefresh,
     handleReadSummary,
@@ -113,6 +114,19 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     celebrationVideoTitle,
   } = useHomeDomainData({ navigation, activeSpace });
 
+  // Channel Press Handler -> ChannelDetailScreen
+  const handleChannelPress = useCallback(
+    (channelId: string, channelName?: string) => {
+      if (!channelId) return;
+      navigation.navigate('ChannelDetail', {
+        channelId,
+        channelName: channelName || 'Channel Details',
+        thumbnailUrl: channelAvatarMap[channelId] || null,
+      });
+    },
+    [navigation, channelAvatarMap]
+  );
+
   // YouTube Card Renderer
   const renderVideoItem = useCallback(
     ({ item }: ListRenderItemInfo<VideoItem>) => (
@@ -130,6 +144,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         onShareVideo={handleShareVideo}
         onMarkDone={handleMarkDone}
         onRestoreVideo={handleRestoreVideo}
+        onChannelPress={handleChannelPress}
       />
     ),
     [
@@ -145,6 +160,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
       handleShareVideo,
       handleMarkDone,
       handleRestoreVideo,
+      handleChannelPress,
     ]
   );
 

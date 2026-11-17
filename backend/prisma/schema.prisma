@@ -116,19 +116,39 @@ model VideoTranscript {
 }
 
 model VideoSummary {
-  id                String   @id @default(uuid())
-  videoId           String   @unique
-  video             Video    @relation(fields: [videoId], references: [videoId], onDelete: Cascade)
-  overview          String   @db.Text
-  keyPoints         Json     // Array of key points
-  importantConcepts Json     // Array of { concept: string, explanation: string } or list of concepts
-  detailedSummary   String   @db.Text
-  conclusion        String   @db.Text
-  topicsCovered     Json     // Array of topic strings
-  aiProvider        String   // e.g. "gemini", "openai"
-  modelName         String   // e.g. "gemini-1.5-flash", "gpt-4o-mini"
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                      String   @id @default(uuid())
+  videoId                 String   @unique
+  video                   Video    @relation(fields: [videoId], references: [videoId], onDelete: Cascade)
+  overview                String   @db.Text
+  keyPoints               Json     // Array of key points (backward compatible)
+  importantConcepts       Json     // Array of concepts (backward compatible)
+  detailedSummary         String   @db.Text
+  conclusion              String   @db.Text
+  topicsCovered           Json     // Array of topic strings
+  aiProvider              String   // e.g. "gemini", "openai"
+  modelName               String   // e.g. "gemini-1.5-flash", "gpt-4o-mini"
+  
+  // ── Advanced 11-Section Distillation Schema ──
+  videoOverview           Json?    // { title, channel, duration, mainSubject, mainPurpose, whatViewerLearns }
+  backgroundAndContext    Json?    // { whyDiscussed, precedingEvents, keyEntities, historicalOrTechnicalContext, whyItMatters }
+  detailedBreakdown       Json?    // Array of { timestampRange, topic, explanation, developments, keyFigures, evidenceOrNumbers, significance }
+  actualEventsAndClaims   Json?    // { establishedFacts, speakerClaims, allegationsAndAccusations, opinionsAndInterpretations, unverifiedOrDisputed }
+  peopleAndOrganizations  Json?    // Array of { name, role, context, connection }
+  pronunciationGuide      Json?    // Array of { term, readablePhonetic, ipa, meaning, contextInVideo }
+  importantStatements     Json?    // Array of { statement, isDirectQuote, context, significance }
+  examplesAndConnections  Json?    // Array of { example, explanation, purpose }
+  finalConclusion         Json?    // { bottomLine, supportingArguments, unansweredQuestions }
+  keyTakeaways            Json?    // Array of 5-10 detailed takeaways
+  importantTimestamps     Json?    // Array of { timestamp, label, seconds }
+  
+  // ── Cost & Token Usage Tracking ──
+  inputTokens             Int?
+  outputTokens            Int?
+  processingCost          Float?   // Estimated cost in USD
+  processingDurationMs    Int?
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   @@map("video_summaries")
 }

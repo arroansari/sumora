@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Alert, Linking, Share } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { videosApi, redditApi, contentApi } from '../../../services/api';
+import { videosApi, redditApi, contentApi, sourcesApi } from '../../../services/api';
 import { VideoItem, RedditPostItem, ContentPostItem } from '../../../types/models.types';
 import { FeedTab } from '../components/HomeFilterBar';
 
@@ -19,6 +19,7 @@ export const BOOKMARKS_CINEMA_KEY = 'sumora:bookmarked_cinema_ids';
 
 export const READ_BOOK_KEY = 'sumora:read_book_ids';
 export const BOOKMARKS_BOOK_KEY = 'sumora:bookmarked_book_ids';
+export const CHANNEL_AVATARS_STORAGE_KEY = 'sumora:channel_avatars';
 
 interface UseHomeDomainDataProps {
   navigation: any;
@@ -38,6 +39,7 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
   const [favoriteChannelIds, setFavoriteChannelIds] = useState<Set<string>>(new Set());
   const [readVideoIds, setReadVideoIds] = useState<Set<string>>(new Set());
   const [bookmarkedVideoIds, setBookmarkedVideoIds] = useState<Set<string>>(new Set());
+  const [channelAvatarMap, setChannelAvatarMap] = useState<Record<string, string>>({});
 
   // 2. Reddit Feed State
   const [redditPosts, setRedditPosts] = useState<RedditPostItem[]>([]);
@@ -77,6 +79,7 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
         bookmarkCinemaStored,
         readBookStored,
         bookmarkBookStored,
+        avatarStored,
       ] = await Promise.all([
         AsyncStorage.getItem(FAVORITES_STORAGE_KEY),
         AsyncStorage.getItem(READ_VIDEOS_KEY),
@@ -87,11 +90,17 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
         AsyncStorage.getItem(BOOKMARKS_CINEMA_KEY),
         AsyncStorage.getItem(READ_BOOK_KEY),
         AsyncStorage.getItem(BOOKMARKS_BOOK_KEY),
+        AsyncStorage.getItem(CHANNEL_AVATARS_STORAGE_KEY),
       ]);
 
       if (favStored) setFavoriteChannelIds(new Set(JSON.parse(favStored)));
       if (readStored) setReadVideoIds(new Set(JSON.parse(readStored)));
       if (bookmarkStored) setBookmarkedVideoIds(new Set(JSON.parse(bookmarkStored)));
+      if (avatarStored) {
+        try {
+          setChannelAvatarMap(JSON.parse(avatarStored));
+        } catch {}
+      }
 
       if (readRedditStored) setReadRedditIds(new Set(JSON.parse(readRedditStored)));
       if (bookmarkRedditStored) setBookmarkedRedditIds(new Set(JSON.parse(bookmarkRedditStored)));
@@ -114,6 +123,25 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
       if (res?.videos) {
         setVideos(res.videos);
       }
+      // Populate channel avatars for instant navigation from feed cards
+      sourcesApi
+        .list({ platform: 'youtube' })
+        .then((sources) => {
+          if (Array.isArray(sources)) {
+            const map: Record<string, string> = {};
+            for (const s of sources) {
+              if (s.sourceId && s.thumbnailUrl) {
+                map[s.sourceId] = s.thumbnailUrl;
+              }
+            }
+            setChannelAvatarMap((prev) => {
+              const next = { ...prev, ...map };
+              AsyncStorage.setItem(CHANNEL_AVATARS_STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+              return next;
+            });
+          }
+        })
+        .catch(() => {});
     } catch (err) {
       console.warn('[HomeScreen] Could not fetch YouTube feed:', err);
     } finally {
@@ -658,6 +686,7 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
     favoriteChannelIds,
     readVideoIds,
     bookmarkedVideoIds,
+    channelAvatarMap,
     displayedVideos,
     handleRefresh,
     handleReadSummary,

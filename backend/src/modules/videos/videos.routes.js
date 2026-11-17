@@ -1,6 +1,7 @@
 const express = require('express');
 const videosController = require('./videos.controller');
 const { authenticate } = require('../../middlewares/auth.middleware');
+const { summarizeLimiter } = require('../../middlewares/rateLimiter');
 
 const router = express.Router();
 
@@ -35,8 +36,8 @@ router.get('/:videoId/summary/status', (req, res, next) =>
   videosController.getSummaryStatus(req, res, next)
 );
 
-// Trigger summarization
-router.post('/:videoId/summarize', (req, res, next) =>
+// Trigger summarization (capped to 25/day per user)
+router.post('/:videoId/summarize', summarizeLimiter, (req, res, next) =>
   videosController.requestSummarization(req, res, next)
 );
 

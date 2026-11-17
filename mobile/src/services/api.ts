@@ -235,6 +235,16 @@ export const videosApi = {
     });
   },
 
+  submitTranscript: async (
+    videoId: string,
+    payload: { text?: string; srt?: string; language?: string }
+  ): Promise<any> => {
+    return request(`/transcripts/${videoId}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
   importByUrl: async (url: string, channelId?: string): Promise<VideoItem> => {
     const res = await request<{ data: VideoItem }>('/videos/import', {
       method: 'POST',

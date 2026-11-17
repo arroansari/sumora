@@ -167,15 +167,6 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
             <View style={styles.badgeOverlay}>
               <View style={styles.statusBadgeShadowWrapper}>
                 <View style={styles.statusBadgeGradientWrapper}>
-                  <View
-                    style={[StyleSheet.absoluteFill, styles.statusBadgeInnerClip]}
-                    pointerEvents="none">
-                    <Image
-                      source={accentTheme.assets.button}
-                      style={styles.fullSizeImage}
-                      resizeMode="cover"
-                    />
-                  </View>
                   <Text style={styles.statusSparkle}>✦</Text>
                   <Text style={styles.statusBadgeGradientText}>Debate Analyzed</Text>
                 </View>
@@ -268,20 +259,20 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
             {/* Action Row */}
             <View>
               <View style={styles.actionsRow}>
-                <TouchableOpacity
-                  style={styles.readButtonLavender}
+                <GradientButton
+                  title="Read Summary"
                   onPress={() => onReadSummary(item.externalId, item.title, item)}
-                  activeOpacity={0.8}>
-                  <Text style={styles.readButtonTextLavender} numberOfLines={1}>
-                    Read Summary
+                  style={styles.readGradientBtn}
+                />
+
+                <TouchableOpacity
+                  style={styles.secondaryActionBtn}
+                  onPress={handleOpenThread}
+                  activeOpacity={0.75}>
+                  <Text style={styles.secondaryActionBtnText} numberOfLines={1}>
+                    Open Thread
                   </Text>
                 </TouchableOpacity>
-
-                <GradientButton
-                  title="Open Thread"
-                  onPress={handleOpenThread}
-                  style={styles.watchGradientBtn}
-                />
 
                 {isCompletedView ? (
                   <TouchableOpacity

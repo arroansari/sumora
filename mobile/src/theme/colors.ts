@@ -189,8 +189,8 @@ export function buildDarkColors(theme: AppThemeOption): ThemeColors {
     secondary: theme.secondary,
     accent: theme.accent,
     tint: theme.primary,
-    badgeBg: theme.badgeBg,
-    badgeText: '#FFFFFF',
+    badgeBg: theme.primary + '22',
+    badgeText: theme.primaryLight,
     gradientStart: theme.gradientStart,
     gradientEnd: theme.gradientEnd,
   };

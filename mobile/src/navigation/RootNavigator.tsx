@@ -139,10 +139,7 @@ export const RootNavigator: React.FC = () => {
             <Stack.Screen
               name="ChannelDetail"
               component={ChannelDetailScreen}
-              options={({ route }) => ({
-                title: route.params.channelName,
-                headerBackTitle: 'Following',
-              })}
+              options={{ headerShown: false }}
             />
           </>
         )}

@@ -102,18 +102,7 @@ class VideosService {
         skip,
         take: limit,
         include: {
-          summary: {
-            select: {
-              id: true,
-              overview: true,
-              keyPoints: true,
-              conclusion: true,
-              importantConcepts: true,
-              aiProvider: true,
-              modelName: true,
-              createdAt: true,
-            },
-          },
+          summary: true,
         },
       }),
       prisma.video.count({ where: whereClause }),
@@ -241,7 +230,10 @@ class VideosService {
    * @param {string} videoId
    */
   async requestSummarization(videoId) {
-    const video = await prisma.video.findUnique({ where: { videoId } });
+    const video = await prisma.video.findUnique({
+      where: { videoId },
+      include: { summary: true },
+    });
 
     if (!video) {
       const error = new Error('Video record not found');
@@ -249,7 +241,8 @@ class VideosService {
       throw error;
     }
 
-    if (['processing', 'completed'].includes(video.summaryStatus)) {
+    const hasDetailedSummary = video.summary && video.summary.videoOverview;
+    if (video.summaryStatus === 'processing' || (video.summaryStatus === 'completed' && hasDetailedSummary)) {
       return {
         message: `Summarization already ${video.summaryStatus}`,
         status: video.summaryStatus,
@@ -593,18 +586,7 @@ class VideosService {
     const dbVideos = await prisma.video.findMany({
       where: videoIds.length > 0 ? { videoId: { in: videoIds } } : { channelId },
       include: {
-        summary: {
-          select: {
-            id: true,
-            overview: true,
-            keyPoints: true,
-            conclusion: true,
-            importantConcepts: true,
-            aiProvider: true,
-            modelName: true,
-            createdAt: true,
-          },
-        },
+        summary: true,
       },
       take: maxResults,
     });

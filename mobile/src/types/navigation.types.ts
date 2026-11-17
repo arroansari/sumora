@@ -11,7 +11,7 @@ export type RootTabParamList = {
   Profile: undefined;
 };
 
-import { SpaceType } from './models.types';
+import { SpaceType, VideoSummary } from './models.types';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -27,15 +27,7 @@ export type RootStackParamList = {
     readTime?: string;
     isReddit?: boolean;
     redditItem?: any;
-    summary?: {
-      overview?: string;
-      keyPoints?: string[];
-      importantConcepts?: Array<{ concept: string; explanation: string }>;
-      detailedSummary?: string;
-      conclusion?: string;
-      topicsCovered?: string[];
-      aiProvider?: string;
-    };
+    summary?: Partial<VideoSummary>;
   };
   ChannelDetail: {
     channelId: string;

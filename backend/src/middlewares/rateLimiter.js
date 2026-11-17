@@ -32,8 +32,26 @@ const apiLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === 'test',
 });
 
+/**
+ * Daily rate limiter for AI video summary generation.
+ * Max 25 summaries per 24 hours per user/IP to protect free-tier API quotas.
+ */
+const summarizeLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000, // 24-hour window
+  max: 25, // 25 summaries per day
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id || req.ip,
+  message: {
+    error: 'QuotaExceeded',
+    message: 'Daily summarization limit reached (25 summaries/day). Limit resets every 24 hours.',
+  },
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
 module.exports = {
   authLimiter,
   apiLimiter,
+  summarizeLimiter,
 };
 
