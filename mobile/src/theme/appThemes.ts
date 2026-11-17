@@ -32,11 +32,11 @@ import swatchVelvetOrchid from '../assets/images/themes/swatch_velvet_orchid.png
 
 export type AppThemeId =
   | 'royal_amethyst'
-  | 'champagne_gold'
   | 'emerald_prestige'
   | 'sunset_cashmere'
   | 'sapphire_celestial'
   | 'velvet_orchid'
+  | 'champagne_gold'
   // Backwards compatibility legacy aliases
   | 'royal_violet'
   | 'sunset_glow'
@@ -105,35 +105,6 @@ export const APP_THEMES: AppThemeOption[] = [
     lightBackground: '#FAF8FF',
     lightSurfaceSubtle: '#F3EFFF',
     lightBorder: '#E4DCFF',
-  },
-  {
-    id: 'champagne_gold',
-    label: 'Champagne Gold',
-    tagline: 'Opulence & Haute Horlogerie',
-    psychology: 'Obsidian bronze into lustrous Tuscan gold. Evokes timeless wealth, confidence, and high executive value.',
-    gradientStart: '#78350F',
-    gradientMid: '#D97706',
-    gradientEnd: '#FBBF24',
-    assets: {
-      header: headerChampagneGold,
-      button: buttonChampagneGold,
-      swatch: swatchChampagneGold,
-    },
-    primary: '#F59E0B',
-    primaryDark: '#B45309',
-    primaryLight: '#FDE68A',
-    secondary: '#D97706',
-    accent: '#FBBF24',
-    badgeBg: '#FEF3C7',
-    badgeText: '#B45309',
-    tint: '#F59E0B',
-    darkBackground: '#0C0A07',
-    darkSurface: '#17140F',
-    darkSurfaceSubtle: '#231E17',
-    darkBorder: 'rgba(245, 158, 11, 0.18)',
-    lightBackground: '#FAF8F5',
-    lightSurfaceSubtle: '#F7F2EB',
-    lightBorder: '#EAE0D2',
   },
   {
     id: 'emerald_prestige',
@@ -250,6 +221,35 @@ export const APP_THEMES: AppThemeOption[] = [
     lightBackground: '#FAF5FF',
     lightSurfaceSubtle: '#F5EBFF',
     lightBorder: '#EBD6FF',
+  },
+  {
+    id: 'champagne_gold',
+    label: 'Champagne Gold',
+    tagline: 'Opulence & Haute Horlogerie',
+    psychology: 'Obsidian bronze into lustrous Tuscan gold. Evokes timeless wealth, confidence, and high executive value.',
+    gradientStart: '#78350F',
+    gradientMid: '#D97706',
+    gradientEnd: '#FBBF24',
+    assets: {
+      header: headerChampagneGold,
+      button: buttonChampagneGold,
+      swatch: swatchChampagneGold,
+    },
+    primary: '#F59E0B',
+    primaryDark: '#B45309',
+    primaryLight: '#FDE68A',
+    secondary: '#D97706',
+    accent: '#FBBF24',
+    badgeBg: '#FEF3C7',
+    badgeText: '#B45309',
+    tint: '#F59E0B',
+    darkBackground: '#0C0A07',
+    darkSurface: '#17140F',
+    darkSurfaceSubtle: '#231E17',
+    darkBorder: 'rgba(245, 158, 11, 0.18)',
+    lightBackground: '#FAF8F5',
+    lightSurfaceSubtle: '#F7F2EB',
+    lightBorder: '#EAE0D2',
   },
 ];
 
