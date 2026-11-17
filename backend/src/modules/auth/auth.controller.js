@@ -53,6 +53,18 @@ class AuthController {
       next(error);
     }
   }
+
+  async deleteAccount(req, res, next) {
+    try {
+      const result = await authService.deleteAccount(req.user.id);
+      res.status(200).json({
+        success: true,
+        message: result.message,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new AuthController();

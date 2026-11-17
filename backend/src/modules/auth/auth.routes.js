@@ -10,6 +10,7 @@ router.post('/register', validateRegister, authController.register);
 router.post('/login', validateLogin, authController.login);
 router.post('/logout', authController.logout);
 router.get('/me', authenticate, authController.me);
+router.delete('/account', authenticate, authController.deleteAccount);
 
 // ─── Reddit OAuth Endpoints (/api/auth/reddit/*) ──────────────────────────────
 router.get('/reddit/connect', optionalAuthenticate, (req, res, next) =>

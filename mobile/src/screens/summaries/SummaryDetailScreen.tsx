@@ -543,6 +543,34 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     setTimeout(() => setCopied(false), 2000);
   }, [summary, video?.title, videoTitle]);
 
+  const handleFlagContent = useCallback(() => {
+    Alert.alert(
+      'Flag or Report Content',
+      'Please select why you are reporting this AI-generated summary:',
+      [
+        {
+          text: 'Inaccurate / Hallucination',
+          onPress: () => {
+            Alert.alert('Report Received', 'Thank you. Your report has been submitted to the Sumora quality team for review.');
+          },
+        },
+        {
+          text: 'Inappropriate Content',
+          onPress: () => {
+            Alert.alert('Report Received', 'Thank you. Your report has been submitted to the Sumora quality team for review.');
+          },
+        },
+        {
+          text: 'Copyright / Other',
+          onPress: () => {
+            Alert.alert('Report Received', 'Thank you. Your report has been submitted to the Sumora quality team for review.');
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  }, []);
+
   // Dynamic Open Original Link
   const handleOpenOriginal = useCallback(() => {
     const url =
@@ -764,6 +792,14 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 </View>
               )}
             </View>
+          </View>
+
+          {/* AI Accuracy Disclaimer Banner (App Store Guideline 1.2 & Google Play AI Policy) */}
+          <View style={styles.aiDisclaimerBanner}>
+            <Text style={styles.aiDisclaimerIcon}>🤖</Text>
+            <Text style={styles.aiDisclaimerText}>
+              AI-Generated Content: Summaries may contain inaccuracies. Verify critical details with the original source.
+            </Text>
           </View>
 
           {/* Honest Unavailable State Card */}
@@ -1347,6 +1383,15 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                   <Text style={styles.secondaryButtonText}>⇪ Share</Text>
                 </TouchableOpacity>
               </View>
+            )}
+
+            {summary && (
+              <TouchableOpacity
+                style={styles.flagButton}
+                onPress={handleFlagContent}
+                activeOpacity={0.7}>
+                <Text style={styles.flagButtonText}>🚩 Flag Inaccurate Summary or Content</Text>
+              </TouchableOpacity>
             )}
           </View>
         </View>

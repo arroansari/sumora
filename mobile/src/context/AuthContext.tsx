@@ -18,6 +18,7 @@ interface AuthContextType {
   login: (credentials: { email: string; password: string }) => Promise<void>;
   register: (credentials: { email: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -159,6 +160,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const deviceToken = await AsyncStorage.getItem('@sumora_device_token').catch(() => null);
+      if (deviceToken) {
+        await notificationsApi.unregisterDevice(deviceToken).catch(() => {});
+        await AsyncStorage.removeItem('@sumora_device_token').catch(() => {});
+      }
+      await authApi.deleteAccount();
+    } finally {
+      setAuthToken(null);
+      await Promise.all([
+        AsyncStorage.removeItem(STORAGE_KEYS.TOKEN),
+        AsyncStorage.removeItem(STORAGE_KEYS.USER),
+      ]).catch(() => {});
+      setUser(null);
+      setToken(null);
+      setIsLoading(false);
+    }
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -170,6 +192,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         register,
         logout,
+        deleteAccount,
       }}>
       {children}
     </AuthContext.Provider>

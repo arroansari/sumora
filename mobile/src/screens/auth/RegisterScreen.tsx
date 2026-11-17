@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useAppTheme } from '../../context/ThemeContext';
@@ -117,6 +118,22 @@ export const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.loginLink}>Sign In</Text>
             </TouchableOpacity>
           </View>
+
+          <Text style={styles.legalDisclaimerText}>
+            By creating an account, you agree to our{' '}
+            <Text
+              style={styles.legalLink}
+              onPress={() => Linking.openURL('https://sumora.app/terms').catch(() => {})}>
+              Terms of Service
+            </Text>{' '}
+            and acknowledge our{' '}
+            <Text
+              style={styles.legalLink}
+              onPress={() => Linking.openURL('https://sumora.app/privacy').catch(() => {})}>
+              Privacy Policy
+            </Text>
+            .
+          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

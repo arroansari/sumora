@@ -225,6 +225,38 @@ export const createProfileStyles = (colors: ThemeColors, scale: number = 1.0) =>
       color: colors.textMuted,
       textAlign: 'center',
     },
+    legalRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderSubtle,
+    },
+    legalText: {
+      fontSize: fs(14),
+      color: colors.textPrimary,
+      fontFamily: 'PlusJakartaSans-SemiBold',
+      fontWeight: '600',
+    },
+    legalArrow: {
+      fontSize: fs(14),
+      color: colors.textMuted,
+    },
+    deleteAccountButton: {
+      height: 48,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 4,
+    },
+    deleteAccountButtonText: {
+      color: colors.danger,
+      fontSize: fs(14),
+      fontFamily: 'PlusJakartaSans-Bold',
+      fontWeight: '700',
+      textDecorationLine: 'underline',
+    },
   });
 };
 

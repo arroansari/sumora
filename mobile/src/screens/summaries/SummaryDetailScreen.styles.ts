@@ -947,5 +947,41 @@ export const createSummaryDetailStyles = (colors: ThemeColors, scale: number = 1
       fontFamily: 'PlusJakartaSans-Bold',
       color: '#FFFFFF',
     },
+    aiDisclaimerBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surfaceSubtle,
+      borderWidth: 1,
+      borderColor: colors.borderSubtle,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      marginTop: 14,
+      gap: 8,
+    },
+    aiDisclaimerIcon: {
+      fontSize: 14,
+    },
+    aiDisclaimerText: {
+      flex: 1,
+      fontSize: fs(11.5),
+      lineHeight: lh(16),
+      color: colors.textSecondary,
+      fontFamily: 'PlusJakartaSans-Medium',
+    },
+    flagButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      marginTop: 8,
+      gap: 6,
+    },
+    flagButtonText: {
+      fontSize: fs(12),
+      color: colors.textMuted,
+      fontFamily: 'PlusJakartaSans-SemiBold',
+      textDecorationLine: 'underline',
+    },
   });
 };
