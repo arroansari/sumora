@@ -32,7 +32,7 @@ function hexToRgb(hex) {
   ];
 }
 
-function createLuxuryGradientPng(width, height, c1, c2, c3, angleDeg = 135, sheen = 0.22) {
+function createLuxuryGradientPng(width, height, c1, c2, c3, angleDeg = 135, sheen = 0.12) {
   const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const ihdrData = Buffer.alloc(13);
   ihdrData.writeUInt32BE(width, 0);
@@ -50,6 +50,7 @@ function createLuxuryGradientPng(width, height, c1, c2, c3, angleDeg = 135, shee
   const rad = (angleDeg * Math.PI) / 180;
   const cos = Math.cos(rad);
   const sin = Math.sin(rad);
+  const maxProj = 0.5 * (Math.abs(cos) + Math.abs(sin));
 
   for (let y = 0; y < height; y++) {
     raw[pos++] = 0;
@@ -57,12 +58,13 @@ function createLuxuryGradientPng(width, height, c1, c2, c3, angleDeg = 135, shee
     for (let x = 0; x < width; x++) {
       const nx = (x / width) - 0.5;
 
-      // Diagonal gradient projection
-      const proj = nx * cos + ny * sin;
-      let t = (proj + 0.5);
+      // Smooth normalized projection across the full bounding box
+      const proj = (nx * cos + ny * sin) / maxProj;
+      // Map [-1, 1] -> [0, 1]
+      let t = (proj + 1) * 0.5;
       t = Math.max(0, Math.min(1, t));
 
-      // S-curve smoothstep
+      // S-curve smoothstep for organic liquid color blending
       const st = t * t * (3 - 2 * t);
 
       let r, g, b;
@@ -78,12 +80,10 @@ function createLuxuryGradientPng(width, height, c1, c2, c3, angleDeg = 135, shee
         b = c2[2] + (c3[2] - c2[2]) * localT;
       }
 
-      // Top-left specular sheen highlight:
-      // Adds a pearlescent, luminous luxury glow
-      const distFromTopLeft = Math.sqrt((nx + 0.35) ** 2 + (ny + 0.35) ** 2);
-      const highlight = Math.max(0, 1 - distFromTopLeft * 1.4) * sheen * 255;
+      // Soft luxury glass sheen: subtle top rim specular reflection + gentle ambient lift
+      const topRim = Math.max(0, -ny) * 2; // 1.0 at very top edge, 0.0 at middle/bottom
+      const highlight = (topRim * 0.65 + 0.35) * sheen * 255;
 
-      // Subtle lift to prevent any muddy dark corners (no dark vignette)
       r = Math.round(Math.min(255, Math.max(0, r + highlight)));
       g = Math.round(Math.min(255, Math.max(0, g + highlight)));
       b = Math.round(Math.min(255, Math.max(0, b + highlight)));
@@ -103,37 +103,37 @@ function createLuxuryGradientPng(width, height, c1, c2, c3, angleDeg = 135, shee
 const outDir = path.resolve(__dirname, '../src/assets/images/themes');
 fs.mkdirSync(outDir, { recursive: true });
 
-// Lightened, luminous, rich luxury palettes
+// Ultra-luminous, rich luxury palettes without muddy black/darkness
 const themes = [
   {
     id: 'royal_amethyst',
-    // Rich imperial violet -> vibrant luminous amethyst -> radiant cobalt
-    stops: ['#581C87', '#8B5CF6', '#3B82F6'],
-  },
-  {
-    id: 'champagne_gold',
-    // Warm cognac amber -> lustrous honey -> bright champagne gold
-    stops: ['#78350F', '#D97706', '#FBBF24'],
+    // Rich royal violet -> luminous amethyst -> radiant cobalt azure
+    stops: ['#6D28D9', '#8B5CF6', '#38BDF8'],
   },
   {
     id: 'emerald_prestige',
-    // Deep pine emerald -> vibrant jade -> luminous mint
-    stops: ['#065F46', '#059669', '#34D399'],
+    // Vibrant jade emerald -> radiant emerald -> luminous mint
+    stops: ['#059669', '#10B981', '#34D399'],
   },
   {
     id: 'sunset_cashmere',
-    // Rich Venetian rose -> radiant rose -> warm coral sunset
-    stops: ['#9F1239', '#F43F5E', '#FB923C'],
+    // Rich coral crimson -> vivid warm rose -> bright golden sunset
+    stops: ['#E11D48', '#F43F5E', '#FB923C'],
   },
   {
     id: 'sapphire_celestial',
-    // Rich royal navy -> vivid electric cobalt -> brilliant sky azure
-    stops: ['#1E3A8A', '#2563EB', '#38BDF8'],
+    // Vibrant royal blue -> electric azure -> luminous sky cyan
+    stops: ['#1D4ED8', '#2563EB', '#38BDF8'],
   },
   {
     id: 'velvet_orchid',
-    // Rich Byzantine magenta -> bright orchid -> luminous coral rose
-    stops: ['#701A75', '#A855F7', '#FB7185'],
+    // Rich royal magenta -> electric purple -> radiant coral rose
+    stops: ['#9333EA', '#C026D3', '#FB7185'],
+  },
+  {
+    id: 'champagne_gold',
+    // Warm golden amber -> rich honey gold -> luminous champagne
+    stops: ['#D97706', '#F59E0B', '#FCD34D'],
   },
 ];
 
@@ -142,16 +142,16 @@ themes.forEach((t) => {
   const c2 = hexToRgb(t.stops[1]);
   const c3 = hexToRgb(t.stops[2]);
 
-  // 1. Header gradient (768 x 384, 135 deg with 0.20 sheen)
-  const headerBuf = createLuxuryGradientPng(768, 384, c1, c2, c3, 135, 0.20);
+  // 1. Header gradient (768 x 384, 135 deg with 0.10 sheen)
+  const headerBuf = createLuxuryGradientPng(768, 384, c1, c2, c3, 135, 0.10);
   fs.writeFileSync(path.join(outDir, `header_${t.id}.png`), headerBuf);
 
-  // 2. Button gradient (512 x 128, 115 deg with 0.22 sheen)
-  const btnBuf = createLuxuryGradientPng(512, 128, c1, c2, c3, 115, 0.22);
+  // 2. Button gradient (512 x 128, 135 deg with 0.12 sheen)
+  const btnBuf = createLuxuryGradientPng(512, 128, c1, c2, c3, 135, 0.12);
   fs.writeFileSync(path.join(outDir, `button_${t.id}.png`), btnBuf);
 
-  // 3. Swatch gradient (160 x 160, 135 deg with 0.24 sheen)
-  const swatchBuf = createLuxuryGradientPng(160, 160, c1, c2, c3, 135, 0.24);
+  // 3. Swatch gradient (160 x 160, 135 deg with 0.14 sheen)
+  const swatchBuf = createLuxuryGradientPng(160, 160, c1, c2, c3, 135, 0.14);
   fs.writeFileSync(path.join(outDir, `swatch_${t.id}.png`), swatchBuf);
 
   console.log(`Luminous luxury gradient generated for ${t.id} (${t.stops.join(' -> ')})`);
