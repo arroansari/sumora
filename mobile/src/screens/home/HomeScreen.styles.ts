@@ -125,12 +125,15 @@ export const createHomeStyles = (colors: ThemeColors) =>
       overflow: 'hidden',
       position: 'relative',
     },
+    filterTabGradientClip: {
+      borderRadius: 22,
+      overflow: 'hidden',
+    },
     filterTabActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
+      borderColor: 'transparent',
       shadowColor: colors.primary,
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.3,
+      shadowOpacity: 0.35,
       shadowRadius: 6,
       elevation: 3,
     },

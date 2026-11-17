@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { ScrollView, TouchableOpacity, Text, StyleSheet, View } from 'react-native';
+import { ScrollView, TouchableOpacity, Text, StyleSheet, View, Image } from 'react-native';
 import { useAppTheme } from '../../context/ThemeContext';
 
 export interface FilterPillOption<T extends string> {
@@ -20,7 +20,7 @@ function FilterPillsInner<T extends string>({
   onSelect,
   style,
 }: FilterPillsProps<T>) {
-  const { colors } = useAppTheme();
+  const { colors, accentTheme } = useAppTheme();
 
   const renderPill = useCallback(
     (opt: FilterPillOption<T>) => {
@@ -32,21 +32,32 @@ function FilterPillsInner<T extends string>({
           style={[
             styles.pill,
             isActive
-              ? { backgroundColor: colors.primary, borderColor: colors.primary }
+              ? { backgroundColor: accentTheme.primary, borderColor: 'transparent' }
               : { backgroundColor: 'transparent', borderColor: colors.border },
           ]}
           activeOpacity={0.7}>
+          {isActive && (
+            <View
+              style={[StyleSheet.absoluteFill, { borderRadius: 16, overflow: 'hidden' }]}
+              pointerEvents="none">
+              <Image
+                source={accentTheme.assets.button}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="cover"
+              />
+            </View>
+          )}
           <Text
             style={[
               styles.pillText,
-              { color: isActive ? '#FFFFFF' : colors.textSecondary },
+              { color: isActive ? '#FFFFFF' : colors.textSecondary, zIndex: 1 },
             ]}>
             {opt.label}
           </Text>
         </TouchableOpacity>
       );
     },
-    [selectedValue, onSelect, colors]
+    [selectedValue, onSelect, colors, accentTheme]
   );
 
   return (
