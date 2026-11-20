@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, Switch, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, Switch, TouchableOpacity, ScrollView, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -20,8 +20,35 @@ export const ProfileScreen: React.FC = () => {
     setTextScale,
     resetTextScale,
   } = useAppTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, deleteAccount } = useAuth();
   const styles = useMemo(() => createProfileStyles(colors, textScale), [colors, textScale]);
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account and all associated data? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Permanently',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAccount();
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'Failed to delete account. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleOpenLink = (url: string) => {
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Unable to open link', `Please visit ${url} in your browser.`);
+    });
+  };
 
   const percentage = Math.round(textScale * 100);
 
@@ -234,9 +261,36 @@ export const ProfileScreen: React.FC = () => {
           </Text>
         </Card>
 
+        {/* ── Legal & Policies ── */}
+        <Card>
+          <Text style={styles.sectionTitle}>Legal & Privacy</Text>
+          <TouchableOpacity
+            style={styles.legalRow}
+            onPress={() => handleOpenLink('https://sumora.app/privacy')}
+            activeOpacity={0.7}>
+            <Text style={styles.legalText}>Privacy Policy</Text>
+            <Text style={styles.legalArrow}>→</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.legalRow, { borderBottomWidth: 0 }]}
+            onPress={() => handleOpenLink('https://sumora.app/terms')}
+            activeOpacity={0.7}>
+            <Text style={styles.legalText}>Terms of Service & EULA</Text>
+            <Text style={styles.legalArrow}>→</Text>
+          </TouchableOpacity>
+        </Card>
+
         {/* ── Sign Out ── */}
         <TouchableOpacity style={styles.logoutButton} onPress={logout}>
           <Text style={styles.logoutButtonText}>Sign Out</Text>
+        </TouchableOpacity>
+
+        {/* ── Delete Account ── */}
+        <TouchableOpacity
+          style={styles.deleteAccountButton}
+          onPress={handleDeleteAccount}
+          activeOpacity={0.7}>
+          <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
         </TouchableOpacity>
 
         <View style={styles.footer}>

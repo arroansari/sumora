@@ -227,43 +227,11 @@ class WebSubService {
         continue;
       }
 
-      if (queue) {
-        // ── Redis available: enqueue for background worker ───────────
-        try {
-          await queue.add(
-            'fetch-transcript',
-            {
-              videoId: entry.videoId,
-              channelId: entry.channelId,
-              title: entry.title,
-              videoUrl: entry.videoUrl,
-            },
-            {
-              jobId: `transcript-${entry.videoId}`,
-              attempts: 3,
-              backoff: { type: 'exponential', delay: 5000 },
-              removeOnComplete: true,
-            }
-          );
-        } catch (queueErr) {
-          console.warn(`[WebSub] Queue.add failed for ${entry.videoId}, falling back to inline:`, queueErr.message);
-          // Fall through to inline pipeline below
-          inlinePipeline.fireAndForget({
-            videoId: entry.videoId,
-            channelId: entry.channelId,
-            title: entry.title,
-            videoUrl: entry.videoUrl,
-          });
-        }
-      } else {
-        // ── No Redis: run transcript + summary inline (non-blocking) ──
-        inlinePipeline.fireAndForget({
-          videoId: entry.videoId,
-          channelId: entry.channelId,
-          title: entry.title,
-          videoUrl: entry.videoUrl,
-        });
-      }
+      // On-demand policy: Do not auto-fetch transcripts or summaries for feed items.
+      // Video is indexed as 'pending' and only processed when the user explicitly taps to read.
+      console.log(
+        `[WebSub] Video ${entry.videoId} ("${entry.title}") indexed into feed as pending. Transcript & summary will be generated on user tap.`
+      );
     }
 
     return {

@@ -134,5 +134,18 @@ export const createRegisterStyles = (colors: ThemeColors) =>
       color: colors.primary,
       fontSize: 14,
     },
+    legalDisclaimerText: {
+      fontSize: 12,
+      color: colors.textMuted,
+      textAlign: 'center',
+      lineHeight: 18,
+      marginTop: 20,
+    },
+    legalLink: {
+      color: colors.primary,
+      fontFamily: 'PlusJakartaSans-Bold',
+      fontWeight: '700',
+      textDecorationLine: 'underline',
+    },
   });
 

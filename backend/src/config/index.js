@@ -1,3 +1,5 @@
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 require('dotenv').config();
 
 module.exports = {
@@ -46,5 +48,8 @@ module.exports = {
     provider: process.env.AI_PROVIDER || 'gemini',
     geminiApiKey: process.env.GEMINI_API_KEY,
     openaiApiKey: process.env.OPENAI_API_KEY,
+  },
+  supadata: {
+    apiKey: process.env.SUPADATA_API_KEY || 'sd_92410e265e753bc2cc4be134a377cb9c',
   },
 };

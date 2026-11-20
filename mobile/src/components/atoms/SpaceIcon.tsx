@@ -76,16 +76,12 @@ const YouTubeGlyph: React.FC<{ size: number }> = ({ size }) => {
 };
 
 /**
- * 2. Reddit Squircle Glyph
- * Orange speech bubble with Snoo silhouette (ears, face oval, orange eyes & smile).
+ * 2. Reddit Community Squircle Glyph
+ * Clean, policy-compliant orange rounded circle with crisp white "r/" community typographic badge.
  */
 const RedditGlyph: React.FC<{ size: number }> = ({ size }) => {
   const bubbleSize = Math.round(size * 0.56);
-  const faceW = Math.round(bubbleSize * 0.66);
-  const faceH = Math.round(bubbleSize * 0.48);
-  const earSize = Math.round(bubbleSize * 0.20);
-  const eyeSize = Math.round(bubbleSize * 0.12);
-  const antennaH = Math.round(bubbleSize * 0.22);
+  const fontSize = Math.round(bubbleSize * 0.54);
 
   return (
     <View
@@ -94,109 +90,23 @@ const RedditGlyph: React.FC<{ size: number }> = ({ size }) => {
         {
           width: bubbleSize,
           height: bubbleSize,
-          borderRadius: bubbleSize / 2,
+          borderRadius: Math.round(bubbleSize * 0.35),
+          justifyContent: 'center',
+          alignItems: 'center',
         },
       ]}>
-      {/* Speech bubble tail at bottom left */}
-      <View
-        style={[
-          styles.redditTail,
-          {
-            borderRightWidth: Math.round(bubbleSize * 0.22),
-            borderBottomWidth: Math.round(bubbleSize * 0.22),
-          },
-        ]}
-      />
-
-      {/* Antenna */}
-      <View
-        style={[
-          styles.redditAntenna,
-          {
-            height: antennaH,
-            top: -Math.round(antennaH * 0.65),
-            right: Math.round(bubbleSize * 0.32),
-          },
-        ]}>
-        <View style={styles.redditAntennaStem} />
-        <View style={styles.redditAntennaBall} />
-      </View>
-
-      {/* Snoo Face with Ears */}
-      <View style={[styles.redditFaceContainer, { width: faceW, height: faceH }]}>
-        {/* Left Ear */}
-        <View
-          style={[
-            styles.snooEar,
-            {
-              width: earSize,
-              height: earSize,
-              borderRadius: earSize / 2,
-              left: -Math.round(earSize * 0.4),
-            },
-          ]}
-        />
-
-        {/* Right Ear */}
-        <View
-          style={[
-            styles.snooEar,
-            {
-              width: earSize,
-              height: earSize,
-              borderRadius: earSize / 2,
-              right: -Math.round(earSize * 0.4),
-            },
-          ]}
-        />
-
-        {/* Face Oval */}
-        <View
-          style={[
-            styles.snooFaceOval,
-            {
-              width: faceW,
-              height: faceH,
-              borderRadius: faceH / 2,
-            },
-          ]}>
-          {/* Eyes */}
-          <View style={styles.redditEyesRow}>
-            <View
-              style={[
-                styles.snooEye,
-                {
-                  width: eyeSize,
-                  height: eyeSize,
-                  borderRadius: eyeSize / 2,
-                },
-              ]}
-            />
-            <View
-              style={[
-                styles.snooEye,
-                {
-                  width: eyeSize,
-                  height: eyeSize,
-                  borderRadius: eyeSize / 2,
-                },
-              ]}
-            />
-          </View>
-
-          {/* Smile */}
-          <View
-            style={[
-              styles.snooSmile,
-              {
-                width: Math.round(faceW * 0.36),
-                height: Math.round(faceH * 0.20),
-                borderRadius: Math.round(faceH * 0.12),
-              },
-            ]}
-          />
-        </View>
-      </View>
+      <Text
+        allowFontScaling={false}
+        style={{
+          color: '#FFFFFF',
+          fontWeight: '900',
+          fontSize,
+          letterSpacing: -0.5,
+          textAlign: 'center',
+          includeFontPadding: false,
+        }}>
+        r/
+      </Text>
     </View>
   );
 };

@@ -182,7 +182,33 @@ function validateStructuredSummary(rawOutput) {
     throw new Error('Summary output must be a valid object');
   }
 
-  // Graceful fallbacks for legacy fields if model only returned the 11-section schema
+  // ── Support for Lean 5-Section Schema ──
+  if (rawOutput.summary) {
+    rawOutput.overview = rawOutput.summary;
+    rawOutput.detailedSummary = rawOutput.summary;
+  }
+  if (rawOutput.highlights && Array.isArray(rawOutput.highlights) && rawOutput.highlights.length > 0) {
+    rawOutput.keyPoints = rawOutput.highlights;
+    rawOutput.keyTakeaways = rawOutput.highlights;
+  }
+  if (Array.isArray(rawOutput.keyInsights) && rawOutput.keyInsights.length > 0) {
+    rawOutput.importantConcepts = rawOutput.keyInsights.map((ki) => ({
+      concept: ki.heading || ki.concept || 'Key Insight',
+      explanation: ki.explanation || ki.text || '',
+      timestamp: ki.timestamp || undefined,
+    }));
+  }
+  if (rawOutput.title) {
+    const cleanTitle = String(rawOutput.title).replace(/^#+\s*/, '').trim();
+    rawOutput.videoOverview = {
+      ...(rawOutput.videoOverview || {}),
+      title: cleanTitle,
+      mainSubject: cleanTitle,
+      whatViewerLearns: rawOutput.summary || rawOutput.overview,
+    };
+  }
+
+  // ── Fallbacks for legacy 11-section schema ──
   if (!rawOutput.overview && rawOutput.videoOverview?.whatViewerLearns) {
     rawOutput.overview = rawOutput.videoOverview.whatViewerLearns;
   }
@@ -196,6 +222,11 @@ function validateStructuredSummary(rawOutput) {
     rawOutput.detailedSummary = rawOutput.detailedBreakdown
       .map((b) => `### ${b.timestampRange ? `[${b.timestampRange}] ` : ''}${b.topic}\n\n${b.explanation}`)
       .join('\n\n');
+  }
+
+  // Ensure topicsCovered has sensible default if missing
+  if (!rawOutput.topicsCovered || !Array.isArray(rawOutput.topicsCovered) || rawOutput.topicsCovered.length === 0) {
+    rawOutput.topicsCovered = ['Executive Summary', 'Key Insights'];
   }
 
   return videoSummaryOutputSchema.parse(rawOutput);

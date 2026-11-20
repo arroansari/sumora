@@ -77,8 +77,8 @@ async function runTests() {
   const defaultOrder = transcriptFactory.getProvidersInPriorityOrder().map((p) => p.name);
   assert.deepStrictEqual(
     defaultOrder,
-    ['youtube_captions', 'authorized_provider', 'user_provided'],
-    'Factory must prioritize youtube_captions, authorized_provider, then user_provided by default'
+    ['supadata', 'youtube_captions', 'authorized_provider', 'user_provided'],
+    'Factory must prioritize supadata, youtube_captions, authorized_provider, then user_provided by default'
   );
 
   // Test adding a custom provider

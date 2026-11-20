@@ -62,6 +62,8 @@ class WorkerManager {
     this._redisAvailable = redisAvailable;
 
     if (!redisAvailable) {
+      const { setRedisDisabled } = require('./index');
+      setRedisDisabled(true);
       console.log('[WorkerManager] Redis not available — BullMQ workers skipped.');
       console.log('[WorkerManager] Inline pipeline will process all transcript and summarization jobs.');
       return;

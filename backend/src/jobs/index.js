@@ -65,12 +65,18 @@ const QUEUE_NAMES = {
 };
 
 let queuesCache = {};
+let isRedisDisabled = false;
+
+function setRedisDisabled(disabled) {
+  isRedisDisabled = Boolean(disabled);
+}
 
 /**
  * Returns a BullMQ Queue or null when Redis is unavailable.
  * Callers must handle null and use the inline pipeline as fallback.
  */
 function getQueue(name) {
+  if (isRedisDisabled) return null;
   if (queuesCache[name] === null) return null;
 
   if (!queuesCache[name]) {
@@ -104,4 +110,4 @@ function getQueue(name) {
 
 const connection = getConnectionOptions();
 
-module.exports = { QUEUE_NAMES, getQueue, connection };
+module.exports = { QUEUE_NAMES, getQueue, connection, setRedisDisabled };

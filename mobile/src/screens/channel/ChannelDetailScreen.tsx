@@ -11,11 +11,13 @@ import {
   Modal,
   Animated,
   Dimensions,
+  Image,
+  StyleSheet,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { videosApi, integrationsApi, sourcesApi } from '../../services/api';
 import { VideoItem } from '../../types/models.types';
@@ -160,7 +162,8 @@ const VideoCard = React.memo<VideoCardProps>(({ item, styles, colors, onPress })
             {item.title}
           </Text>
           <Text style={styles.videoDate}>
-            {formatRelativeDate(item.publishedAt)}
+            {item.publishedTime || formatRelativeDate(item.publishedAt)}
+            {item.duration ? ` · ⏱️ ${item.duration}` : ''}
           </Text>
           {hasOverview && (
             <Text style={styles.videoPreview} numberOfLines={2}>
@@ -239,6 +242,8 @@ const ChannelHero = React.memo<ChannelHeroProps>(
   )
 );
 
+type SearchScope = 'channel' | 'global';
+
 interface ChannelStickyControlsProps {
   styles: ReturnType<typeof createChannelDetailStyles>;
   colors: ReturnType<typeof useAppTheme>['colors'];
@@ -248,6 +253,9 @@ interface ChannelStickyControlsProps {
   dateOptions: FilterPillOption<DateRange>[];
   dateRange: DateRange;
   onSelectDateRange: (range: DateRange) => void;
+  searchScopeOptions: FilterPillOption<SearchScope>[];
+  searchScope: SearchScope;
+  onSelectSearchScope: (scope: SearchScope) => void;
   resultCountText?: string;
 }
 
@@ -261,6 +269,9 @@ const ChannelStickyControls = React.memo<ChannelStickyControlsProps>(
     dateOptions,
     dateRange,
     onSelectDateRange,
+    searchScopeOptions,
+    searchScope,
+    onSelectSearchScope,
     resultCountText,
   }) => (
     <View style={styles.stickyControlsWrap}>
@@ -288,13 +299,22 @@ const ChannelStickyControls = React.memo<ChannelStickyControlsProps>(
         </View>
       </View>
 
-      {/* 2. Date Filter Pills with Custom Date Option */}
-      <FilterPills<DateRange>
-        options={dateOptions}
-        selectedValue={dateRange}
-        onSelect={onSelectDateRange}
-        style={styles.filterRow}
-      />
+      {/* 2. Filter Pills: Search Scope (when searching) or Date Range (when browsing) */}
+      {Boolean(searchQuery.trim()) ? (
+        <FilterPills<SearchScope>
+          options={searchScopeOptions}
+          selectedValue={searchScope}
+          onSelect={onSelectSearchScope}
+          style={styles.filterRow}
+        />
+      ) : (
+        <FilterPills<DateRange>
+          options={dateOptions}
+          selectedValue={dateRange}
+          onSelect={onSelectDateRange}
+          style={styles.filterRow}
+        />
+      )}
 
       {/* 3. Result Count & Feedback */}
       {Boolean(resultCountText) && (
@@ -311,10 +331,12 @@ interface ChannelEmptyStateProps {
   customLabel: string;
   channelName: string;
   onReset: () => void;
+  searchScope?: SearchScope;
+  onSearchGlobal?: () => void;
 }
 
 const ChannelEmptyState = React.memo<ChannelEmptyStateProps>(
-  ({ styles, searchQuery, dateRange, customLabel, channelName, onReset }) => (
+  ({ styles, searchQuery, dateRange, customLabel, channelName, onReset, searchScope, onSearchGlobal }) => (
     <View style={styles.emptyBox}>
       <Text style={styles.emptyEmoji}>😔</Text>
       <Text style={styles.emptyTitle}>
@@ -334,12 +356,20 @@ const ChannelEmptyState = React.memo<ChannelEmptyStateProps>(
       </Text>
       <Text style={styles.emptySubtitle}>
         {searchQuery
-          ? `No videos matched "${searchQuery}". Try a different title or keyword.`
+          ? searchScope === 'channel'
+            ? `No videos matched "${searchQuery}" in ${channelName}. Try searching across all of YouTube.`
+            : `No videos matched "${searchQuery}" across YouTube. Try a different title or keyword.`
           : `${channelName} hasn't uploaded anything in this time range.`}
       </Text>
-      <TouchableOpacity style={styles.emptyAction} onPress={onReset} activeOpacity={0.8}>
-        <Text style={styles.emptyActionText}>View All Time</Text>
-      </TouchableOpacity>
+      {searchQuery && searchScope === 'channel' && onSearchGlobal ? (
+        <TouchableOpacity style={styles.emptyAction} onPress={onSearchGlobal} activeOpacity={0.8}>
+          <Text style={styles.emptyActionText}>🌐 Search Across All of YouTube</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity style={styles.emptyAction} onPress={onReset} activeOpacity={0.8}>
+          <Text style={styles.emptyActionText}>View All Time</Text>
+        </TouchableOpacity>
+      )}
     </View>
   )
 );
@@ -349,6 +379,8 @@ type ChannelListItem =
   | { key: '__controls__'; type: 'controls' }
   | { key: '__loading__'; type: 'loading' }
   | { key: '__empty__'; type: 'empty' }
+  | { key: '__yt_header__'; type: 'yt_header'; title: string }
+  | { key: '__yt_loading__'; type: 'yt_loading' }
   | { key: string; type: 'video'; video: VideoItem };
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -357,7 +389,8 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { channelId, channelName, thumbnailUrl, trackedSince } = route.params;
-  const { colors } = useAppTheme();
+  const { colors, accentTheme } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createChannelDetailStyles(colors), [colors]);
 
   const flatListRef = useRef<any>(null);
@@ -404,7 +437,52 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   // Search & Date Modal state
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchScope, setSearchScope] = useState<SearchScope>('channel');
+  const [ytSearchResults, setYtSearchResults] = useState<VideoItem[]>([]);
+  const [searchingYouTube, setSearchingYouTube] = useState(false);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showDateModal, setShowDateModal] = useState(false);
+
+  const searchScopeOptions = useMemo<FilterPillOption<SearchScope>[]>(
+    () => [
+      { label: `🎯 In ${channelName}`, value: 'channel' },
+      { label: '🌐 All of YouTube', value: 'global' },
+    ],
+    [channelName]
+  );
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setYtSearchResults([]);
+      setSearchingYouTube(false);
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      return;
+    }
+
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    setSearchingYouTube(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results = await videosApi.searchYouTube(q, {
+          channelName: searchScope === 'channel' ? channelName : undefined,
+          channelId: searchScope === 'channel' ? channelId : undefined,
+          limit: 15,
+        });
+        setYtSearchResults(results);
+      } catch (err: any) {
+        console.warn('[ChannelDetail] YouTube search error:', err.message);
+        setYtSearchResults([]);
+      } finally {
+        setSearchingYouTube(false);
+      }
+    }, 400);
+
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [searchQuery, searchScope, channelName, channelId]);
 
   // Guard: only run RSS backfill once per screen mount, not on every filter change
   const hasBackfilled = useRef(false);
@@ -594,9 +672,14 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       navigation.navigate('SummaryDetail', {
         videoId: item.videoId,
         videoTitle: item.title,
+        channelName: item.channelName || channelName,
+        thumbnailUrl: item.thumbnailUrl,
+        publishedAt: item.publishedAt,
+        readTime: '1-2 Min Read',
+        summary: item.summary || undefined,
       });
     },
-    [navigation]
+    [navigation, channelName]
   );
 
   // ── Client-side Live Search ────────────────────────────────────────────────
@@ -664,22 +747,74 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const listItems = useMemo<ChannelListItem[]>(() => {
     const items: ChannelListItem[] = [
-      { key: '__hero__', type: 'hero' },
       { key: '__controls__', type: 'controls' },
     ];
 
     if (loading && videos.length === 0) {
       items.push({ key: '__loading__', type: 'loading' });
-    } else if (!loading && !tabLoading && filteredVideos.length === 0) {
-      items.push({ key: '__empty__', type: 'empty' });
-    } else {
+      return items;
+    }
+
+    const q = searchQuery.trim();
+    if (q) {
+      // 1. Show matching local channel videos first
       for (const v of filteredVideos) {
         items.push({ key: v.id, type: 'video', video: v });
+      }
+
+      // 2. Show live YouTube search loading or results
+      if (searchingYouTube) {
+        items.push({ key: '__yt_loading__', type: 'yt_loading' });
+      } else if (ytSearchResults.length > 0) {
+        const localIds = new Set(filteredVideos.map((f) => f.videoId));
+        const extraYt = ytSearchResults.filter((y) => !localIds.has(y.videoId));
+
+        if (extraYt.length > 0) {
+          items.push({
+            key: '__yt_header__',
+            type: 'yt_header',
+            title:
+              searchScope === 'global'
+                ? '🌐 YouTube Results'
+                : `🌐 Found on YouTube (${channelName})`,
+          });
+
+          for (const v of extraYt) {
+            items.push({ key: `yt_${v.videoId}`, type: 'video', video: v });
+          }
+        }
+      }
+
+      // 3. If no local AND no YouTube results and not loading -> empty state
+      if (
+        filteredVideos.length === 0 &&
+        ytSearchResults.length === 0 &&
+        !searchingYouTube
+      ) {
+        items.push({ key: '__empty__', type: 'empty' });
+      }
+    } else {
+      if (!tabLoading && filteredVideos.length === 0) {
+        items.push({ key: '__empty__', type: 'empty' });
+      } else {
+        for (const v of filteredVideos) {
+          items.push({ key: v.id, type: 'video', video: v });
+        }
       }
     }
 
     return items;
-  }, [filteredVideos, loading, tabLoading, videos.length]);
+  }, [
+    filteredVideos,
+    loading,
+    tabLoading,
+    videos.length,
+    searchQuery,
+    searchingYouTube,
+    ytSearchResults,
+    searchScope,
+    channelName,
+  ]);
 
   const keyExtractor = useCallback((item: ChannelListItem) => item.key, []);
 
@@ -708,18 +843,37 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               dateOptions={dateOptions}
               dateRange={dateRange}
               onSelectDateRange={handleDateRangeChange}
+              searchScopeOptions={searchScopeOptions}
+              searchScope={searchScope}
+              onSelectSearchScope={setSearchScope}
               resultCountText={
                 tabLoading
                   ? '⚡ Loading uploads…'
-                  : !loading
-                  ? searchQuery
-                    ? `${filteredVideos.length} matching "${searchQuery}"`
-                    : dateRange === 'popular'
-                    ? `🔥 Top ${videos.length} Most Popular Videos`
-                    : `${videos.length} video${videos.length !== 1 ? 's' : ''}`
-                  : undefined
+                  : searchingYouTube
+                  ? '⚡ Searching YouTube…'
+                  : searchQuery
+                  ? filteredVideos.length > 0 || ytSearchResults.length > 0
+                    ? `Found ${filteredVideos.length + ytSearchResults.length} matching "${searchQuery}"`
+                    : `0 matching "${searchQuery}"`
+                  : dateRange === 'popular'
+                  ? `🔥 Top ${videos.length} Most Popular Videos`
+                  : `${videos.length} video${videos.length !== 1 ? 's' : ''}`
               }
             />
+          );
+        case 'yt_header':
+          return (
+            <View style={styles.ytSectionHeader}>
+              <Text style={styles.ytSectionTitle}>{item.title}</Text>
+              <Text style={styles.ytSectionBadge}>Live YouTube</Text>
+            </View>
+          );
+        case 'yt_loading':
+          return (
+            <View style={styles.ytLoadingBox}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.ytLoadingText}>Searching YouTube for "{searchQuery}"…</Text>
+            </View>
           );
         case 'loading':
           return (
@@ -736,8 +890,11 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               dateRange={dateRange}
               customLabel={customLabel}
               channelName={channelName}
+              searchScope={searchScope}
+              onSearchGlobal={() => setSearchScope('global')}
               onReset={() => {
                 setSearchQuery('');
+                setSearchScope('channel');
                 handleResetToAllTime();
               }}
             />
@@ -765,9 +922,12 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       dateOptions,
       dateRange,
       handleDateRangeChange,
-      loading,
+      searchScopeOptions,
+      searchScope,
       tabLoading,
+      searchingYouTube,
       filteredVideos.length,
+      ytSearchResults.length,
       videos.length,
       customLabel,
       handleResetToAllTime,
@@ -776,47 +936,55 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
-      {/* ── Top Navigation Bar: WhatsApp-style with Animated Profile ── */}
-      <View style={styles.navBar}>
-        <TouchableOpacity
-          style={styles.navBackBtn}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Text style={styles.navBackChevron}>‹</Text>
-          <Text style={styles.navBackText}>Following</Text>
-        </TouchableOpacity>
+    <View style={styles.container}>
+      {/* ── Top Curved Gradient Header Banner ── */}
+      <View
+        style={[
+          styles.topHeaderGradient,
+          {
+            paddingTop: insets.top + 8,
+            shadowColor: accentTheme.primaryDark,
+          },
+        ]}>
+        <Image
+          source={accentTheme.assets.header}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+        />
 
-        <Animated.View
-          style={[
-            styles.navProfileWrap,
-            {
-              opacity: headerOpacity,
-              transform: [{ translateY: headerTranslateY }],
-            },
-          ]}>
-          <View style={styles.navAvatar}>
-            {avatarUrl ? (
-              <FastImage
-                source={{
-                  uri: avatarUrl,
-                  priority: FastImage.priority.high,
-                  cache: FastImage.cacheControl.immutable,
-                }}
-                style={styles.navAvatarImage as ImageStyle}
-                resizeMode={FastImage.resizeMode.cover}
-              />
-            ) : (
-              <Text style={styles.navAvatarInitials}>{getInitials(channelName)}</Text>
-            )}
+        <View style={styles.topHeaderRow}>
+          <TouchableOpacity
+            style={styles.navBackBtn}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.75}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Text style={styles.navBackText}>‹ Following</Text>
+          </TouchableOpacity>
+
+          <View style={styles.navProfileWrap}>
+            <View style={styles.navAvatar}>
+              {avatarUrl ? (
+                <FastImage
+                  source={{
+                    uri: avatarUrl,
+                    priority: FastImage.priority.high,
+                    cache: FastImage.cacheControl.immutable,
+                  }}
+                  style={styles.navAvatarImage as ImageStyle}
+                  resizeMode={FastImage.resizeMode.cover}
+                />
+              ) : (
+                <Text style={styles.navAvatarInitials}>{getInitials(channelName)}</Text>
+              )}
+            </View>
+            <Text style={styles.navTitle} numberOfLines={1}>
+              {channelName}
+            </Text>
           </View>
-          <Text style={styles.navTitle} numberOfLines={1}>
-            {channelName}
-          </Text>
-        </Animated.View>
 
-        <View style={styles.navPlaceholderRight} />
+          {/* Spacer to keep channel profile centered without the YouTube badge */}
+          <View style={{ width: 80 }} />
+        </View>
       </View>
 
       <Animated.FlatList
@@ -824,9 +992,7 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         data={listItems}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        stickyHeaderIndices={[1]}
-        snapToOffsets={[0, heroHeight]}
-        snapToEnd={false}
+        stickyHeaderIndices={[0]}
         decelerationRate="fast"
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -915,6 +1081,6 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };

@@ -124,6 +124,29 @@ class VideosController {
       next(error);
     }
   }
+
+  async searchYouTube(req, res, next) {
+    try {
+      const query = req.query.q || req.query.query || '';
+      const channelName = req.query.channelName || null;
+      const channelId = req.query.channelId || null;
+      const limit = parseInt(req.query.limit, 10) || 15;
+
+      const videos = await videosService.searchYouTubeVideos({
+        query,
+        channelName,
+        channelId,
+        limit,
+      });
+
+      res.status(200).json({
+        success: true,
+        data: videos,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new VideosController();

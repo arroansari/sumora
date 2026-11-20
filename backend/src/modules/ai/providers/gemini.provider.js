@@ -35,43 +35,61 @@ class GeminiProvider extends BaseAIProvider {
     let lastError = null;
 
     for (const modelToTry of fallbackModels) {
-      try {
-        const model = this.client.getGenerativeModel({
-          model: modelToTry,
-          systemInstruction: systemInstruction || undefined,
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.2, // Low temperature for factual accuracy
-            maxOutputTokens: 3500,
-          },
-        });
+      let attempts = 0;
+      const maxAttempts = 3;
 
-        const contents = videoUrl
-          ? [
-              {
-                fileData: {
-                  fileUri: videoUrl,
-                  mimeType: 'video/*',
-                },
-              },
-              prompt,
-            ]
-          : prompt;
-
-        const result = await model.generateContent(contents);
-        const responseText = result.response.text();
-
+      while (attempts < maxAttempts) {
+        attempts++;
         try {
-          return JSON.parse(responseText);
-        } catch (parseError) {
-          throw new AIProviderError(`Failed to parse Gemini JSON output: ${parseError.message}`, this.name, parseError);
-        }
-      } catch (error) {
-        lastError = error;
-        console.warn(`[GeminiProvider] Model ${modelToTry} failed: ${error.message}. Retrying next model in 2s...`);
-        // Exponential backoff sleep on 503 Service Unavailable / 429 Rate Limit
-        if (error.message?.includes('503') || error.message?.includes('429') || error.message?.includes('high demand')) {
-          await new Promise((resolve) => setTimeout(resolve, 2000));
+          const model = this.client.getGenerativeModel({
+            model: modelToTry,
+            systemInstruction: systemInstruction || undefined,
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.2, // Low temperature for factual accuracy
+              maxOutputTokens: 1200,
+            },
+          });
+
+          const contents = videoUrl
+            ? [
+                {
+                  fileData: {
+                    fileUri: videoUrl,
+                    mimeType: 'video/*',
+                  },
+                },
+                prompt,
+              ]
+            : prompt;
+
+          const result = await model.generateContent(contents);
+          const responseText = result.response.text();
+
+          try {
+            return JSON.parse(responseText);
+          } catch (parseError) {
+            throw new AIProviderError(`Failed to parse Gemini JSON output: ${parseError.message}`, this.name, parseError);
+          }
+        } catch (error) {
+          lastError = error;
+          const isTemporary =
+            error.message?.includes('503') ||
+            error.message?.includes('429') ||
+            error.message?.includes('high demand') ||
+            error.message?.includes('RESOURCE_EXHAUSTED');
+
+          if (isTemporary && attempts < maxAttempts) {
+            const backoffMs = attempts * 1500;
+            console.warn(
+              `[GeminiProvider] Model ${modelToTry} experienced temporary demand spike (${error.message.slice(0, 80)}). Retrying attempt ${attempts + 1}/${maxAttempts} in ${backoffMs}ms...`
+            );
+            await new Promise((resolve) => setTimeout(resolve, backoffMs));
+            continue;
+          }
+
+          console.warn(`[GeminiProvider] Model ${modelToTry} failed: ${error.message}.`);
+          break; // Move to next fallback model
         }
       }
     }

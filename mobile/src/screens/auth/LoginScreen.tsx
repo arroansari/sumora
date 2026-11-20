@@ -23,8 +23,8 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createLoginStyles(colors), [colors]);
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(__DEV__ ? 'realuser@sumora.app' : '');
+  const [password, setPassword] = useState(__DEV__ ? 'Password123!' : '');
 
   const handleLogin = useCallback(async () => {
     if (!email.trim() || !password.trim()) {

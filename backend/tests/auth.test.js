@@ -106,6 +106,15 @@ async function runTests() {
   assert.ok(app, 'Express app should be successfully exported');
   console.log('  ✅ Express app initialized and all routes mounted.');
 
+  // Test 6: Verify Account Deletion Endpoint is Mounted
+  console.log('\nTest 6: Account Deletion Route (/api/auth/account DELETE)');
+  const authRoutes = require('../src/modules/auth/auth.routes');
+  const deleteRoute = authRoutes.stack.find(
+    (layer) => layer.route && layer.route.path === '/account' && layer.route.methods.delete
+  );
+  assert.ok(deleteRoute, 'DELETE /account route must be registered in auth router');
+  console.log('  ✅ Account deletion route verified.');
+
   console.log('\n🎉 All Phase 1 Foundation Tests Passed Successfully!');
 }
 

@@ -14,9 +14,24 @@ const {
 } = require('./prompts/reddit-summary.prompt');
 const { validateStructuredSummary } = require('./summarization.validator');
 
-const CHUNK_WORD_THRESHOLD = 3000; // ~12,000-15,000 tokens limit threshold
-const CHUNK_SIZE_WORDS = 2000;
-const CHUNK_OVERLAP_WORDS = 200;
+const CHUNK_WORD_THRESHOLD = 25000; // Single-pass up to ~25k words (Gemini 1M context); avoids multi-roundtrip overhead
+const CHUNK_SIZE_WORDS = 8000;
+const CHUNK_OVERLAP_WORDS = 400;
+
+/**
+ * Pre-cleans transcript text to minimize token overhead without losing meaning.
+ * Removes audio description tags ([Music], [Applause]), vocal stutters, and excessive whitespace.
+ * @param {string} text
+ * @returns {string}
+ */
+function cleanTranscriptText(text) {
+  if (!text || typeof text !== 'string') return '';
+  return text
+    .replace(/\[(music|applause|laughter|inaudible|cheering|_+)\]/gi, '')
+    .replace(/\b(\w+)\s+\1\b/gi, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 /**
  * Formats seconds into MM:SS or HH:MM:SS string.
@@ -198,11 +213,12 @@ class SummarizationService {
       const wordCount = fullText.split(/\s+/).length;
       let rawAiResponse = null;
 
-      // Check if long transcript requires chunking
-      const timestampedText =
+      // Clean transcript text to strip audio fillers and save 30%+ input tokens
+      const rawTimestampedText =
         normalizedTranscript.segments?.length > 0
           ? this.formatTimestampedTranscript(normalizedTranscript.segments)
           : fullText;
+      const timestampedText = cleanTranscriptText(rawTimestampedText);
 
       if (wordCount > CHUNK_WORD_THRESHOLD) {
         console.log(

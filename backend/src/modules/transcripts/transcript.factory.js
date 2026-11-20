@@ -1,4 +1,5 @@
 const YouTubeCaptionsProvider = require('./providers/youtube-captions.provider');
+const SupadataTranscriptProvider = require('./providers/supadata-transcript.provider');
 const AuthorizedTranscriptProvider = require('./providers/authorized-transcript.provider');
 const UserProvidedTranscriptProvider = require('./providers/user-provided-transcript.provider');
 
@@ -8,12 +9,13 @@ class TranscriptFactory {
     this.priorityOrder = [];
 
     // Register default providers
+    this.registerProvider(new SupadataTranscriptProvider());
     this.registerProvider(new YouTubeCaptionsProvider());
     this.registerProvider(new AuthorizedTranscriptProvider());
     this.registerProvider(new UserProvidedTranscriptProvider());
 
-    // Default priority order
-    this.setPriority(['youtube_captions', 'authorized_provider', 'user_provided']);
+    // Default priority order: Supadata first (fastest, clean timestamps), then native scraper fallback
+    this.setPriority(['supadata', 'youtube_captions', 'authorized_provider', 'user_provided']);
   }
 
   /**

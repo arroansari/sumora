@@ -12,8 +12,10 @@ import {
   SpaceType,
 } from '../types/models.types';
 
-// Default to localhost for iOS simulator, 10.0.2.2 for Android emulator
-const DEFAULT_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:5001/api' : 'http://localhost:5001/api';
+// Default host: production HTTPS URL in release builds, local dev servers in __DEV__
+const PROD_API_URL = 'https://api.sumora.app/api';
+const DEV_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:5001/api' : 'http://localhost:5001/api';
+const DEFAULT_HOST = __DEV__ ? DEV_HOST : PROD_API_URL;
 let API_BASE_URL = DEFAULT_HOST;
 let authToken: string | null = null;
 
@@ -94,6 +96,14 @@ export const authApi = {
   logout: async (): Promise<void> => {
     try {
       await request('/auth/logout', { method: 'POST' });
+    } finally {
+      setAuthToken(null);
+    }
+  },
+
+  deleteAccount: async (): Promise<{ message: string }> => {
+    try {
+      return await request<{ message: string }>('/auth/account', { method: 'DELETE' });
     } finally {
       setAuthToken(null);
     }
@@ -213,6 +223,21 @@ export const videosApi = {
   getVideo: async (videoId: string): Promise<VideoItem> => {
     const res = await request<{ data: VideoItem }>(`/videos/${videoId}`);
     return res.data;
+  },
+
+  searchYouTube: async (
+    query: string,
+    opts: { channelName?: string; channelId?: string; limit?: number } = {}
+  ): Promise<VideoItem[]> => {
+    const params = new URLSearchParams({
+      q: query,
+      limit: String(opts.limit || 15),
+    });
+    if (opts.channelName) params.set('channelName', opts.channelName);
+    if (opts.channelId) params.set('channelId', opts.channelId);
+
+    const res = await request<{ data: VideoItem[] }>(`/videos/search/youtube?${params.toString()}`);
+    return res.data || [];
   },
 
   getSummary: async (videoId: string): Promise<{ summary: VideoSummary; summaryStatus: string }> => {

@@ -143,6 +143,27 @@ class AuthService {
 
     return user;
   }
+
+  /**
+   * Permanently deletes user account and cascades all associated data.
+   * Required for Apple App Store (Guideline 5.1.1(v)) and Google Play Data Safety compliance.
+   * @param {string} userId
+   */
+  async deleteAccount(userId) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      const error = new Error('User not found');
+      error.status = 404;
+      error.name = 'NotFoundError';
+      throw error;
+    }
+
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    return { message: 'Account and all associated personal data have been permanently deleted.' };
+  }
 }
 
 module.exports = new AuthService();
