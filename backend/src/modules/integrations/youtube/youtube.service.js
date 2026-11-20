@@ -295,6 +295,117 @@ class YouTubeService {
       return [];
     }
   }
+
+  /**
+   * Searches YouTube videos globally or by channel using public YouTube search.
+   * Consumes ZERO Google OAuth quota.
+   * @param {string} query - Keyword search query
+   * @param {number} maxResults - Max number of results (default 15)
+   * @returns {Promise<Array<{videoId: string, channelId: string, channelName: string, title: string, videoUrl: string, thumbnailUrl: string, duration: string, publishedTime: string}>>}
+   */
+  async searchVideos(query, maxResults = 15) {
+    if (!query || !query.trim()) return [];
+
+    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query.trim())}`;
+
+    try {
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        timeout: 10000,
+      });
+
+      const match =
+        response.data.match(/ytInitialData\s*=\s*({.+?});<\/script>/s) ||
+        response.data.match(/var ytInitialData = ({.+?});/s);
+
+      if (!match) {
+        console.warn(`[YouTubeService] ytInitialData not found for search: "${query}"`);
+        return [];
+      }
+
+      const json = JSON.parse(match[1]);
+      const results = [];
+
+      function extract(obj) {
+        if (!obj || typeof obj !== 'object') return;
+
+        // Classic videoRenderer
+        if (obj.videoRenderer && obj.videoRenderer.videoId) {
+          const vr = obj.videoRenderer;
+          const videoId = vr.videoId;
+          const title = vr.title?.runs?.[0]?.text || vr.title?.simpleText || 'Untitled Video';
+          const channelName =
+            vr.ownerText?.runs?.[0]?.text ||
+            vr.shortBylineText?.runs?.[0]?.text ||
+            'YouTube Creator';
+          const channelId =
+            vr.ownerText?.runs?.[0]?.navigationEndpoint?.browseEndpoint?.browseId ||
+            vr.shortBylineText?.runs?.[0]?.navigationEndpoint?.browseEndpoint?.browseId ||
+            '';
+          const publishedTime = vr.publishedTimeText?.simpleText || '';
+          const duration = vr.lengthText?.simpleText || '';
+          const thumb =
+            vr.thumbnail?.thumbnails?.slice(-1)[0]?.url ||
+            `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+          if (videoId.length === 11 && !results.some((r) => r.videoId === videoId)) {
+            results.push({
+              videoId,
+              channelId,
+              channelName,
+              title,
+              videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+              thumbnailUrl: thumb,
+              duration,
+              publishedTime,
+            });
+          }
+          return;
+        }
+
+        // Modern lockupViewModel
+        if (obj.lockupViewModel && obj.lockupViewModel.contentId) {
+          const lm = obj.lockupViewModel;
+          const videoId = lm.contentId;
+          const title =
+            lm.metadata?.lockupMetadataViewModel?.title?.content ||
+            lm.rendererContext?.accessibilityContext?.label ||
+            'Untitled Video';
+          const thumb =
+            lm.contentImage?.thumbnailViewModel?.image?.sources?.slice(-1)[0]?.url ||
+            `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+          if (videoId.length === 11 && !results.some((r) => r.videoId === videoId)) {
+            results.push({
+              videoId,
+              channelId: '',
+              channelName: 'YouTube Creator',
+              title,
+              videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+              thumbnailUrl: thumb,
+              duration: '',
+              publishedTime: '',
+            });
+          }
+          return;
+        }
+
+        for (const k of Object.keys(obj)) {
+          extract(obj[k]);
+        }
+      }
+
+      extract(json);
+      return results.slice(0, maxResults);
+    } catch (err) {
+      console.warn(`[YouTubeService] Failed to search YouTube for "${query}":`, err.message);
+      return [];
+    }
+  }
 }
 
 module.exports = new YouTubeService();

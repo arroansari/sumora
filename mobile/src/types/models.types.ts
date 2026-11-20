@@ -47,6 +47,7 @@ export type SummaryStatus =
 export interface ConceptItem {
   concept: string;
   explanation: string;
+  timestamp?: string;
 }
 
 export interface VideoOverviewData {
@@ -160,6 +161,21 @@ export interface VideoSummary {
   updatedAt?: string;
 }
 
+export interface TranscriptSegment {
+  start: number;
+  duration: number;
+  text: string;
+}
+
+export interface VideoTranscript {
+  language?: string;
+  source?: string;
+  status?: string;
+  segments?: TranscriptSegment[];
+  fullText?: string;
+  createdAt?: string;
+}
+
 export interface VideoItem {
   id: string;
   videoId: string;
@@ -173,7 +189,10 @@ export interface VideoItem {
   transcriptStatus: SummaryStatus;
   summaryStatus: SummaryStatus;
   summary?: VideoSummary | null;
+  transcript?: VideoTranscript | null;
   isCustomImport?: boolean;
+  duration?: string;
+  publishedTime?: string;
 }
 
 export interface User {

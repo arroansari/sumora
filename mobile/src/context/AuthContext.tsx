@@ -40,6 +40,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ]);
 
         if (!savedToken) {
+          if (__DEV__) {
+            try {
+              const res = await authApi.login({ email: 'realuser@sumora.app', password: 'Password123!' });
+              await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, res.token);
+              await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(res.user));
+              setAuthToken(res.token);
+              if (isMounted) {
+                setToken(res.token);
+                setUser(res.user);
+              }
+              return;
+            } catch {}
+          }
           return;
         }
 

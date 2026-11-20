@@ -146,12 +146,19 @@ class VideosService {
       include: {
         summary: true,
         transcript: {
-          select: { language: true, source: true, status: true, createdAt: true },
+          select: { language: true, source: true, status: true, segments: true, fullText: true, createdAt: true },
         },
       },
     });
 
     if (!video) {
+      if (/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+        try {
+          return await this.importVideoByUrl(userId, { url: videoId });
+        } catch (importErr) {
+          console.warn(`[VideosService] Auto-import fallback failed for ${videoId}:`, importErr.message);
+        }
+      }
       const error = new Error('Video not found');
       error.status = 404;
       throw error;
@@ -173,10 +180,22 @@ class VideosService {
   async getSummary(videoId) {
     const video = await prisma.video.findUnique({
       where: { videoId },
-      include: { summary: true },
+      include: {
+        summary: true,
+        transcript: {
+          select: { language: true, source: true, status: true, segments: true, fullText: true },
+        },
+      },
     });
 
     if (!video) {
+      if (/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+        try {
+          return await this.importVideoByUrl(userId, { url: videoId });
+        } catch (importErr) {
+          console.warn(`[VideosService] Auto-import fallback failed for ${videoId}:`, importErr.message);
+        }
+      }
       const error = new Error('Video not found');
       error.status = 404;
       throw error;
@@ -188,6 +207,7 @@ class VideosService {
       summaryStatus: video.summaryStatus,
       transcriptStatus: video.transcriptStatus,
       summary: video.summary,
+      transcript: video.transcript,
     };
   }
 
@@ -202,6 +222,13 @@ class VideosService {
     });
 
     if (!video) {
+      if (/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+        try {
+          return await this.importVideoByUrl(userId, { url: videoId });
+        } catch (importErr) {
+          console.warn(`[VideosService] Auto-import fallback failed for ${videoId}:`, importErr.message);
+        }
+      }
       const error = new Error('Video not found');
       error.status = 404;
       throw error;
@@ -242,11 +269,28 @@ class VideosService {
     }
 
     const hasDetailedSummary = video.summary && video.summary.videoOverview;
-    if (video.summaryStatus === 'processing' || (video.summaryStatus === 'completed' && hasDetailedSummary)) {
+    if (video.summaryStatus === 'completed' && hasDetailedSummary) {
       return {
-        message: `Summarization already ${video.summaryStatus}`,
-        status: video.summaryStatus,
+        message: 'Summarization already completed',
+        status: 'completed',
       };
+    }
+
+    // Auto-recover stale jobs stuck in 'processing' (e.g. after server restart or crash >45s ago)
+    const isStaleProcessing =
+      video.summaryStatus === 'processing' &&
+      video.updatedAt &&
+      Date.now() - new Date(video.updatedAt).getTime() > 45000;
+
+    if (video.summaryStatus === 'processing' && !isStaleProcessing) {
+      return {
+        message: 'Summarization already processing',
+        status: 'processing',
+      };
+    }
+
+    if (isStaleProcessing) {
+      console.warn(`[VideosService] Video ${videoId} was stuck in processing for >45s. Recovering and re-running pipeline.`);
     }
 
     // Try BullMQ queue first; fall back to inline pipeline
@@ -258,35 +302,39 @@ class VideosService {
     }
 
     if (transcriptQueue) {
-      await transcriptQueue.add(
-        'fetch-transcript',
-        {
-          videoId: video.videoId,
-          channelId: video.channelId,
-          title: video.title,
-          videoUrl: video.videoUrl,
-        },
-        { jobId: `transcript-${video.videoId}` }
-      );
-      await prisma.video.update({
-        where: { videoId },
-        data: { summaryStatus: 'processing', transcriptStatus: 'fetching_transcript' },
-      });
-      return { message: 'Summarization job queued', status: 'processing' };
-    } else {
-      // Run inline — fire and forget so the HTTP response returns immediately
-      inlinePipeline.fireAndForget({
-        videoId: video.videoId,
-        channelId: video.channelId,
-        title: video.title,
-        videoUrl: video.videoUrl,
-      });
-      await prisma.video.update({
-        where: { videoId },
-        data: { summaryStatus: 'processing' },
-      });
-      return { message: 'Summarization started (inline)', status: 'processing' };
+      try {
+        await transcriptQueue.add(
+          'fetch-transcript',
+          {
+            videoId: video.videoId,
+            channelId: video.channelId,
+            title: video.title,
+            videoUrl: video.videoUrl,
+          },
+          { jobId: `transcript-${video.videoId}` }
+        );
+        await prisma.video.update({
+          where: { videoId },
+          data: { summaryStatus: 'processing', transcriptStatus: 'fetching_transcript' },
+        });
+        return { message: 'Summarization job queued', status: 'processing' };
+      } catch (queueErr) {
+        console.warn(`[VideosService] Queue.add failed, falling back to inline: ${queueErr.message}`);
+      }
     }
+
+    // Run inline — fire and forget so the HTTP response returns immediately
+    inlinePipeline.fireAndForget({
+      videoId: video.videoId,
+      channelId: video.channelId,
+      title: video.title,
+      videoUrl: video.videoUrl,
+    });
+    await prisma.video.update({
+      where: { videoId },
+      data: { summaryStatus: 'processing', transcriptStatus: 'fetching_transcript' },
+    });
+    return { message: 'Summarization started (inline)', status: 'processing' };
   }
 
   /**
@@ -602,6 +650,86 @@ class VideosService {
     }
 
     return dbVideos.slice(0, maxResults);
+  }
+
+  /**
+   * Search YouTube videos on-demand using public YouTube search.
+   * Can be channel-scoped (e.g. "Dhruv Rathee water park") or global.
+   * Upserts the metadata so they have valid DB records, preserving existing summary state.
+   * @param {Object} params
+   * @param {string} params.query
+   * @param {string} [params.channelName]
+   * @param {string} [params.channelId]
+   * @param {number} [params.limit]
+   */
+  async searchYouTubeVideos({ query, channelName = null, channelId = null, limit = 15 }) {
+    if (!query || !query.trim()) return [];
+
+    let fullQuery = query.trim();
+    if (channelName && !fullQuery.toLowerCase().includes(channelName.toLowerCase())) {
+      fullQuery = `${channelName} ${fullQuery}`;
+    }
+
+    const youtubeService = require('../integrations/youtube/youtube.service');
+    const rawResults = await youtubeService.searchVideos(fullQuery, limit);
+    if (!rawResults || rawResults.length === 0) return [];
+
+    // Pre-upsert metadata into DB so records exist when accessed
+    for (const v of rawResults) {
+      await prisma.video
+        .upsert({
+          where: { videoId: v.videoId },
+          create: {
+            videoId: v.videoId,
+            channelId: v.channelId || channelId || 'youtube_search',
+            title: v.title,
+            description: v.channelName || channelName || 'YouTube Creator',
+            videoUrl: v.videoUrl,
+            thumbnailUrl: v.thumbnailUrl,
+            publishedAt: new Date(),
+            transcriptStatus: 'pending',
+            summaryStatus: 'pending',
+          },
+          update: {
+            title: v.title,
+            thumbnailUrl: v.thumbnailUrl,
+          },
+        })
+        .catch(() => {});
+    }
+
+    const videoIds = rawResults.map((r) => r.videoId);
+    const dbVideos = await prisma.video.findMany({
+      where: { videoId: { in: videoIds } },
+      include: {
+        summary: true,
+      },
+    });
+
+    const dbMap = new Map();
+    for (const d of dbVideos) {
+      dbMap.set(d.videoId, d);
+    }
+
+    return rawResults.map((r) => {
+      const d = dbMap.get(r.videoId);
+      return {
+        id: d ? d.id : `yt_${r.videoId}`,
+        videoId: r.videoId,
+        channelId: d ? d.channelId : (r.channelId || channelId || 'youtube_search'),
+        channelName: r.channelName || (d ? d.description : null) || channelName || 'YouTube Creator',
+        title: d ? d.title : r.title,
+        videoUrl: r.videoUrl,
+        thumbnailUrl: r.thumbnailUrl,
+        publishedAt: d ? d.publishedAt.toISOString() : new Date().toISOString(),
+        transcriptStatus: d ? d.transcriptStatus : 'pending',
+        summaryStatus: d ? d.summaryStatus : 'pending',
+        summary: d ? d.summary : null,
+        duration: r.duration,
+        publishedTime: r.publishedTime,
+        isCustomImport: true,
+      };
+    });
   }
 }
 

@@ -10,12 +10,12 @@ const server = app.listen(config.port, () => {
   console.log(` Health Check: http://localhost:${config.port}/api/health`);
   console.log(`===============================================`);
 
-  // In development or when explicitly enabled, start BullMQ workers and scheduler in-process.
-  // In production, workers run out-of-process via `npm run worker` (src/worker.js).
+  // In development or when explicitly enabled, start BullMQ workers in-process.
+  // All channel syncing, transcript fetching, and AI summarization are strictly ON-DEMAND when the user taps.
   if (config.workers.runInProcess) {
-    console.log('[Server] RUN_WORKERS_IN_PROCESS=true: Starting workers in-process');
+    console.log('[Server] RUN_WORKERS_IN_PROCESS=true: Starting workers in-process (Strict On-Demand Mode)');
     workerManager.startAll();
-    schedulerService.start();
+    // Background feed sync loop disabled per user request: strictly on-demand on tap
   } else {
     console.log('[Server] RUN_WORKERS_IN_PROCESS=false: BullMQ workers running out-of-process');
   }

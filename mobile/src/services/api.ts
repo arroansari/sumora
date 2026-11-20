@@ -225,6 +225,21 @@ export const videosApi = {
     return res.data;
   },
 
+  searchYouTube: async (
+    query: string,
+    opts: { channelName?: string; channelId?: string; limit?: number } = {}
+  ): Promise<VideoItem[]> => {
+    const params = new URLSearchParams({
+      q: query,
+      limit: String(opts.limit || 15),
+    });
+    if (opts.channelName) params.set('channelName', opts.channelName);
+    if (opts.channelId) params.set('channelId', opts.channelId);
+
+    const res = await request<{ data: VideoItem[] }>(`/videos/search/youtube?${params.toString()}`);
+    return res.data || [];
+  },
+
   getSummary: async (videoId: string): Promise<{ summary: VideoSummary; summaryStatus: string }> => {
     const res = await request<{ data: { summary: VideoSummary; summaryStatus: string } }>(
       `/videos/${videoId}/summary`

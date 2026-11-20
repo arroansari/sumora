@@ -1,4 +1,5 @@
 export * from './ChannelGridCard';
+export * from './ChannelListRow';
 export * from './PriorityChannelsBar';
 export * from './CategoryPillsBar';
 export * from './FilterModal';

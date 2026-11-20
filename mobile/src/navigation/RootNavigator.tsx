@@ -71,8 +71,24 @@ function processOAuthUrl(
     } else if (url.startsWith('sumora://summary')) {
       const videoId = params['videoId'] || '';
       const videoTitle = params['title'] || 'Video Summary';
+      const initialTab = params['tab'] || 'highlights';
+      const initialScrollY = params['scrollY'] ? Number(params['scrollY']) : undefined;
       if (navigationRef.current?.isReady() && videoId) {
-        navigationRef.current.navigate('SummaryDetail', { videoId, videoTitle });
+        navigationRef.current.navigate('SummaryDetail', { videoId, videoTitle, initialTab, initialScrollY } as any);
+      }
+    } else if (url.startsWith('sumora://following')) {
+      const category = params['category'] || undefined;
+      if (navigationRef.current?.isReady()) {
+        navigationRef.current.navigate('MainTabs', {
+          screen: 'Following',
+          params: category ? { category } : undefined,
+        } as any);
+      }
+    } else if (url.startsWith('sumora://channel')) {
+      const channelId = params['channelId'] || '';
+      const channelName = params['channelName'] || 'Channel';
+      if (navigationRef.current?.isReady() && channelId) {
+        navigationRef.current.navigate('ChannelDetail', { channelId, channelName });
       }
     }
   } catch (err) {

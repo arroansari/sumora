@@ -46,23 +46,10 @@ class SchedulerService {
 
   /**
    * Starts the recurring background feed sync schedule.
+   * Disabled by default: Sumora operates strictly in on-demand mode (sync & summarize only on user tap).
    */
   start() {
-    console.log(`[Scheduler] Daily background feed sync initialized (Interval: ${this.intervalMs / (60 * 60 * 1000)}h).`);
-    
-    // Run an initial sync check shortly after startup (after 15 seconds) so it doesn't block boot
-    setTimeout(() => {
-      this.runSync('startup').catch((err) => {
-        console.warn('[Scheduler] Startup sync note:', err.message);
-      });
-    }, 15000);
-
-    // Schedule regular periodic runs
-    this.timer = setInterval(() => {
-      this.runSync('periodic').catch((err) => {
-        console.warn('[Scheduler] Scheduled sync error:', err.message);
-      });
-    }, this.intervalMs);
+    console.log('[Scheduler] Background sync daemon disabled: strictly on-demand on user tap.');
   }
 
   /**

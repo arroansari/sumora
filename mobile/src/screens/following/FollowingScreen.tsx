@@ -4,20 +4,22 @@ import React, {
   useCallback,
   useDeferredValue,
   useEffect,
+  useRef,
 } from 'react';
 import {
   View,
   Text,
   FlatList,
+  ScrollView,
+  Animated,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation.types';
 import { TrackedSource } from '../../types/models.types';
@@ -36,6 +38,7 @@ import {
 } from './types';
 import {
   ChannelGridCard,
+  ChannelListRow,
   PriorityChannelsBar,
   CategoryPillsBar,
   FilterModal,
@@ -108,6 +111,13 @@ export const FollowingScreen: React.FC = () => {
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [sortFilter, setSortFilter] = useState<SortFilter>('newest');
   const [selectedCategory, setSelectedCategory] = useState<CategoryId>('active');
+
+  const route = useRoute<any>();
+  useEffect(() => {
+    if (route.params?.category) {
+      setSelectedCategory(route.params.category);
+    }
+  }, [route.params?.category]);
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
   const [newChannelId, setNewChannelId] = useState<string>('');
@@ -134,10 +144,27 @@ export const FollowingScreen: React.FC = () => {
   const [addingDomain, setAddingDomain] = useState<boolean>(false);
 
   // Virtual pagination for YouTube
-  const [displayLimit, setDisplayLimit] = useState<number>(PAGE_SIZE);
+  const BATCH_PAGE_SIZE = 50;
+  const [displayLimit, setDisplayLimit] = useState<number>(BATCH_PAGE_SIZE);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   useEffect(() => {
-    setDisplayLimit(PAGE_SIZE);
+    // Rehydrate view mode preference
+    AsyncStorage.getItem('@sumora_following_view_mode').then((val) => {
+      if (val === 'grid' || val === 'list') setViewMode(val);
+    });
+  }, []);
+
+  const handleToggleViewMode = useCallback(() => {
+    setViewMode((prev) => {
+      const next = prev === 'grid' ? 'list' : 'grid';
+      AsyncStorage.setItem('@sumora_following_view_mode', next).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    setDisplayLimit(BATCH_PAGE_SIZE);
   }, [deferredSearchQuery, selectedCategory, sortFilter]);
 
   // Load stored sources across all spaces
@@ -644,15 +671,37 @@ export const FollowingScreen: React.FC = () => {
   );
 
   const handleEndReached = useCallback(() => {
+    // When list has more than 50 channels (such as "All" and "Other" tabs), disable automatic infinite scroll
+    // and rely on the manual Instagram-style "Load More Channels" button.
+    if (filteredSources.length > BATCH_PAGE_SIZE) return;
+
     setDisplayLimit((prev) => {
       if (prev >= filteredSources.length) return prev;
-      return Math.min(prev + PAGE_SIZE, filteredSources.length);
+      return Math.min(prev + BATCH_PAGE_SIZE, filteredSources.length);
     });
   }, [filteredSources.length]);
 
   const ListFooter = useMemo(() => {
     if (filteredSources.length === 0) return undefined;
-    if (visibleSources.length >= filteredSources.length) {
+
+    // Instagram-style manual "Load More" button for "All", "Other", or any category with > 50 channels
+    if (filteredSources.length > BATCH_PAGE_SIZE) {
+      if (visibleSources.length < filteredSources.length) {
+        return (
+          <View style={styles.loadMoreWrapper}>
+            <TouchableOpacity
+              style={styles.loadMoreOtherBtn}
+              activeOpacity={0.8}
+              onPress={() => {
+                setDisplayLimit((prev) => Math.min(prev + BATCH_PAGE_SIZE, filteredSources.length));
+              }}>
+              <Text style={styles.loadMoreOtherBtnText}>
+                Load More Channels (Showing {visibleSources.length} of {filteredSources.length}) ↓
+              </Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
       return (
         <View style={styles.gridFooterEnd}>
           <Text style={styles.gridFooterEndText}>
@@ -661,15 +710,15 @@ export const FollowingScreen: React.FC = () => {
         </View>
       );
     }
+
     return (
-      <View style={styles.gridFooterLoading}>
-        <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={styles.gridFooterLoadingText}>
-          Loading more… ({visibleSources.length} of {filteredSources.length})
+      <View style={styles.gridFooterEnd}>
+        <Text style={styles.gridFooterEndText}>
+          Showing all {filteredSources.length} {filteredSources.length === 1 ? 'channel' : 'channels'}
         </Text>
       </View>
     );
-  }, [visibleSources.length, filteredSources.length, colors.primary, styles]);
+  }, [visibleSources.length, filteredSources.length, styles]);
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {
@@ -692,139 +741,32 @@ export const FollowingScreen: React.FC = () => {
   const keyExtractor = useCallback((item: TrackedSource) => item.id, []);
 
   const renderItem = useCallback(
-    ({ item }: { item: TrackedSource }) => (
-      <ChannelGridCard
-        item={item}
-        isFavorite={favoriteIds.includes(item.sourceId)}
-        styles={styles}
-        onToggle={handleToggleTracking}
-        onToggleFavorite={handleToggleFavorite}
-        onPress={handleChannelPress}
-      />
-    ),
-    [favoriteIds, styles, handleToggleTracking, handleToggleFavorite, handleChannelPress]
-  );
-
-  const ListHeader = useMemo(
-    () => (
-      <View>
-        <PriorityChannelsBar
-          prioritySources={prioritySources}
+    ({ item }: { item: TrackedSource }) => {
+      const isFav = favoriteIds.includes(item.sourceId);
+      if (viewMode === 'list') {
+        return (
+          <ChannelListRow
+            item={item}
+            isFavorite={isFav}
+            styles={styles}
+            onToggle={handleToggleTracking}
+            onToggleFavorite={handleToggleFavorite}
+            onPress={handleChannelPress}
+          />
+        );
+      }
+      return (
+        <ChannelGridCard
+          item={item}
+          isFavorite={isFav}
           styles={styles}
-          selectedCategory={selectedCategory}
-          onToggleCategoryFilter={() =>
-            setSelectedCategory((prev) => (prev === 'favorites' ? 'all' : 'favorites'))
-          }
-          onChannelPress={handleChannelPress}
+          onToggle={handleToggleTracking}
+          onToggleFavorite={handleToggleFavorite}
+          onPress={handleChannelPress}
         />
-
-        {/* Active AI Tracking Quota Card */}
-        {(() => {
-          const quotaPercent = Math.round((activeTrackedCount / MAX_ACTIVE_TRACKING) * 100);
-          const fillWidthPct = Math.max(18, Math.min(100, quotaPercent));
-
-          return (
-            <View style={styles.quotaCard}>
-              <View style={styles.quotaCardHeader}>
-                <View style={styles.quotaCardTitleRow}>
-                  <Text style={styles.quotaCardTitle}>⚡ Active AI Tracking Slots</Text>
-                </View>
-                <View style={styles.quotaCardCountBadge}>
-                  <Text style={styles.quotaCardCountText}>
-                    {activeTrackedCount} of {MAX_ACTIVE_TRACKING} Active
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.quotaTrack}>
-                <View style={[styles.quotaFill, { width: `${fillWidthPct}%` }]}>
-                  <View style={styles.gradientFillContainer}>
-                    {GRADIENT_STEPS.map((color, idx) => (
-                      <View key={idx} style={{ flex: 1, backgroundColor: color }} />
-                    ))}
-                  </View>
-                  <Text style={styles.quotaPercentText}>
-                    {quotaPercent}%
-                  </Text>
-                </View>
-              </View>
-
-              <Text style={styles.quotaSubText}>
-                Automated AI transcripts & digests run only for Active channels to ensure fast, high-signal summaries.
-              </Text>
-            </View>
-          );
-        })()}
-
-        {/* Search Bar + Filter Button Row */}
-        <View style={styles.searchBarRow}>
-          <View style={{ flex: 1 }}>
-            <SearchBar
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search channels by name or ID…"
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.filterBtn,
-              (selectedCategory !== 'all' || sortFilter !== 'newest') && styles.filterBtnActive,
-            ]}
-            onPress={() => setShowFilterModal(true)}
-            activeOpacity={0.8}>
-            <Text
-              style={[
-                styles.filterBtnText,
-                (selectedCategory !== 'all' || sortFilter !== 'newest') && styles.filterBtnTextActive,
-              ]}>
-              ⚡ Filters{selectedCategory !== 'all' ? ` (${CATEGORIES.find((c) => c.id === selectedCategory)?.icon || '1'})` : ''}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <CategoryPillsBar
-          styles={styles}
-          selectedCategory={selectedCategory}
-          totalChannelsCount={channelSources.length}
-          categoryCounts={categoryCounts}
-          onSelectCategory={setSelectedCategory}
-        />
-
-        {/* 2-Column Grid Section Header */}
-        <View style={styles.gridSectionHeaderRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <CategorySquircleIcon category={selectedCategory} size={16} style={{ marginRight: 6 }} />
-            <Text style={styles.gridSectionTitle}>
-              {selectedCategory === 'all'
-                ? `All Channels (${filteredSources.length})`
-                : `${CATEGORIES.find((c) => c.id === selectedCategory)?.label || 'Channels'} (${filteredSources.length})`}
-            </Text>
-          </View>
-          <Text style={styles.gridSectionSub}>
-            {sortFilter === 'newest'
-              ? 'Newest'
-              : sortFilter === 'oldest'
-              ? 'Oldest'
-              : sortFilter === 'a_z'
-              ? 'A → Z'
-              : 'Z → A'}
-          </Text>
-        </View>
-      </View>
-    ),
-    [
-      styles,
-      searchQuery,
-      sortFilter,
-      selectedCategory,
-      channelSources.length,
-      categoryCounts,
-      prioritySources,
-      filteredSources.length,
-      handleChannelPress,
-      activeTrackedCount,
-    ]
+      );
+    },
+    [viewMode, favoriteIds, styles, handleToggleTracking, handleToggleFavorite, handleChannelPress]
   );
 
   // Dynamic Header Meta per Active Space
@@ -862,48 +804,41 @@ export const FollowingScreen: React.FC = () => {
     }
   }, [activeSpace, bookSources.length, cinemaSources.length, subreddits.length, channelSources.length, activeTrackedCount, colors.primary]);
 
+  const searchPlaceholder = useMemo(() => {
+    if (selectedCategory === 'all') return 'Search in All Channels…';
+    if (selectedCategory === 'other') return 'Search in Other Channels…';
+    const cat = CATEGORIES.find((c) => c.id === selectedCategory);
+    return cat ? `Search in ${cat.label}…` : 'Search channels by name or ID…';
+  }, [selectedCategory]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <FollowingHeader
-        styles={styles}
-        title={spaceHeaderMeta.title}
-        subtitle={spaceHeaderMeta.subtitle}
-        count={spaceHeaderMeta.count}
-        badgeColor={spaceHeaderMeta.color}
-        addButtonColor={spaceHeaderMeta.color}
-        isAddActive={
-          activeSpace === 'YOUTUBE'
-            ? showAddForm
-            : activeSpace === 'REDDIT'
-            ? showAddSubredditModal
-            : showAddDomainModal
-        }
-        onToggleAdd={() => {
-          if (activeSpace === 'YOUTUBE') {
-            setShowAddForm((prev) => !prev);
-          } else if (activeSpace === 'REDDIT') {
-            setShowAddSubredditModal(true);
-          } else {
-            setShowAddDomainModal(true);
+      {activeSpace !== 'YOUTUBE' && (
+        <FollowingHeader
+          styles={styles}
+          title={spaceHeaderMeta.title}
+          subtitle={spaceHeaderMeta.subtitle}
+          count={spaceHeaderMeta.count}
+          badgeColor={spaceHeaderMeta.color}
+          addButtonColor={spaceHeaderMeta.color}
+          isAddActive={
+            activeSpace === 'REDDIT'
+              ? showAddSubredditModal
+              : showAddDomainModal
           }
-        }}
-      />
+          onToggleAdd={() => {
+            if (activeSpace === 'REDDIT') {
+              setShowAddSubredditModal(true);
+            } else {
+              setShowAddDomainModal(true);
+            }
+          }}
+        />
+      )}
 
       {/* 1. YouTube Space */}
       {activeSpace === 'YOUTUBE' && (
-        <>
-          {showAddForm && (
-            <ManualChannelAddForm
-              styles={styles}
-              channelName={newChannelName}
-              channelId={newChannelId}
-              onChangeName={setNewChannelName}
-              onChangeId={setNewChannelId}
-              onSubmit={handleAddManualChannel}
-              adding={adding}
-            />
-          )}
-
+        <View style={{ flex: 1 }}>
           {loading ? (
             <View style={styles.centerContainer}>
               <ActivityIndicator size="large" color={colors.primary} />
@@ -917,32 +852,205 @@ export const FollowingScreen: React.FC = () => {
               </Text>
             </View>
           ) : (
-            <FlatList
-              data={visibleSources}
-              keyExtractor={keyExtractor}
-              renderItem={renderItem}
-              numColumns={2}
-              columnWrapperStyle={styles.gridColumnWrapper}
-              contentContainerStyle={styles.gridListContent}
+            <ScrollView
+              stickyHeaderIndices={[1]}
               showsVerticalScrollIndicator={false}
-              ListHeaderComponent={ListHeader}
-              ListFooterComponent={ListFooter}
-              onEndReached={handleEndReached}
-              onEndReachedThreshold={0.5}
-              initialNumToRender={12}
-              maxToRenderPerBatch={12}
-              windowSize={7}
-              removeClippedSubviews={true}
+              contentContainerStyle={{ paddingBottom: 40 }}
               refreshControl={
                 <RefreshControl
                   refreshing={refreshing}
                   onRefresh={handleRefresh}
                   tintColor={colors.primary}
                 />
-              }
-            />
+              }>
+              {/* Child 0: Top Overview Section (Tracked Channels + Quota Card) - Scrolls naturally away */}
+              <View style={styles.topSectionWrapper}>
+                <FollowingHeader
+                  styles={styles}
+                  title={spaceHeaderMeta.title}
+                  subtitle={spaceHeaderMeta.subtitle}
+                  count={spaceHeaderMeta.count}
+                  badgeColor={spaceHeaderMeta.color}
+                  addButtonColor={spaceHeaderMeta.color}
+                  isAddActive={showAddForm}
+                  onToggleAdd={() => setShowAddForm((prev) => !prev)}
+                />
+
+                {showAddForm && (
+                  <ManualChannelAddForm
+                    styles={styles}
+                    channelName={newChannelName}
+                    channelId={newChannelId}
+                    onChangeName={setNewChannelName}
+                    onChangeId={setNewChannelId}
+                    onSubmit={handleAddManualChannel}
+                    adding={adding}
+                  />
+                )}
+
+                {/* Active AI Tracking Quota Card */}
+                {(() => {
+                  const quotaPercent = Math.round((activeTrackedCount / MAX_ACTIVE_TRACKING) * 100);
+                  const fillWidthPct = Math.max(18, Math.min(100, quotaPercent));
+
+                  return (
+                    <View style={styles.quotaCard}>
+                      <View style={styles.quotaCardHeader}>
+                        <View style={styles.quotaCardTitleRow}>
+                          <Text style={styles.quotaCardTitle}>⚡ Active AI Tracking Slots</Text>
+                        </View>
+                        <View style={styles.quotaCardCountBadge}>
+                          <Text style={styles.quotaCardCountText}>
+                            {activeTrackedCount} of {MAX_ACTIVE_TRACKING} Active
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.quotaTrack}>
+                        <View style={[styles.quotaFill, { width: `${fillWidthPct}%` }]}>
+                          <View style={styles.gradientFillContainer}>
+                            {GRADIENT_STEPS.map((color, idx) => (
+                              <View key={idx} style={{ flex: 1, backgroundColor: color }} />
+                            ))}
+                          </View>
+                          <Text style={styles.quotaPercentText}>
+                            {quotaPercent}%
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text style={styles.quotaSubText}>
+                        Automated AI transcripts & digests run only for Active channels to ensure fast, high-signal summaries.
+                      </Text>
+                    </View>
+                  );
+                })()}
+
+                {/* Priority Channels Avatar Bar - Scrolls naturally with the page */}
+                <PriorityChannelsBar
+                  prioritySources={prioritySources}
+                  styles={styles}
+                  selectedCategory={selectedCategory}
+                  onToggleCategoryFilter={() =>
+                    setSelectedCategory((prev) => (prev === 'favorites' ? 'all' : 'favorites'))
+                  }
+                  onChannelPress={handleChannelPress}
+                />
+              </View>
+
+              {/* Child 1: Sticky Header (Search & Filters + Category Tabs Only) */}
+              <View style={styles.stickyHeaderContainer}>
+                <View style={styles.searchBarRow}>
+                  <View style={{ flex: 1 }}>
+                    <SearchBar
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                      placeholder={searchPlaceholder}
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.filterBtn,
+                      (selectedCategory !== 'all' || sortFilter !== 'newest') && styles.filterBtnActive,
+                    ]}
+                    onPress={() => setShowFilterModal(true)}
+                    activeOpacity={0.8}>
+                    <Text
+                      style={[
+                        styles.filterBtnText,
+                        (selectedCategory !== 'all' || sortFilter !== 'newest') && styles.filterBtnTextActive,
+                      ]}>
+                      ⚡ Filters{selectedCategory !== 'all' ? ` (${CATEGORIES.find((c) => c.id === selectedCategory)?.icon || '1'})` : ''}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.viewModeToggleBtn,
+                      viewMode === 'list' && styles.viewModeToggleBtnActive,
+                    ]}
+                    onPress={handleToggleViewMode}
+                    activeOpacity={0.8}>
+                    <Text
+                      style={[
+                        styles.viewModeToggleIconText,
+                        viewMode === 'list' && { color: colors.primary },
+                      ]}>
+                      {viewMode === 'grid' ? '☰' : '⊞'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <CategoryPillsBar
+                  styles={styles}
+                  selectedCategory={selectedCategory}
+                  totalChannelsCount={channelSources.length}
+                  categoryCounts={categoryCounts}
+                  onSelectCategory={setSelectedCategory}
+                />
+              </View>
+
+              {/* Child 2: Channels Section Header & Items */}
+              <View style={styles.gridListContent}>
+                {/* 2-Column Grid Section Header */}
+                <View style={styles.gridSectionHeaderRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <CategorySquircleIcon category={selectedCategory} size={16} style={{ marginRight: 6 }} />
+                    <Text style={styles.gridSectionTitle}>
+                      {selectedCategory === 'all'
+                        ? `All Channels (${filteredSources.length})`
+                        : `${CATEGORIES.find((c) => c.id === selectedCategory)?.label || 'Channels'} (${filteredSources.length})`}
+                    </Text>
+                  </View>
+                  <Text style={styles.gridSectionSub}>
+                    {sortFilter === 'newest'
+                      ? 'Newest'
+                      : sortFilter === 'oldest'
+                      ? 'Oldest'
+                      : sortFilter === 'a_z'
+                      ? 'A → Z'
+                      : 'Z → A'}
+                  </Text>
+                </View>
+
+                {/* Items in Grid or List */}
+                {viewMode === 'grid' ? (
+                  <View style={styles.gridColumnWrapper}>
+                    {visibleSources.map((item) => (
+                      <ChannelGridCard
+                        key={item.id}
+                        item={item}
+                        isFavorite={favoriteIds.includes(item.sourceId)}
+                        styles={styles}
+                        onToggle={handleToggleTracking}
+                        onToggleFavorite={handleToggleFavorite}
+                        onPress={handleChannelPress}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  <View>
+                    {visibleSources.map((item) => (
+                      <ChannelListRow
+                        key={item.id}
+                        item={item}
+                        isFavorite={favoriteIds.includes(item.sourceId)}
+                        styles={styles}
+                        onToggle={handleToggleTracking}
+                        onToggleFavorite={handleToggleFavorite}
+                        onPress={handleChannelPress}
+                      />
+                    ))}
+                  </View>
+                )}
+
+                {/* Footer */}
+                {ListFooter}
+              </View>
+            </ScrollView>
           )}
-        </>
+        </View>
       )}
 
       {/* 2. Reddit Space */}

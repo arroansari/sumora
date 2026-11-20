@@ -1,11 +1,12 @@
 const express = require('express');
 const transcriptController = require('./transcript.controller');
 const { authenticate } = require('../../middlewares/auth.middleware');
+const { transcriptLimiter } = require('../../middlewares/rateLimiter');
 
 const router = express.Router();
 
-// GET transcript for video
-router.get('/:videoId', authenticate, (req, res, next) =>
+// GET transcript for video (capped to 10/day per user)
+router.get('/:videoId', authenticate, transcriptLimiter, (req, res, next) =>
   transcriptController.getTranscript(req, res, next)
 );
 

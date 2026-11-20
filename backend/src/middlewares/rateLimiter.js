@@ -34,17 +34,34 @@ const apiLimiter = rateLimit({
 
 /**
  * Daily rate limiter for AI video summary generation.
- * Max 25 summaries per 24 hours per user/IP to protect free-tier API quotas.
+ * Max 10 summaries per 24 hours per user/IP to protect free-tier API quotas.
  */
 const summarizeLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24-hour window
-  max: 25, // 25 summaries per day
+  max: 10, // 10 summaries per day
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => req.user?.id || req.ip,
   message: {
     error: 'QuotaExceeded',
-    message: 'Daily summarization limit reached (25 summaries/day). Limit resets every 24 hours.',
+    message: 'Daily summarization limit reached (10 video summaries/day). Limit resets every 24 hours.',
+  },
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
+/**
+ * Daily rate limiter for fetching video transcripts.
+ * Max 10 video transcripts per 24 hours per user/IP.
+ */
+const transcriptLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000, // 24-hour window
+  max: 10, // 10 video transcripts per day
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id || req.ip,
+  message: {
+    error: 'QuotaExceeded',
+    message: 'Daily transcript limit reached (10 video transcripts/day). Limit resets every 24 hours.',
   },
   skip: () => process.env.NODE_ENV === 'test',
 });
@@ -53,5 +70,6 @@ module.exports = {
   authLimiter,
   apiLimiter,
   summarizeLimiter,
+  transcriptLimiter,
 };
 

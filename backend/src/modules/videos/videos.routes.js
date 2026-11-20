@@ -25,6 +25,11 @@ router.post('/import', (req, res, next) =>
   videosController.importVideo(req, res, next)
 );
 
+// Search YouTube videos (global or channel-scoped)
+router.get('/search/youtube', (req, res, next) =>
+  videosController.searchYouTube(req, res, next)
+);
+
 // Single video
 router.get('/:videoId', (req, res, next) => videosController.getVideo(req, res, next));
 
