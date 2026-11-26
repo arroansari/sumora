@@ -221,35 +221,11 @@ export const FollowingScreen: React.FC = () => {
               if (rawActive) storedActive = JSON.parse(rawActive);
             } catch {}
 
-            const activeYoutube = data.filter(
-              (s: TrackedSource) => s.platform !== 'reddit' && s.isActive !== false
-            );
-
-            if (storedActive && Array.isArray(storedActive) && storedActive.length > 0) {
-              const activeSet = new Set(storedActive);
-              const sanitized = data.map((s: TrackedSource) => {
-                if (s.platform === 'reddit') return s;
-                return { ...s, isActive: activeSet.has(s.id) || activeSet.has(s.sourceId) };
-              });
-              setSources(sanitized);
-            } else if (activeYoutube.length > MAX_ACTIVE_TRACKING) {
-              const favSet = new Set(favs);
-              const sanitized = data.map((s: TrackedSource) => {
-                if (s.platform === 'reddit') return s;
-                const shouldBeActive =
-                  favSet.size > 0
-                    ? favSet.has(s.sourceId)
-                    : activeYoutube.slice(0, 5).some((a: TrackedSource) => a.id === s.id);
-                return { ...s, isActive: shouldBeActive };
-              });
-              setSources(sanitized);
-              const initialActive = sanitized
-                .filter((s: TrackedSource) => s.platform !== 'reddit' && s.isActive)
-                .map((s: TrackedSource) => s.id);
-              AsyncStorage.setItem(ACTIVE_TRACKED_KEY, JSON.stringify(initialActive)).catch(() => {});
-            } else {
-              setSources(data);
-            }
+            setSources(data);
+            const activeIds = data
+              .filter((s: TrackedSource) => s.platform !== 'reddit' && s.isActive !== false)
+              .map((s: TrackedSource) => s.id);
+            AsyncStorage.setItem(ACTIVE_TRACKED_KEY, JSON.stringify(activeIds)).catch(() => {});
             setSubreddits(subs);
             setIsYouTubeConnected(
               accounts.some((a) => a.platform === 'youtube' && a.status === 'active')
@@ -306,42 +282,15 @@ export const FollowingScreen: React.FC = () => {
     setRefreshing(true);
     try {
       const data = await sourcesApi.list();
-      let storedActive: string[] | null = null;
-      try {
-        const raw = await AsyncStorage.getItem(ACTIVE_TRACKED_KEY);
-        if (raw) storedActive = JSON.parse(raw);
-      } catch {}
-
-      if (storedActive && Array.isArray(storedActive) && storedActive.length > 0) {
-        const activeSet = new Set(storedActive);
-        const sanitized = data.map((s: TrackedSource) => {
-          if (s.platform === 'reddit') return s;
-          return { ...s, isActive: activeSet.has(s.id) || activeSet.has(s.sourceId) };
-        });
-        setSources(sanitized);
-      } else {
-        const activeYoutube = data.filter(
-          (s: TrackedSource) => s.platform !== 'reddit' && s.isActive !== false
-        );
-        if (activeYoutube.length > MAX_ACTIVE_TRACKING) {
-          const favSet = new Set(favoriteIds);
-          const sanitized = data.map((s: TrackedSource) => {
-            if (s.platform === 'reddit') return s;
-            const shouldBeActive =
-              favSet.size > 0
-                ? favSet.has(s.sourceId)
-                : activeYoutube.slice(0, 5).some((a: TrackedSource) => a.id === s.id);
-            return { ...s, isActive: shouldBeActive };
-          });
-          setSources(sanitized);
-        } else {
-          setSources(data);
-        }
-      }
+      setSources(data);
+      const activeIds = data
+        .filter((s: TrackedSource) => s.platform !== 'reddit' && s.isActive !== false)
+        .map((s: TrackedSource) => s.id);
+      AsyncStorage.setItem(ACTIVE_TRACKED_KEY, JSON.stringify(activeIds)).catch(() => {});
     } catch {} finally {
       setRefreshing(false);
     }
-  }, [favoriteIds]);
+  }, []);
 
   const handleToggleTracking = useCallback(
     async (source: TrackedSource) => {

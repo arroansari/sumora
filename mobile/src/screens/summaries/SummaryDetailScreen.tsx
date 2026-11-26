@@ -888,7 +888,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         ]}>
         {/* Emerald Header Asset */}
         <Image
-          source={accentTheme.assets.header}
+          source={accentTheme.assets.header ?? undefined}
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />

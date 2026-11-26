@@ -62,7 +62,7 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
         ]}
         pointerEvents="none">
         <Image
-          source={accentTheme.assets.button}
+          source={accentTheme.assets.button ?? undefined}
           style={styles.fillImage}
           resizeMode="cover"
         />

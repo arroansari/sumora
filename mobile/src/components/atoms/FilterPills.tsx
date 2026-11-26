@@ -41,7 +41,7 @@ function FilterPillsInner<T extends string>({
               style={[StyleSheet.absoluteFill, { borderRadius: 16, overflow: 'hidden' }]}
               pointerEvents="none">
               <Image
-                source={accentTheme.assets.button}
+                source={accentTheme.assets.button ?? undefined}
                 style={{ width: '100%', height: '100%' }}
                 resizeMode="cover"
               />

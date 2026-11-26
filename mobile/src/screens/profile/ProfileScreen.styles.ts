@@ -1,514 +1,342 @@
 import { StyleSheet } from 'react-native';
+import { EdgeInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../../theme/colors';
+import { AppThemeOption } from '../../theme/appThemes';
 
-export const createProfileStyles = (colors: ThemeColors, scale: number = 1.0) => {
-  const fs = (size: number) => Math.round(size * scale);
-  const lh = (lineHeight: number) => Math.round(lineHeight * scale);
+export const createProfileStyles = (
+  colors: ThemeColors,
+  accent: AppThemeOption,
+  scale: number = 1.0,
+  insets: EdgeInsets = { top: 0, bottom: 0, left: 0, right: 0 }
+) => {
+  const fs = (n: number) => Math.round(n * scale);
+
+  // ── Hero tokens ───────────────────────────────────────────────
+  // For gradient themes the ImageBackground renders the image;
+  // backgroundColor acts as a fallback for two-tone themes (tone1 = dark structural color).
+  const heroBg    = colors.sectionDark;        // = tone1 (dark primary)
+  const heroText  = '#FFFFFF';                  // always white on dark hero
+  const heroMuted = 'rgba(255,255,255,0.60)';
 
   return StyleSheet.create({
-    safeArea: {
+    root: {
       flex: 1,
       backgroundColor: colors.background,
     },
-    container: {
-      paddingHorizontal: 16,
-      paddingTop: 0,
-      gap: 12,
-      paddingBottom: 32,
-    },
 
-    // ─── HERO BANNER ──────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════
+    // HERO — ImageBackground (gradient image OR solid tone1)
+    // ═══════════════════════════════════════════════════
     heroBanner: {
-      marginHorizontal: -16,
-      marginTop: 0,
-      marginBottom: 0,
-      minHeight: 220,
+      minHeight: 230,
+      backgroundColor: heroBg,     // solid fallback for two-tone themes
+      paddingHorizontal: 20,
+      paddingBottom: 20,
       justifyContent: 'flex-end',
       overflow: 'hidden',
-    },
-    heroBannerImage: {
-      resizeMode: 'cover',
     },
     heroOverlay: {
       ...StyleSheet.absoluteFill,
       backgroundColor: 'rgba(0,0,0,0.38)',
     },
-    heroBadgeRow: {
-      position: 'absolute',
-      top: 18,
-      left: 20,
-      right: 20,
-      flexDirection: 'row',
-    },
-    heroBadge: {
-      borderRadius: 20,
-      paddingHorizontal: 12,
-      paddingVertical: 5,
-    },
-    heroBadgeText: {
-      color: '#FFFFFF',
-      fontSize: 11,
-      fontFamily: 'PlusJakartaSans-SemiBold',
-      fontWeight: '600',
-      letterSpacing: 0.5,
-    },
-    heroAvatarRow: {
+
+    heroTopRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 20,
-      paddingTop: 54,
+      justifyContent: 'space-between',
+      marginBottom: 20,
+    },
+    heroScreenLabel: {
+      fontSize: fs(12),
+      fontFamily: 'PlusJakartaSans-SemiBold',
+      color: heroMuted,
+      letterSpacing: 1.0,
+      textTransform: 'uppercase',
+    },
+    heroBadge: {
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.25)',
+    },
+    heroBadgeText: {
+      fontSize: fs(10),
+      fontFamily: 'PlusJakartaSans-ExtraBold',
+      color: heroText,
+      letterSpacing: 0.6,
+    },
+
+    // Identity row (avatar + text)
+    heroIdentityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
     },
     heroAvatarRing: {
-      width: 76,
-      height: 76,
-      borderRadius: 24,
-      borderWidth: 3,
-      borderColor: 'rgba(255,255,255,0.7)',
-      padding: 2,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.35,
-      shadowRadius: 12,
-      elevation: 10,
+      width: 70,
+      height: 70,
+      borderRadius: 35,
+      borderWidth: 2.5,
+      borderColor: 'rgba(255,255,255,0.50)',
+      padding: 3,
+      marginRight: 14,
     },
     heroAvatar: {
       flex: 1,
-      borderRadius: 20,
+      borderRadius: 32,
+      backgroundColor: 'rgba(255,255,255,0.18)',
       alignItems: 'center',
       justifyContent: 'center',
     },
-    heroAvatarText: {
-      fontSize: 32,
+    heroAvatarLetter: {
+      fontSize: fs(26),
       fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
-      color: '#FFFFFF',
+      color: heroText,
     },
-    heroIdentity: {
-      marginLeft: 16,
+    heroIdentityText: {
       flex: 1,
     },
     heroUsername: {
       fontSize: fs(22),
       fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
-      color: '#FFFFFF',
-      letterSpacing: -0.4,
-      textShadowColor: 'rgba(0,0,0,0.4)',
-      textShadowOffset: { width: 0, height: 1 },
-      textShadowRadius: 4,
+      color: heroText,
+      letterSpacing: -0.5,
     },
     heroEmail: {
-      fontSize: fs(13),
-      color: 'rgba(255,255,255,0.75)',
-      marginTop: 3,
-      fontFamily: 'PlusJakartaSans-Medium',
+      fontSize: fs(12),
+      color: heroMuted,
+      marginTop: 2,
+      fontFamily: 'PlusJakartaSans-Regular',
     },
-    heroStatsRow: {
+    heroThemePill: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 20,
-      paddingVertical: 16,
-      marginTop: 12,
-      backgroundColor: 'rgba(0,0,0,0.25)',
+      alignSelf: 'flex-start',
+      marginTop: 8,
+      borderRadius: 10,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.25)',
+      gap: 5,
     },
-    heroStatItem: {
+    heroThemeDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    heroThemePillText: {
+      fontSize: fs(10.5),
+      fontFamily: 'PlusJakartaSans-SemiBold',
+      fontWeight: '600',
+      color: heroText,
+    },
+
+    // Stats strip
+    heroStats: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.30)',
+      borderRadius: 16,
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.12)',
+    },
+    heroStatBlock: {
       flex: 1,
       alignItems: 'center',
     },
-    heroStatValue: {
-      fontSize: fs(20),
+    heroStatNum: {
+      fontSize: fs(17),
       fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
-      color: '#FFFFFF',
+      color: heroText,
       letterSpacing: -0.3,
     },
-    heroStatLabel: {
-      fontSize: fs(11),
-      color: 'rgba(255,255,255,0.65)',
+    heroStatLbl: {
+      fontSize: fs(10),
+      color: heroMuted,
       marginTop: 2,
       fontFamily: 'PlusJakartaSans-Medium',
     },
-    heroStatDivider: {
+    heroStatSep: {
       width: 1,
-      height: 32,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      marginHorizontal: 8,
+      height: 26,
+      backgroundColor: 'rgba(255,255,255,0.15)',
     },
 
-    // ─── SHARED ───────────────────────────────────────────────────────────────
-    userRow: {
+    // ═══════════════════════════════════════════════════
+    // SCROLL CONTENT
+    // ═══════════════════════════════════════════════════
+    scrollArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scrollContent: {
+      paddingTop: 20,
+      paddingBottom: 8,
+    },
+
+    sectionGroup: {
+      marginBottom: 24,
+      paddingHorizontal: 16,
+    },
+    groupLabel: {
+      fontSize: fs(10.5),
+      fontFamily: 'PlusJakartaSans-ExtraBold',
+      fontWeight: '800',
+      color: colors.textMuted,
+      letterSpacing: 1.2,
+      marginBottom: 8,
+      marginLeft: 4,
+    },
+
+    // ── Setting cards ──────────────────────────────────
+    settingCard: {
       flexDirection: 'row',
       alignItems: 'center',
+      backgroundColor: colors.surface,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      gap: 12,
+      borderLeftWidth: 1,
+      borderRightWidth: 1,
+      borderColor: colors.border,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.borderSubtle,
     },
-    avatar: {
-      width: 58,
-      height: 58,
-      borderRadius: 18,
+    settingCardFirst: {
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      borderTopWidth: 1,
+    },
+    settingCardLast: {
+      borderBottomLeftRadius: 16,
+      borderBottomRightRadius: 16,
+      borderBottomWidth: 1,
+    },
+    settingCardOnly: {
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      borderBottomLeftRadius: 16,
+      borderBottomRightRadius: 16,
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+    },
+    settingIcon: {
+      width: 38,
+      height: 38,
+      borderRadius: 10,
+      backgroundColor: colors.surfaceSubtle,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: colors.primary,
-      shadowColor: colors.primary,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 5,
     },
-    avatarText: {
-      fontSize: 24,
-      fontFamily: 'PlusJakartaSans-ExtraBold',
-      fontWeight: '800',
-      color: '#FFFFFF',
+    settingIconText: {
+      fontSize: 17,
     },
-    userInfo: {
-      marginLeft: 16,
+    settingBody: {
       flex: 1,
-    },
-    userName: {
-      fontSize: fs(19),
-      fontFamily: 'PlusJakartaSans-ExtraBold',
-      fontWeight: '800',
-      color: colors.textPrimary,
-      letterSpacing: -0.3,
-    },
-    userEmail: {
-      fontSize: fs(13),
-      color: colors.textMuted,
-      marginTop: 3,
-    },
-    settingRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    settingTextCol: {
-      flex: 1,
-      paddingRight: 12,
-    },
-    switchContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 22,
-      backgroundColor: colors.surfaceSubtle,
-      borderWidth: 1.2,
-      borderColor: colors.border,
-    },
-    switchModeIcon: {
-      fontSize: 16,
     },
     settingTitle: {
-      fontSize: fs(16),
-      fontFamily: 'PlusJakartaSans-Bold',
-      fontWeight: '700',
+      fontSize: fs(15),
+      fontFamily: 'PlusJakartaSans-SemiBold',
+      fontWeight: '600',
       color: colors.textPrimary,
     },
     settingDesc: {
       fontSize: fs(12),
       color: colors.textMuted,
       marginTop: 2,
+      fontFamily: 'PlusJakartaSans-Regular',
     },
-    sectionTitle: {
-      fontSize: fs(16),
-      fontFamily: 'PlusJakartaSans-ExtraBold',
-      fontWeight: '800',
-      color: colors.textPrimary,
-      letterSpacing: -0.2,
+    settingArrow: {
+      fontSize: 22,
+      color: colors.textMuted,
+      fontWeight: '300',
     },
 
-    // ─── WEBSITE COLOR COMBOS ─────────────────────────────────────────────────
-    combosCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 20,
-      padding: 16,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.07,
-      shadowRadius: 10,
-      elevation: 3,
-    },
-    combosHeader: {
+    // Typography controls
+    typographyHeader: {
       flexDirection: 'row',
+      alignItems: 'center',
       justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      marginBottom: 14,
-    },
-    combosSectionTitle: {
-      fontSize: fs(17),
-      fontFamily: 'PlusJakartaSans-ExtraBold',
-      fontWeight: '800',
-      letterSpacing: -0.3,
-    },
-    combosSectionSub: {
-      fontSize: fs(12),
-      marginTop: 3,
-      fontFamily: 'PlusJakartaSans-Regular',
-    },
-    combosTag: {
-      borderRadius: 12,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-    },
-    combosTagText: {
-      fontSize: 11,
-      fontFamily: 'PlusJakartaSans-ExtraBold',
-      fontWeight: '800',
-    },
-    comboCard: {
-      borderRadius: 16,
-      borderWidth: 1,
-      padding: 14,
       marginBottom: 10,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 4,
     },
-    comboLabelRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      marginBottom: 12,
-    },
-    comboName: {
-      fontSize: fs(15),
-      fontFamily: 'PlusJakartaSans-ExtraBold',
-      fontWeight: '800',
-      letterSpacing: -0.2,
-    },
-    comboType: {
-      fontSize: fs(11.5),
-      marginTop: 2,
-      fontFamily: 'PlusJakartaSans-Regular',
-    },
-    comboVibe: {
-      fontSize: fs(11),
-      fontFamily: 'PlusJakartaSans-Medium',
-      fontStyle: 'italic',
-      maxWidth: 140,
-      textAlign: 'right',
-    },
-    comboSwatchesRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      marginBottom: 12,
-    },
-    comboSwatchWrap: {
-      alignItems: 'center',
-      gap: 4,
-    },
-    comboSwatch: {
+    scaleBadge: {
+      paddingHorizontal: 9,
+      paddingVertical: 3,
       borderRadius: 10,
-      borderWidth: 1.5,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
-    comboSwatchBase: {
-      width: 50,
-      height: 44,
-    },
-    comboSwatchPop: {
-      width: 56,
-      height: 50,
-      borderRadius: 12,
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.3,
-      shadowRadius: 6,
-      elevation: 4,
-    },
-    comboPopBurst: {
-      fontSize: 16,
-    },
-    comboSwatchLabel: {
-      fontSize: 9,
-      fontFamily: 'PlusJakartaSans-SemiBold',
-      fontWeight: '600',
-      textAlign: 'center',
-    },
-    comboSwatchHex: {
-      fontSize: 8.5,
-      fontFamily: 'PlusJakartaSans-Regular',
-      textAlign: 'center',
-    },
-    comboPlusDivider: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: 44,
-      gap: 2,
-    },
-    comboPlusLine: {
-      width: 1,
-      flex: 1,
-    },
-    comboPlusText: {
-      fontSize: 14,
+    scaleBadgeText: {
+      fontSize: fs(12),
       fontFamily: 'PlusJakartaSans-ExtraBold',
-      fontWeight: '800',
-    },
-    comboPreviewBar: {
-      flexDirection: 'row',
-      height: 8,
-      borderRadius: 6,
-      overflow: 'hidden',
-    },
-    comboPreviewBase1: {},
-    comboPreviewBase2: {},
-    comboPreviewPop: {},
-    combosFooter: {
-      borderRadius: 12,
-      borderWidth: 1,
-      padding: 12,
-      marginTop: 2,
-    },
-    combosFooterText: {
-      fontSize: fs(12.5),
-      fontFamily: 'PlusJakartaSans-Regular',
-      lineHeight: lh(18),
-      textAlign: 'center',
-    },
-
-    // ─── TYPOGRAPHY SCALE ─────────────────────────────────────────────────────
-    textScaleHeaderRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 10,
-    },
-    textScaleBadge: {
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 12,
-    },
-    textScaleBadgeText: {
-      fontSize: 12.5,
       fontWeight: '800',
     },
     presetRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 6,
-      marginVertical: 10,
+      marginBottom: 10,
     },
     presetPill: {
-      paddingVertical: 6,
-      paddingHorizontal: 10,
+      paddingVertical: 5,
+      paddingHorizontal: 11,
       borderRadius: 10,
       borderWidth: 1.2,
       borderColor: colors.border,
       backgroundColor: colors.surfaceSubtle,
     },
-    presetPillActive: {
-      borderColor: colors.primary,
-      backgroundColor: colors.badgeBg,
-    },
     presetPillText: {
-      fontSize: 12,
+      fontSize: fs(12),
+      fontFamily: 'PlusJakartaSans-SemiBold',
       fontWeight: '600',
       color: colors.textSecondary,
     },
-    presetPillTextActive: {
-      fontWeight: '800',
-      color: colors.textPrimary,
-    },
-    textPreviewCard: {
-      padding: 14,
-      borderRadius: 14,
-      borderWidth: 1,
-      marginTop: 8,
-      marginBottom: 10,
-    },
-    stepperRow: {
+    stepRow: {
       flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
       gap: 8,
-      marginTop: 4,
     },
-    stepperBtn: {
+    stepBtn: {
       flex: 1,
-      paddingVertical: 9,
+      paddingVertical: 8,
       borderRadius: 10,
       borderWidth: 1.2,
       borderColor: colors.border,
       backgroundColor: colors.surfaceSubtle,
       alignItems: 'center',
-      justifyContent: 'center',
     },
-    stepperBtnText: {
-      fontSize: 12.5,
-      fontWeight: '700',
-      color: colors.textPrimary,
-    },
-    prefHint: {
-      marginTop: 5,
-      fontSize: fs(13),
-      lineHeight: lh(18),
-      color: colors.textMuted,
-    },
-    logoutButton: {
-      height: 52,
-      borderRadius: 14,
-      borderWidth: 1.5,
-      borderColor: colors.danger,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: 8,
-      backgroundColor: colors.dangerBg,
-    },
-    logoutButtonText: {
-      color: colors.danger,
-      fontSize: fs(15),
-      fontFamily: 'PlusJakartaSans-ExtraBold',
-      fontWeight: '800',
-    },
-    previewBodyText: {
-      fontSize: fs(15),
-      lineHeight: lh(23),
-      color: colors.textPrimary,
-      fontFamily: 'PlusJakartaSans-Medium',
-    },
-    footer: {
-      marginTop: 20,
-      marginBottom: 8,
-    },
-    footerText: {
+    stepBtnText: {
       fontSize: fs(12),
-      color: colors.textMuted,
-      textAlign: 'center',
-    },
-    legalRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderSubtle,
-    },
-    legalText: {
-      fontSize: fs(14),
-      color: colors.textPrimary,
-      fontFamily: 'PlusJakartaSans-SemiBold',
-      fontWeight: '600',
-    },
-    legalArrow: {
-      fontSize: fs(14),
-      color: colors.textMuted,
-    },
-    deleteAccountButton: {
-      height: 48,
-      borderRadius: 14,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: 4,
-    },
-    deleteAccountButtonText: {
-      color: colors.danger,
-      fontSize: fs(14),
       fontFamily: 'PlusJakartaSans-Bold',
       fontWeight: '700',
+    },
+
+    // Account
+    deleteBtn: {
+      marginHorizontal: 16,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    deleteBtnText: {
+      fontSize: fs(13),
+      fontFamily: 'PlusJakartaSans-SemiBold',
+      fontWeight: '600',
+      color: colors.danger,
       textDecorationLine: 'underline',
+    },
+
+    footerText: {
+      fontSize: fs(11),
+      color: colors.textMuted,
+      textAlign: 'center',
+      paddingVertical: 12,
+      fontFamily: 'PlusJakartaSans-Regular',
     },
   });
 };

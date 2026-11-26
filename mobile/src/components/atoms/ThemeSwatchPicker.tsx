@@ -1,5 +1,18 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// ThemeSwatchPicker — Premium Theme Selection
+//
+// Section 1 "Executive Palette"  — 6 gradient themes (image swatches)
+// Section 2 "Brand Color Combos" — 14 two-tone themes (split-color views)
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image } from 'react-native';
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+} from 'react-native';
 import { AppThemeOption } from '../../theme/appThemes';
 import { ThemeColors } from '../../theme/colors';
 
@@ -13,237 +26,475 @@ interface ThemeSwatchPickerProps {
 
 export const ThemeSwatchPicker: React.FC<ThemeSwatchPickerProps> = React.memo(
   ({ themes, activeThemeId, onSelectTheme, colors, textScale = 1.0 }) => {
-    const fs = (size: number) => Math.round(size * textScale);
-    const lh = (height: number) => Math.round(height * textScale);
+    const fs = (n: number) => Math.round(n * textScale);
 
     const activeTheme = useMemo(
       () => themes.find((t) => t.id === activeThemeId) || themes[0],
       [themes, activeThemeId]
     );
 
+    // Split by themeType
+    const gradientThemes = useMemo(
+      () => themes.filter((t) => t.themeType === 'gradient'),
+      [themes]
+    );
+    const twoToneThemes = useMemo(
+      () => themes.filter((t) => t.themeType === 'two-tone'),
+      [themes]
+    );
+
+    // ── Gradient swatch card ───────────────────────────────────────────────
+    const renderGradientCard = (theme: AppThemeOption) => {
+      const isActive = theme.id === activeThemeId;
+      return (
+        <TouchableOpacity
+          key={theme.id}
+          onPress={() => onSelectTheme(theme.id)}
+          activeOpacity={0.82}
+          style={[
+            cardStyles.gradientCard,
+            isActive
+              ? { borderColor: theme.primary, borderWidth: 2.5 }
+              : { borderColor: colors.border, borderWidth: 1 },
+          ]}>
+          {/* Swatch image */}
+          <View style={cardStyles.gradientSwatchWrap}>
+            {theme.assets.swatch ? (
+              <Image
+                source={theme.assets.swatch}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+              />
+            ) : (
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  { backgroundColor: theme.gradientStart },
+                ]}
+              />
+            )}
+            {isActive && (
+              <View style={cardStyles.checkBadge}>
+                <Text style={cardStyles.checkMark}>✓</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Info */}
+          <View style={cardStyles.gradientInfo}>
+            <Text
+              style={[
+                cardStyles.gradientLabel,
+                { color: isActive ? theme.primary : colors.textPrimary },
+              ]}
+              numberOfLines={1}>
+              {theme.label}
+            </Text>
+            <Text
+              style={[cardStyles.gradientTagline, { color: colors.textMuted }]}
+              numberOfLines={1}>
+              {theme.tagline}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      );
+    };
+
+    // ── Two-tone split card ────────────────────────────────────────────────
+    const renderTwoToneCard = (theme: AppThemeOption, size: 'featured' | 'compact') => {
+      const isActive = theme.id === activeThemeId;
+      const isFeatured = size === 'featured';
+
+      return (
+        <TouchableOpacity
+          key={theme.id}
+          onPress={() => onSelectTheme(theme.id)}
+          activeOpacity={0.82}
+          style={[
+            isFeatured ? cardStyles.featuredCard : cardStyles.compactCard,
+            isActive
+              ? { borderColor: theme.tone1, borderWidth: 2.5 }
+              : { borderColor: colors.border, borderWidth: 1 },
+          ]}>
+          {/* Split swatch */}
+          <View style={isFeatured ? cardStyles.featuredSwatch : cardStyles.compactSwatch}>
+            <View style={[cardStyles.swatchHalf, { backgroundColor: theme.tone1 }]}>
+              {isActive && (
+                <View style={cardStyles.checkBadge}>
+                  <Text style={cardStyles.checkMark}>✓</Text>
+                </View>
+              )}
+            </View>
+            <View
+              style={[
+                cardStyles.swatchHalf,
+                {
+                  backgroundColor: theme.tone2,
+                  borderLeftWidth: 1,
+                  borderLeftColor: 'rgba(0,0,0,0.08)',
+                },
+              ]}
+            />
+          </View>
+
+          {/* Info */}
+          <View style={isFeatured ? cardStyles.featuredInfo : cardStyles.compactInfo}>
+            <Text
+              style={[
+                isFeatured ? cardStyles.featuredLabel : cardStyles.compactLabel,
+                { color: isActive ? theme.tone1 : colors.textPrimary },
+              ]}
+              numberOfLines={1}>
+              {theme.label}
+            </Text>
+            {isFeatured && (
+              <Text
+                style={[cardStyles.featuredTagline2, { color: colors.textMuted }]}
+                numberOfLines={1}>
+                {theme.tagline}
+              </Text>
+            )}
+          </View>
+        </TouchableOpacity>
+      );
+    };
+
+    // Featured two-tone = first 4; rest = extended
+    const featuredTwoTone = useMemo(() => twoToneThemes.slice(0, 4), [twoToneThemes]);
+    const extendedTwoTone = useMemo(() => twoToneThemes.slice(4), [twoToneThemes]);
+
+    // Active insight card
+    const renderInsightCard = (theme: AppThemeOption) => (
+      <View
+        style={[
+          pickerStyles.insightCard,
+          {
+            backgroundColor:
+              theme.themeType === 'gradient'
+                ? theme.badgeBg
+                : theme.tone1 + '12',
+            borderColor:
+              theme.themeType === 'gradient'
+                ? theme.primary + '40'
+                : theme.tone1 + '30',
+          },
+        ]}>
+        <Text
+          style={[
+            pickerStyles.insightTitle,
+            {
+              color: theme.themeType === 'gradient' ? theme.primary : theme.tone1,
+              fontSize: fs(12),
+            },
+          ]}>
+          ✦ {theme.tagline}
+        </Text>
+        <Text
+          style={[
+            pickerStyles.insightBody,
+            { color: colors.textSecondary, fontSize: fs(11) },
+          ]}>
+          {theme.psychology}
+        </Text>
+      </View>
+    );
+
     return (
-      <View style={styles.wrapper}>
-        <View style={styles.headerRow}>
-          <Text style={[styles.sectionLabel, { color: colors.textPrimary, fontSize: fs(16) }]}>
-            Executive Palette
-          </Text>
-          <View style={[styles.activePill, { backgroundColor: activeTheme.primary + '18' }]}>
-            <Text style={[styles.activePillText, { color: activeTheme.primary, fontSize: fs(11.5) }]}>
+      <View style={pickerStyles.wrapper}>
+
+        {/* ── Header ──────────────────────────────────────────────── */}
+        <View style={pickerStyles.header}>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[
+                pickerStyles.mainTitle,
+                { color: colors.textPrimary, fontSize: fs(16) },
+              ]}>
+              Theme & Color Identity
+            </Text>
+            <Text
+              style={[
+                pickerStyles.mainSub,
+                { color: colors.textMuted, fontSize: fs(12) },
+              ]}>
+              Select your visual identity — applies app-wide
+            </Text>
+          </View>
+          <View
+            style={[
+              pickerStyles.activePill,
+              {
+                backgroundColor:
+                  activeTheme.themeType === 'gradient'
+                    ? activeTheme.primary
+                    : activeTheme.tone1,
+              },
+            ]}>
+            <Text
+              style={[pickerStyles.activePillText, { fontSize: fs(10) }]}>
               {activeTheme.label}
             </Text>
           </View>
         </View>
 
-        <Text style={[styles.sectionSub, { color: colors.textMuted, fontSize: fs(12), lineHeight: lh(17) }]}>
+        {/* ═══════════════════════════════════════════════════════════
+            SECTION 1 — EXECUTIVE PALETTE (Gradient themes)
+        ═══════════════════════════════════════════════════════════ */}
+        <Text style={[pickerStyles.sectionLabel, { color: colors.textMuted }]}>
+          EXECUTIVE PALETTE
+        </Text>
+        <Text
+          style={[
+            pickerStyles.sectionDesc,
+            { color: colors.textMuted, fontSize: fs(11) },
+          ]}>
           Psychology-tailored luxury gradients crafted for reading endurance & deep focus
         </Text>
 
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.row}>
-          {themes.map((theme) => {
-            const isActive = theme.id === activeThemeId;
-            return (
-              <TouchableOpacity
-                key={theme.id}
-                onPress={() => onSelectTheme(theme.id)}
-                activeOpacity={0.8}
-                style={[
-                  styles.swatchCard,
-                  {
-                    backgroundColor: colors.surfaceSubtle,
-                    borderColor: isActive ? theme.primary : colors.border,
-                  },
-                  isActive && {
-                    borderWidth: 2,
-                    shadowColor: theme.primary,
-                    shadowOpacity: 0.35,
-                    shadowRadius: 8,
-                    shadowOffset: { width: 0, height: 3 },
-                    elevation: 5,
-                  },
-                ]}>
-                {/* Real 3-stop diagonal gradient from theme asset */}
-                <View style={styles.swatch}>
-                  <Image
-                    source={theme.assets.swatch}
-                    style={StyleSheet.absoluteFill}
-                    resizeMode="cover"
-                  />
-                  {isActive && (
-                    <View style={styles.checkCircle}>
-                      <Text style={styles.checkMark}>✓</Text>
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.cardInfo}>
-                  <Text
-                    style={[
-                      styles.swatchTitle,
-                      { color: isActive ? theme.primary : colors.textPrimary, fontSize: fs(11.5) },
-                      isActive && styles.swatchTitleActive,
-                    ]}
-                    numberOfLines={1}>
-                    {theme.label}
-                  </Text>
-                  <Text
-                    style={[styles.swatchTagline, { color: colors.textMuted, fontSize: fs(9.5) }]}
-                    numberOfLines={1}>
-                    {theme.tagline}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+          contentContainerStyle={pickerStyles.gradientRow}>
+          {gradientThemes.map((t) => renderGradientCard(t))}
         </ScrollView>
 
-        {/* Psychological Insight Card for Active Selection */}
-        {activeTheme && (
-          <View
-            style={[
-              styles.psychologyBox,
-              {
-                backgroundColor: colors.surfaceSubtle,
-                borderColor: colors.border,
-                borderLeftColor: activeTheme.primary,
-              },
-            ]}>
-            <View style={styles.psychologyHeader}>
-              <Text style={styles.psychologyIcon}>✦</Text>
-              <Text style={[styles.psychologyTitle, { color: activeTheme.primary, fontSize: fs(12.5) }]}>
-                {activeTheme.tagline}
-              </Text>
-            </View>
-            <Text style={[styles.psychologyDesc, { color: colors.textSecondary, fontSize: fs(11.5), lineHeight: lh(17) }]}>
-              {activeTheme.psychology}
-            </Text>
-          </View>
-        )}
+        {/* Active gradient insight */}
+        {activeTheme.themeType === 'gradient' && renderInsightCard(activeTheme)}
+
+        {/* ═══════════════════════════════════════════════════════════
+            SECTION 2 — BRAND COLOR COMBOS (Two-tone themes)
+        ═══════════════════════════════════════════════════════════ */}
+        <View style={pickerStyles.sectionSep} />
+        <Text
+          style={[
+            pickerStyles.sectionLabel,
+            { color: colors.textMuted, marginTop: 4 },
+          ]}>
+          BRAND COLOR COMBOS
+        </Text>
+        <Text
+          style={[
+            pickerStyles.sectionDesc,
+            { color: colors.textMuted, fontSize: fs(11) },
+          ]}>
+          Two structural colors — both appear on every screen for depth & contrast
+        </Text>
+
+        {/* Featured two-tone row */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={pickerStyles.featuredRow}>
+          {featuredTwoTone.map((t) => renderTwoToneCard(t, 'featured'))}
+        </ScrollView>
+
+        {/* Extended two-tone grid */}
+        <View style={pickerStyles.compactGrid}>
+          {extendedTwoTone.map((t) => renderTwoToneCard(t, 'compact'))}
+        </View>
+
+        {/* Active two-tone insight */}
+        {activeTheme.themeType === 'two-tone' && renderInsightCard(activeTheme)}
+
       </View>
     );
   }
 );
 
-const styles = StyleSheet.create({
-  wrapper: {
-    paddingTop: 2,
-    paddingBottom: 2,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  sectionLabel: {
-    fontSize: 16,
-    fontFamily: 'PlusJakartaSans-Bold',
-    fontWeight: '700',
-  },
-  activePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  activePillText: {
-    fontSize: 11.5,
-    fontFamily: 'PlusJakartaSans-Bold',
-    fontWeight: '700',
-  },
-  sectionSub: {
-    fontSize: 12,
-    marginBottom: 14,
-    lineHeight: 17,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingRight: 6,
-    paddingBottom: 4,
-  },
-  swatchCard: {
-    width: 108,
+// ─── Card styles ──────────────────────────────────────────────────────────────
+const cardStyles = StyleSheet.create({
+  // Gradient cards
+  gradientCard: {
+    width: 120,
     borderRadius: 16,
-    padding: 8,
-    alignItems: 'center',
-    borderWidth: 1.2,
-  },
-  swatch: {
-    width: 90,
-    height: 52,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
     overflow: 'hidden',
-    position: 'relative',
-    marginBottom: 8,
+    marginRight: 10,
   },
-  checkCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+  gradientSwatchWrap: {
+    height: 72,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.25,
-    shadowRadius: 2,
-    elevation: 3,
   },
-  checkMark: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#0F172A',
-    lineHeight: 14,
+  gradientInfo: {
+    padding: 8,
   },
-  cardInfo: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  swatchTitle: {
+  gradientLabel: {
     fontSize: 11.5,
-    fontFamily: 'PlusJakartaSans-Bold',
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 2,
-  },
-  swatchTitleActive: {
+    fontFamily: 'PlusJakartaSans-ExtraBold',
     fontWeight: '800',
   },
-  swatchTagline: {
+  gradientTagline: {
     fontSize: 9.5,
-    fontFamily: 'PlusJakartaSans-Medium',
-    textAlign: 'center',
+    fontFamily: 'PlusJakartaSans-Regular',
+    marginTop: 2,
   },
-  psychologyBox: {
-    marginTop: 14,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderLeftWidth: 3.5,
+
+  // Two-tone featured cards
+  featuredCard: {
+    width: 120,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginRight: 10,
   },
-  psychologyHeader: {
+  featuredSwatch: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
+    height: 72,
   },
-  psychologyIcon: {
-    fontSize: 12,
-    color: '#F59E0B',
+  featuredInfo: {
+    padding: 8,
   },
-  psychologyTitle: {
-    fontSize: 12.5,
+  featuredLabel: {
+    fontSize: 11.5,
+    fontFamily: 'PlusJakartaSans-ExtraBold',
+    fontWeight: '800',
+  },
+  featuredTagline2: {
+    fontSize: 9.5,
+    fontFamily: 'PlusJakartaSans-Regular',
+    marginTop: 2,
+  },
+
+  // Two-tone compact cards
+  compactCard: {
+    width: '48%',
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  compactSwatch: {
+    flexDirection: 'row',
+    height: 48,
+  },
+  compactInfo: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  compactLabel: {
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans-Bold',
     fontWeight: '700',
-    letterSpacing: 0.2,
   },
-  psychologyDesc: {
-    fontSize: 11.5,
+
+  // Shared
+  swatchHalf: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkMark: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#0B0B0C',
+    lineHeight: 13,
+  },
+});
+
+// ─── Picker container styles ──────────────────────────────────────────────────
+const pickerStyles = StyleSheet.create({
+  wrapper: {
+    paddingTop: 2,
+    paddingBottom: 4,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    gap: 8,
+  },
+  mainTitle: {
+    fontSize: 16,
+    fontFamily: 'PlusJakartaSans-ExtraBold',
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  mainSub: {
+    fontSize: 12,
+    marginTop: 3,
     lineHeight: 17,
     fontFamily: 'PlusJakartaSans-Regular',
+    maxWidth: 200,
+  },
+  activePill: {
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    maxWidth: 110,
+    alignSelf: 'flex-start',
+  },
+  activePillText: {
+    fontSize: 10,
+    fontFamily: 'PlusJakartaSans-ExtraBold',
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+
+  // Section headers
+  sectionLabel: {
+    fontSize: 10.5,
+    fontFamily: 'PlusJakartaSans-ExtraBold',
+    fontWeight: '800',
+    letterSpacing: 1.0,
+    marginBottom: 4,
+  },
+  sectionDesc: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans-Regular',
+    lineHeight: 16,
+    marginBottom: 12,
+  },
+  sectionSep: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    marginVertical: 20,
+  },
+
+  // Rows / grids
+  gradientRow: {
+    flexDirection: 'row',
+    paddingRight: 4,
+    paddingBottom: 4,
+    marginBottom: 12,
+  },
+  featuredRow: {
+    flexDirection: 'row',
+    paddingRight: 4,
+    paddingBottom: 4,
+    marginBottom: 12,
+  },
+  compactGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+
+  // Insight card
+  insightCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 4,
+  },
+  insightTitle: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  insightBody: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans-Regular',
+    lineHeight: 16,
   },
 });

@@ -67,7 +67,7 @@ export const HomeFilterBar: React.FC<HomeFilterBarProps> = React.memo(
             style={[StyleSheet.absoluteFill, styles.filterTabGradientClip]}
             pointerEvents="none">
             <Image
-              source={accentTheme.assets.button}
+              source={accentTheme.assets.button ?? undefined}
               style={styles.fullSizeImage}
               resizeMode="cover"
             />

@@ -190,7 +190,7 @@ const ChannelNotificationRow = React.memo<ChannelNotificationRowProps>(
                     styles.channelStatus,
                     { color: isNotifying ? '#10B981' : colors.textMuted },
                   ]}>
-                  {isNotifying ? 'Alerts active' : 'Muted'}
+                  {isNotifying ? 'Alerts active' : channel.isActive === false ? 'Inactive (Tracking off)' : 'Muted'}
                 </Text>
               </View>
             </View>
@@ -406,14 +406,14 @@ export const NotificationsScreen: React.FC = () => {
     }
   }, [activeSpace, mutedBooks, mutedCinema, mutedSubreddits, mutedChannels]);
 
-  // Resolves mute status: actively tracked channels have alerts ON by default,
-  // while inactive/untracked channels are muted by default.
+  // Resolves mute status: alerts are enabled ONLY when channel is actively tracked (isActive !== false)
   const getIsMuted = useCallback(
     (item: TrackedSource) => {
+      // Inactive channel: alerts are disabled (muted)
+      if (item.isActive === false) return true;
       const explicit = currentMutedRecord[item.sourceId];
       if (explicit !== undefined) return explicit;
-      if (item.isActive === false) return true;
-      return false;
+      return false; // Active channels have alerts enabled by default
     },
     [currentMutedRecord]
   );
@@ -427,6 +427,20 @@ export const NotificationsScreen: React.FC = () => {
       const currentlyMuted = getIsMuted(targetSource);
       const nextMuted = !currentlyMuted;
       const nextActive = !nextMuted;
+
+      // When activating a channel, verify 50-slot limit
+      if (nextActive && targetSource.isActive === false) {
+        const currentActiveCount = sources.filter(
+          (s) => s.platform !== 'reddit' && s.isActive !== false
+        ).length;
+        if (currentActiveCount >= 50) {
+          Alert.alert(
+            'Tracking Limit Reached',
+            'You are actively tracking 50 channels. Please pause an existing active channel before enabling alerts for this channel.'
+          );
+          return;
+        }
+      }
 
       // Optimistically update sources and mute states
       setSources((prev) =>

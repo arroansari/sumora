@@ -13,19 +13,24 @@ import {
   Dimensions,
   Image,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { videosApi, integrationsApi, sourcesApi } from '../../services/api';
-import { VideoItem } from '../../types/models.types';
+import { VideoItem, TrackedSource } from '../../types/models.types';
 import { RootStackParamList } from '../../types/navigation.types';
 import { FilterPills, FilterPillOption } from '../../components/atoms/FilterPills';
 import { createChannelDetailStyles } from './ChannelDetailScreen.styles';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Constants & Types ────────────────────────────────────────────────────────
+
+const ACTIVE_TRACKED_KEY = 'sumora:active_tracked_channels_v2';
+const MAX_ACTIVE_TRACKING = 50;
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ChannelDetail'>;
 
@@ -205,13 +210,15 @@ interface ChannelHeroProps {
   avatarUrl: string | null;
   channelName: string;
   trackedDate: string | null;
+  isTrackingActive: boolean;
+  onToggleTracking: () => void;
   styles: ReturnType<typeof createChannelDetailStyles>;
   heroAvatarScale: Animated.AnimatedInterpolation<number>;
   onLayout?: (e: any) => void;
 }
 
 const ChannelHero = React.memo<ChannelHeroProps>(
-  ({ avatarUrl, channelName, trackedDate, styles, heroAvatarScale, onLayout }) => (
+  ({ avatarUrl, channelName, trackedDate, isTrackingActive, onToggleTracking, styles, heroAvatarScale, onLayout }) => (
     <View style={styles.channelHeader} onLayout={onLayout}>
       <Animated.View
         style={[
@@ -238,6 +245,31 @@ const ChannelHero = React.memo<ChannelHeroProps>(
       <Text style={styles.channelMeta}>
         YouTube{trackedDate ? ` · Tracking since ${trackedDate}` : ''}
       </Text>
+
+      {/* Interactive Tracking Active/Inactive Toggle */}
+      <TouchableOpacity
+        style={[
+          styles.heroTrackBtn,
+          isTrackingActive ? styles.heroTrackBtnActive : styles.heroTrackBtnInactive,
+        ]}
+        onPress={onToggleTracking}
+        activeOpacity={0.8}>
+        <Text style={styles.heroTrackBtnIcon}>{isTrackingActive ? '✓' : '⚡'}</Text>
+        <View style={styles.heroTrackBtnTextCol}>
+          <Text
+            style={[
+              styles.heroTrackBtnTitle,
+              isTrackingActive ? styles.heroTrackBtnTitleActive : styles.heroTrackBtnTitleInactive,
+            ]}>
+            {isTrackingActive ? 'Tracking Active • Alerts Enabled' : 'Track Channel • Enable Alerts'}
+          </Text>
+          <Text style={styles.heroTrackBtnSub}>
+            {isTrackingActive
+              ? 'Auto AI summaries & push alerts enabled'
+              : 'Tap to enable automated summaries & alerts'}
+          </Text>
+        </View>
+      </TouchableOpacity>
     </View>
   )
 );
@@ -397,29 +429,100 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const scrollYOffset = useRef(0);
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(thumbnailUrl || null);
+  const [trackedSource, setTrackedSource] = useState<TrackedSource | null>(null);
+  const [isTrackingActive, setIsTrackingActive] = useState<boolean>(true);
+  const [activeCount, setActiveCount] = useState<number>(0);
 
-  useEffect(() => {
-    if (thumbnailUrl) {
-      setAvatarUrl(thumbnailUrl);
-      return;
-    }
+  const fetchChannelTrackingState = useCallback(() => {
     let isMounted = true;
     sourcesApi
       .list({ platform: 'youtube' })
       .then((sources) => {
         if (!isMounted) return;
-        const found = sources.find((s) => s.sourceId === channelId);
-        if (found?.thumbnailUrl) {
-          setAvatarUrl(found.thumbnailUrl);
+        const currentActive = sources.filter((s) => s.platform !== 'reddit' && s.isActive !== false).length;
+        setActiveCount(currentActive);
+        const found = sources.find((s) => s.sourceId === channelId || s.id === channelId);
+        if (found) {
+          setTrackedSource(found);
+          setIsTrackingActive(found.isActive !== false);
+          if (found.thumbnailUrl && !avatarUrl) {
+            setAvatarUrl(found.thumbnailUrl);
+          }
         }
       })
       .catch((err) => {
-        console.warn('[ChannelDetail] Failed to resolve channel avatar:', err?.message);
+        console.warn('[ChannelDetail] Failed to resolve channel tracking:', err?.message);
       });
     return () => {
       isMounted = false;
     };
-  }, [channelId, thumbnailUrl]);
+  }, [channelId, avatarUrl]);
+
+  useEffect(() => {
+    return fetchChannelTrackingState();
+  }, [fetchChannelTrackingState]);
+
+  const handleToggleTracking = useCallback(async () => {
+    if (isTrackingActive) {
+      Alert.alert(
+        'Pause AI Tracking?',
+        `Pause automatic AI summaries & push alerts for "${channelName}"? This frees up 1 tracking slot.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Pause Tracking',
+            style: 'default',
+            onPress: async () => {
+              setIsTrackingActive(false);
+              setActiveCount((c) => Math.max(0, c - 1));
+
+              try {
+                const stored = await AsyncStorage.getItem(ACTIVE_TRACKED_KEY);
+                if (stored) {
+                  const ids: string[] = JSON.parse(stored);
+                  const updated = ids.filter((id) => id !== channelId && id !== trackedSource?.id);
+                  await AsyncStorage.setItem(ACTIVE_TRACKED_KEY, JSON.stringify(updated));
+                }
+              } catch {}
+
+              try {
+                await sourcesApi.toggle(trackedSource?.id || channelId);
+              } catch (err: any) {
+                console.warn('[ChannelDetail] Toggle tracking failed:', err?.message);
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      if (activeCount >= MAX_ACTIVE_TRACKING) {
+        Alert.alert(
+          'Tracking Limit Reached',
+          `You are actively tracking ${activeCount} of ${MAX_ACTIVE_TRACKING} channels. Please pause an existing active channel before activating "${channelName}".`
+        );
+        return;
+      }
+
+      setIsTrackingActive(true);
+      setActiveCount((c) => c + 1);
+
+      try {
+        const stored = await AsyncStorage.getItem(ACTIVE_TRACKED_KEY);
+        const ids: string[] = stored ? JSON.parse(stored) : [];
+        const targetId = trackedSource?.id || channelId;
+        if (!ids.includes(targetId)) {
+          ids.push(targetId);
+          await AsyncStorage.setItem(ACTIVE_TRACKED_KEY, JSON.stringify(ids));
+        }
+      } catch {}
+
+      try {
+        await sourcesApi.toggle(trackedSource?.id || channelId);
+      } catch (err: any) {
+        console.warn('[ChannelDetail] Toggle tracking failed:', err?.message);
+      }
+    }
+  }, [isTrackingActive, activeCount, channelName, channelId, trackedSource]);
 
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -827,6 +930,8 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               avatarUrl={avatarUrl}
               channelName={channelName}
               trackedDate={trackedDate}
+              isTrackingActive={isTrackingActive}
+              onToggleTracking={handleToggleTracking}
               styles={styles}
               heroAvatarScale={heroAvatarScale}
               onLayout={onHeroLayout}
@@ -932,6 +1037,8 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       customLabel,
       handleResetToAllTime,
       handleVideoPress,
+      isTrackingActive,
+      handleToggleTracking,
     ]
   );
 
@@ -947,7 +1054,7 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           },
         ]}>
         <Image
-          source={accentTheme.assets.header}
+          source={accentTheme.assets.header ?? undefined}
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />
@@ -982,8 +1089,23 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </Text>
           </View>
 
-          {/* Spacer to keep channel profile centered without the YouTube badge */}
-          <View style={{ width: 80 }} />
+          {/* Quick Active Tracking Toggle Pill */}
+          <TouchableOpacity
+            style={[
+              styles.headerTrackBtn,
+              isTrackingActive ? styles.headerTrackBtnActive : styles.headerTrackBtnInactive,
+            ]}
+            onPress={handleToggleTracking}
+            activeOpacity={0.75}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text
+              style={[
+                styles.headerTrackBtnText,
+                isTrackingActive ? styles.headerTrackBtnTextActive : styles.headerTrackBtnTextInactive,
+              ]}>
+              {isTrackingActive ? '✓ Active' : '+ Track'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
