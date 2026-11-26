@@ -1,11 +1,51 @@
 import React, { useMemo } from 'react';
-import { View, Text, Switch, TouchableOpacity, ScrollView, Alert, Linking } from 'react-native';
+import {
+  View,
+  Text,
+  Switch,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  Linking,
+  ImageBackground,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Card } from '../../components/atoms/Card';
 import { ThemeSwatchPicker } from '../../components/atoms/ThemeSwatchPicker';
 import { createProfileStyles } from './ProfileScreen.styles';
+
+// ── Website Color Combos Data ─────────────────────────────────────────────────
+const COLOR_COMBOS = [
+  {
+    id: 'mossgrove',
+    name: 'Mossgrove',
+    type: 'Landscaping',
+    base1: { hex: '#0F5C45', label: 'Emerald' },
+    base2: { hex: '#FFFFFF', label: 'White' },
+    pop: { hex: '#F28C28', label: 'Tangerine' },
+    vibe: 'Warm, welcoming, feels alive',
+  },
+  {
+    id: 'tidewell',
+    name: 'Tidewell',
+    type: 'Plumbing & Heating',
+    base1: { hex: '#141B2D', label: 'Ink Navy' },
+    base2: { hex: '#F4F1EA', label: 'Pearl White' },
+    pop: { hex: '#FF5A4E', label: 'Electric Coral' },
+    vibe: 'Stands out, easier to remember',
+  },
+  {
+    id: 'blackridge',
+    name: 'Blackridge',
+    type: 'Roofing',
+    base1: { hex: '#0B0B0C', label: 'Jet Black' },
+    base2: { hex: '#8A8D93', label: 'Smoke Grey' },
+    pop: { hex: '#C8102E', label: 'Cherry Red' },
+    vibe: 'Strong, bold, looks established',
+  },
+];
 
 export const ProfileScreen: React.FC = () => {
   const {
@@ -50,6 +90,10 @@ export const ProfileScreen: React.FC = () => {
     });
   };
 
+  const handleCopyHex = (hex: string) => {
+    Alert.alert('Hex Copied', `${hex} copied to clipboard`);
+  };
+
   const percentage = Math.round(textScale * 100);
 
   const presets = [
@@ -60,36 +104,62 @@ export const ProfileScreen: React.FC = () => {
     { label: '140%', value: 1.4 },
   ];
 
+  const username = user?.email ? user.email.split('@')[0] : 'Sumora User';
+  const avatarLetter = user?.email?.charAt(0).toUpperCase() || 'U';
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile & Settings</Text>
-        <Text style={styles.headerSubtitle}>
-          Manage preferences and application settings.
-        </Text>
-      </View>
-
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}>
 
-        {/* ── User Info Card ── */}
-        <Card>
-          <View style={styles.userRow}>
-            <View style={[styles.avatar, { backgroundColor: colors.primary, shadowColor: colors.primary }]}>
-              <Text style={styles.avatarText}>
-                {user?.email?.charAt(0).toUpperCase() || 'U'}
-              </Text>
-            </View>
-            <View style={styles.userInfo}>
-              <Text style={styles.userName}>
-                {user?.email ? user.email.split('@')[0] : 'Sumora User'}
-              </Text>
-              <Text style={styles.userEmail}>{user?.email || 'Logged in'}</Text>
+        {/* ── HERO BANNER ── */}
+        <ImageBackground
+          source={accentTheme.assets.header}
+          style={styles.heroBanner}
+          imageStyle={styles.heroBannerImage}>
+          {/* Gradient overlay */}
+          <View style={styles.heroOverlay} />
+
+          {/* Top badge */}
+          <View style={styles.heroBadgeRow}>
+            <View style={[styles.heroBadge, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
+              <Text style={styles.heroBadgeText}>✦ Sumora Member</Text>
             </View>
           </View>
-        </Card>
+
+          {/* Avatar + identity */}
+          <View style={styles.heroAvatarRow}>
+            <View style={styles.heroAvatarRing}>
+              <View style={[styles.heroAvatar, { backgroundColor: accentTheme.primary }]}>
+                <Text style={styles.heroAvatarText}>{avatarLetter}</Text>
+              </View>
+            </View>
+            <View style={styles.heroIdentity}>
+              <Text style={styles.heroUsername}>{username}</Text>
+              <Text style={styles.heroEmail}>{user?.email || 'Logged in'}</Text>
+            </View>
+          </View>
+
+          {/* Stats row */}
+          <View style={styles.heroStatsRow}>
+            <View style={styles.heroStatItem}>
+              <Text style={styles.heroStatValue}>391</Text>
+              <Text style={styles.heroStatLabel}>Channels</Text>
+            </View>
+            <View style={styles.heroStatDivider} />
+            <View style={styles.heroStatItem}>
+              <Text style={styles.heroStatValue}>6</Text>
+              <Text style={styles.heroStatLabel}>Active</Text>
+            </View>
+            <View style={styles.heroStatDivider} />
+            <View style={styles.heroStatItem}>
+              <Text style={styles.heroStatValue}>AI</Text>
+              <Text style={styles.heroStatLabel}>Powered</Text>
+            </View>
+          </View>
+        </ImageBackground>
 
         {/* ── Light / Dark Mode Toggle ── */}
         <Card>
@@ -125,6 +195,105 @@ export const ProfileScreen: React.FC = () => {
             textScale={textScale}
           />
         </Card>
+
+        {/* ── Website Color Combos ── */}
+        <View style={styles.combosCard}>
+          {/* Section header */}
+          <View style={styles.combosHeader}>
+            <View>
+              <Text style={[styles.combosSectionTitle, { color: colors.textPrimary }]}>
+                🎨 Brand Color Combos
+              </Text>
+              <Text style={[styles.combosSectionSub, { color: colors.textMuted }]}>
+                Pop one bold accent onto a neutral two-tone base
+              </Text>
+            </View>
+            <View style={[styles.combosTag, { backgroundColor: accentTheme.badgeBg }]}>
+              <Text style={[styles.combosTagText, { color: accentTheme.badgeText }]}>
+                Matt's Picks
+              </Text>
+            </View>
+          </View>
+
+          {/* Combo cards */}
+          {COLOR_COMBOS.map((combo) => (
+            <View
+              key={combo.id}
+              style={[styles.comboCard, { backgroundColor: colors.surface, borderColor: colors.borderSubtle }]}>
+
+              {/* Business label row */}
+              <View style={styles.comboLabelRow}>
+                <View>
+                  <Text style={[styles.comboName, { color: colors.textPrimary }]}>
+                    {combo.name}
+                  </Text>
+                  <Text style={[styles.comboType, { color: colors.textMuted }]}>
+                    {combo.type}
+                  </Text>
+                </View>
+                <Text style={[styles.comboVibe, { color: colors.textSecondary }]}>
+                  "{combo.vibe}"
+                </Text>
+              </View>
+
+              {/* Color swatches row */}
+              <View style={styles.comboSwatchesRow}>
+                {/* Base 1 */}
+                <TouchableOpacity
+                  style={styles.comboSwatchWrap}
+                  onPress={() => handleCopyHex(combo.base1.hex)}
+                  activeOpacity={0.75}>
+                  <View style={[styles.comboSwatch, styles.comboSwatchBase, { backgroundColor: combo.base1.hex, borderColor: combo.base1.hex === '#FFFFFF' ? '#DDD' : combo.base1.hex }]} />
+                  <Text style={[styles.comboSwatchLabel, { color: colors.textMuted }]}>{combo.base1.label}</Text>
+                  <Text style={[styles.comboSwatchHex, { color: colors.textSecondary }]}>{combo.base1.hex}</Text>
+                </TouchableOpacity>
+
+                {/* Base 2 */}
+                <TouchableOpacity
+                  style={styles.comboSwatchWrap}
+                  onPress={() => handleCopyHex(combo.base2.hex)}
+                  activeOpacity={0.75}>
+                  <View style={[styles.comboSwatch, styles.comboSwatchBase, { backgroundColor: combo.base2.hex, borderColor: combo.base2.hex === '#FFFFFF' || combo.base2.hex === '#F4F1EA' ? '#DDD' : combo.base2.hex }]} />
+                  <Text style={[styles.comboSwatchLabel, { color: colors.textMuted }]}>{combo.base2.label}</Text>
+                  <Text style={[styles.comboSwatchHex, { color: colors.textSecondary }]}>{combo.base2.hex}</Text>
+                </TouchableOpacity>
+
+                {/* Divider + "Pop" label */}
+                <View style={styles.comboPlusDivider}>
+                  <View style={[styles.comboPlusLine, { backgroundColor: colors.borderSubtle }]} />
+                  <Text style={[styles.comboPlusText, { color: colors.textMuted }]}>+</Text>
+                  <View style={[styles.comboPlusLine, { backgroundColor: colors.borderSubtle }]} />
+                </View>
+
+                {/* Pop color */}
+                <TouchableOpacity
+                  style={styles.comboSwatchWrap}
+                  onPress={() => handleCopyHex(combo.pop.hex)}
+                  activeOpacity={0.75}>
+                  <View style={[styles.comboSwatch, styles.comboSwatchPop, { backgroundColor: combo.pop.hex, borderColor: combo.pop.hex }]}>
+                    <Text style={styles.comboPopBurst}>⚡</Text>
+                  </View>
+                  <Text style={[styles.comboSwatchLabel, { color: colors.textMuted }]}>{combo.pop.label}</Text>
+                  <Text style={[styles.comboSwatchHex, { color: colors.textSecondary }]}>{combo.pop.hex}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Preview bar */}
+              <View style={styles.comboPreviewBar}>
+                <View style={[styles.comboPreviewBase1, { backgroundColor: combo.base1.hex, flex: 4 }]} />
+                <View style={[styles.comboPreviewBase2, { backgroundColor: combo.base2.hex, flex: 4 }]} />
+                <View style={[styles.comboPreviewPop, { backgroundColor: combo.pop.hex, flex: 1.5 }]} />
+              </View>
+            </View>
+          ))}
+
+          {/* Rule of thumb footer */}
+          <View style={[styles.combosFooter, { backgroundColor: colors.surfaceSubtle, borderColor: colors.borderSubtle }]}>
+            <Text style={[styles.combosFooterText, { color: colors.textSecondary }]}>
+              💡 Keep <Text style={{ fontFamily: 'PlusJakartaSans-Bold', color: colors.textPrimary }}>90%</Text> in neutral base · Use pop color <Text style={{ fontFamily: 'PlusJakartaSans-Bold', color: colors.textPrimary }}>sparingly</Text> for buttons & highlights
+            </Text>
+          </View>
+        </View>
 
         {/* ── Reading Typography & Text Scaling ── */}
         <Card>
