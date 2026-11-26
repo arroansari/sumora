@@ -159,9 +159,8 @@ export const ThemeSwatchPicker: React.FC<ThemeSwatchPickerProps> = React.memo(
       );
     };
 
-    // Featured two-tone = first 4; rest = extended
-    const featuredTwoTone = useMemo(() => twoToneThemes.slice(0, 4), [twoToneThemes]);
-    const extendedTwoTone = useMemo(() => twoToneThemes.slice(4), [twoToneThemes]);
+    // Featured two-tone = all 5 in one scrollable row; no extended grid needed
+    const featuredTwoTone = useMemo(() => twoToneThemes, [twoToneThemes]);
 
     // Active insight card
     const renderInsightCard = (theme: AppThemeOption) => (
@@ -262,7 +261,7 @@ export const ThemeSwatchPicker: React.FC<ThemeSwatchPickerProps> = React.memo(
         {activeTheme.themeType === 'gradient' && renderInsightCard(activeTheme)}
 
         {/* ═══════════════════════════════════════════════════════════
-            SECTION 2 — BRAND COLOR COMBOS (Two-tone themes)
+            SECTION 2 — LUXURY COLOR COMBOS (Two-tone themes)
         ═══════════════════════════════════════════════════════════ */}
         <View style={pickerStyles.sectionSep} />
         <Text
@@ -270,28 +269,23 @@ export const ThemeSwatchPicker: React.FC<ThemeSwatchPickerProps> = React.memo(
             pickerStyles.sectionLabel,
             { color: colors.textMuted, marginTop: 4 },
           ]}>
-          BRAND COLOR COMBOS
+          LUXURY COLOR COMBOS
         </Text>
         <Text
           style={[
             pickerStyles.sectionDesc,
             { color: colors.textMuted, fontSize: fs(11) },
           ]}>
-          Two structural colors — both appear on every screen for depth & contrast
+          Curated two-tone pairings — both colors appear on every screen
         </Text>
 
-        {/* Featured two-tone row */}
+        {/* All 5 two-tone themes in one scrollable row */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={pickerStyles.featuredRow}>
           {featuredTwoTone.map((t) => renderTwoToneCard(t, 'featured'))}
         </ScrollView>
-
-        {/* Extended two-tone grid */}
-        <View style={pickerStyles.compactGrid}>
-          {extendedTwoTone.map((t) => renderTwoToneCard(t, 'compact'))}
-        </View>
 
         {/* Active two-tone insight */}
         {activeTheme.themeType === 'two-tone' && renderInsightCard(activeTheme)}

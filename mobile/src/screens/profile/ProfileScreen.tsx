@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { ThemeSwatchPicker } from '../../components/atoms/ThemeSwatchPicker';
+import { TextScaleSlider } from '../../components/atoms/TextScaleSlider';
 import { createProfileStyles } from './ProfileScreen.styles';
 
 export const ProfileScreen: React.FC = () => {
@@ -31,6 +32,7 @@ export const ProfileScreen: React.FC = () => {
     resetTextScale,
   } = useAppTheme();
   const { user, logout, deleteAccount } = useAuth();
+  const [isSlidingScale, setIsSlidingScale] = useState(false);
   const styles = useMemo(
     () => createProfileStyles(colors, accentTheme, textScale, insets),
     [colors, accentTheme, textScale, insets]
@@ -63,14 +65,6 @@ export const ProfileScreen: React.FC = () => {
   const percentage = Math.round(textScale * 100);
   const username = user?.email ? user.email.split('@')[0] : 'Sumora User';
   const avatarLetter = user?.email?.charAt(0).toUpperCase() || 'U';
-
-  const presets = [
-    { label: '85%', value: 0.85 },
-    { label: '100%', value: 1.0 },
-    { label: '115%', value: 1.15 },
-    { label: '130%', value: 1.3 },
-    { label: '140%', value: 1.4 },
-  ];
 
   return (
     <View style={styles.root}>
@@ -145,6 +139,7 @@ export const ProfileScreen: React.FC = () => {
       <ScrollView
         style={styles.scrollArea}
         contentContainerStyle={styles.scrollContent}
+        scrollEnabled={!isSlidingScale}
         showsVerticalScrollIndicator={false}>
 
         {/* ── Appearance ── */}
@@ -173,59 +168,14 @@ export const ProfileScreen: React.FC = () => {
           <Text style={styles.groupLabel}>TYPOGRAPHY</Text>
 
           <View style={[styles.settingCard, styles.settingCardOnly]}>
-            <View style={{ flex: 1 }}>
-              <View style={styles.typographyHeader}>
-                <Text style={styles.settingTitle}>Text Scale</Text>
-                <View style={[styles.scaleBadge, { backgroundColor: accentTheme.badgeBg }]}>
-                  <Text style={[styles.scaleBadgeText, { color: accentTheme.badgeText }]}>
-                    {percentage}%
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.presetRow}>
-                {presets.map((p) => (
-                  <TouchableOpacity
-                    key={p.label}
-                    style={[
-                      styles.presetPill,
-                      textScale === p.value && {
-                        backgroundColor: accentTheme.badgeBg,
-                        borderColor: accentTheme.primary,
-                      },
-                    ]}
-                    onPress={() => setTextScale(p.value)}
-                    activeOpacity={0.75}>
-                    <Text
-                      style={[
-                        styles.presetPillText,
-                        textScale === p.value && { color: accentTheme.primary, fontFamily: 'PlusJakartaSans-ExtraBold' },
-                      ]}>
-                      {p.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <View style={styles.stepRow}>
-                <TouchableOpacity
-                  style={styles.stepBtn}
-                  onPress={() => setTextScale((v) => Math.max(0.8, Math.round((v - 0.05) * 100) / 100))}
-                  activeOpacity={0.75}>
-                  <Text style={[styles.stepBtnText, { color: colors.textPrimary }]}>A−</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.stepBtn, { backgroundColor: accentTheme.badgeBg, borderColor: accentTheme.badgeBg }]}
-                  onPress={resetTextScale}
-                  activeOpacity={0.75}>
-                  <Text style={[styles.stepBtnText, { color: accentTheme.badgeText }]}>Reset</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.stepBtn}
-                  onPress={() => setTextScale((v) => Math.min(1.4, Math.round((v + 0.05) * 100) / 100))}
-                  activeOpacity={0.75}>
-                  <Text style={[styles.stepBtnText, { color: colors.textPrimary }]}>A+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            <TextScaleSlider
+              textScale={textScale}
+              onChangeScale={setTextScale}
+              onResetScale={resetTextScale}
+              accentTheme={accentTheme}
+              colors={colors}
+              onSlidingChange={setIsSlidingScale}
+            />
           </View>
         </View>
 

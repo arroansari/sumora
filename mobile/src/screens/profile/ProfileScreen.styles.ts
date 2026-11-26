@@ -261,62 +261,6 @@ export const createProfileStyles = (
       fontWeight: '300',
     },
 
-    // Typography controls
-    typographyHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 10,
-    },
-    scaleBadge: {
-      paddingHorizontal: 9,
-      paddingVertical: 3,
-      borderRadius: 10,
-    },
-    scaleBadgeText: {
-      fontSize: fs(12),
-      fontFamily: 'PlusJakartaSans-ExtraBold',
-      fontWeight: '800',
-    },
-    presetRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 6,
-      marginBottom: 10,
-    },
-    presetPill: {
-      paddingVertical: 5,
-      paddingHorizontal: 11,
-      borderRadius: 10,
-      borderWidth: 1.2,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceSubtle,
-    },
-    presetPillText: {
-      fontSize: fs(12),
-      fontFamily: 'PlusJakartaSans-SemiBold',
-      fontWeight: '600',
-      color: colors.textSecondary,
-    },
-    stepRow: {
-      flexDirection: 'row',
-      gap: 8,
-    },
-    stepBtn: {
-      flex: 1,
-      paddingVertical: 8,
-      borderRadius: 10,
-      borderWidth: 1.2,
-      borderColor: colors.border,
-      backgroundColor: colors.surfaceSubtle,
-      alignItems: 'center',
-    },
-    stepBtnText: {
-      fontSize: fs(12),
-      fontFamily: 'PlusJakartaSans-Bold',
-      fontWeight: '700',
-    },
-
     // Account
     deleteBtn: {
       marginHorizontal: 16,

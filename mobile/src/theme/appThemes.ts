@@ -2,7 +2,7 @@
 // SUMORA — Premium Theme System
 //
 // Section 1: 6 Executive Gradient themes (images, default = royal_amethyst)
-// Section 2: 14 Premium Two-Tone themes (solid tone1 + tone2)
+// Section 2: 5 Luxury Two-Tone themes (solid tone1 + tone2)
 //
 // Design rules:
 //   gradient themes  → header/button/swatch images, textPrimary = palette.textPrimary
@@ -40,21 +40,12 @@ export type AppThemeId =
   | 'sapphire_celestial'
   | 'velvet_orchid'
   | 'champagne_gold'
-  // ── Two-tone themes ───────────────────────────────────────────────────
+  // ── Two-tone themes (5 luxury picks) ─────────────────────────────────
   | 'midnight_classic'
   | 'royal_contrast'
-  | 'forest_luxury'
   | 'charcoal_gold'
-  | 'modern_graphite'
   | 'burgundy_elegance'
-  | 'ocean_prestige'
-  | 'royal_purple'
-  | 'chocolate_luxury'
-  | 'slate_cloud'
-  | 'cobalt_white'
-  | 'olive_linen'
-  | 'deep_blue_sand'
-  | 'wine_pearl'
+  | 'modern_graphite'
   // ── Legacy aliases ────────────────────────────────────────────────────
   | 'mossgrove'
   | 'tidewell'
@@ -353,35 +344,7 @@ export const APP_THEMES: AppThemeOption[] = [
     lightBorder:        '#D8D0BC',
   },
 
-  // 9. FOREST LUXURY
-  {
-    id: 'forest_luxury',
-    label: 'Forest Luxury',
-    tagline: 'Fresh, trustworthy',
-    psychology: 'Deep forest emerald is the colour of nature, growth and reliability. White amplifies it with clarity and freshness — a premium palette that feels alive yet professional.',
-    themeType: 'two-tone',
-    tone1: '#0F5C45',
-    tone2: '#FFFFFF',
-    gradientStart: '#0F5C45', gradientMid: '#187055', gradientEnd: '#228566',
-    assets: NULL_ASSETS,
-    primary:      '#0F5C45',
-    primaryDark:  '#093D2E',
-    primaryLight: '#1A8060',
-    secondary:    '#187055',
-    accent:       '#0F5C45',
-    badgeBg:      '#D6EDE6',
-    badgeText:    '#0F5C45',
-    tint:         '#0F5C45',
-    darkBackground:    '#040F0B',
-    darkSurface:       '#081810',
-    darkSurfaceSubtle: '#0C2118',
-    darkBorder:        'rgba(255,255,255,0.10)',
-    lightBackground:    '#FFFFFF',
-    lightSurfaceSubtle: '#F0FAF6',
-    lightBorder:        '#C0DFD4',
-  },
-
-  // 10. CHARCOAL & GOLD
+  // 9. CHARCOAL & GOLD
   {
     id: 'charcoal_gold',
     label: 'Charcoal & Gold',
@@ -465,229 +428,6 @@ export const APP_THEMES: AppThemeOption[] = [
     lightBorder:        '#F0CCBC',
   },
 
-  // 13. OCEAN PRESTIGE
-  {
-    id: 'ocean_prestige',
-    label: 'Ocean Prestige',
-    tagline: 'Calm, premium',
-    psychology: 'Deep teal carries the expansive calm of deep ocean water — trustworthy, premium and composed. Snow white gives it air and elegance. This combination feels both authoritative and serene.',
-    themeType: 'two-tone',
-    tone1: '#123C46',
-    tone2: '#FFFFFF',
-    gradientStart: '#123C46', gradientMid: '#1A5060', gradientEnd: '#22647A',
-    assets: NULL_ASSETS,
-    primary:      '#123C46',
-    primaryDark:  '#0A262E',
-    primaryLight: '#20627A',
-    secondary:    '#1A5060',
-    accent:       '#123C46',
-    badgeBg:      '#CBE0E6',
-    badgeText:    '#123C46',
-    tint:         '#123C46',
-    darkBackground:    '#040E11',
-    darkSurface:       '#08181C',
-    darkSurfaceSubtle: '#0C2228',
-    darkBorder:        'rgba(255,255,255,0.10)',
-    lightBackground:    '#FFFFFF',
-    lightSurfaceSubtle: '#EDF5F7',
-    lightBorder:        '#B0D4DC',
-  },
-
-  // 14. ROYAL PURPLE
-  {
-    id: 'royal_purple',
-    label: 'Royal Purple',
-    tagline: 'Creative, exclusive',
-    psychology: 'Deep purple has historically been reserved for royalty — it signals rarity, creativity and exclusivity. Soft white balances the drama, keeping the palette elevated rather than heavy.',
-    themeType: 'two-tone',
-    tone1: '#40245F',
-    tone2: '#FAF8FF',
-    gradientStart: '#40245F', gradientMid: '#542E7E', gradientEnd: '#6A3A9C',
-    assets: NULL_ASSETS,
-    primary:      '#40245F',
-    primaryDark:  '#2C1842',
-    primaryLight: '#7E5CA6',
-    secondary:    '#542E7E',
-    accent:       '#40245F',
-    badgeBg:      '#E8D8F8',
-    badgeText:    '#40245F',
-    tint:         '#40245F',
-    darkBackground:    '#0D0618',
-    darkSurface:       '#160A28',
-    darkSurfaceSubtle: '#200F38',
-    darkBorder:        'rgba(250,248,255,0.10)',
-    lightBackground:    '#FAF8FF',
-    lightSurfaceSubtle: '#F0EAFF',
-    lightBorder:        '#D8CBEE',
-  },
-
-  // 15. CHOCOLATE LUXURY
-  {
-    id: 'chocolate_luxury',
-    label: 'Chocolate Luxury',
-    tagline: 'Warm, elegant',
-    psychology: 'Dark chocolate brown evokes craftsmanship, artisanal quality and timeless comfort. Warm cream completes the picture with dessert-like indulgence — rich, inviting and premium.',
-    themeType: 'two-tone',
-    tone1: '#392820',
-    tone2: '#F5EBDD',
-    gradientStart: '#392820', gradientMid: '#4E372C', gradientEnd: '#634638',
-    assets: NULL_ASSETS,
-    primary:      '#392820',
-    primaryDark:  '#241910',
-    primaryLight: '#6E4A38',
-    secondary:    '#4E372C',
-    accent:       '#392820',
-    badgeBg:      '#E8D8C8',
-    badgeText:    '#392820',
-    tint:         '#392820',
-    darkBackground:    '#0E0A07',
-    darkSurface:       '#180F0A',
-    darkSurfaceSubtle: '#22150F',
-    darkBorder:        'rgba(245,235,221,0.10)',
-    lightBackground:    '#F5EBDD',
-    lightSurfaceSubtle: '#EADECF',
-    lightBorder:        '#D4C0A8',
-  },
-
-  // 16. SLATE & CLOUD
-  {
-    id: 'slate_cloud',
-    label: 'Slate & Cloud',
-    tagline: 'Minimal, modern',
-    psychology: 'Slate blue-grey is the colour of digital sophistication — calm, focused and intelligent. Cloud white gives it lightness and openness. The pairing is clean enough for tech, warm enough for lifestyle.',
-    themeType: 'two-tone',
-    tone1: '#334155',
-    tone2: '#F8FAFC',
-    gradientStart: '#334155', gradientMid: '#475569', gradientEnd: '#5A6E84',
-    assets: NULL_ASSETS,
-    primary:      '#334155',
-    primaryDark:  '#1E293B',
-    primaryLight: '#64748B',
-    secondary:    '#475569',
-    accent:       '#334155',
-    badgeBg:      '#E0E8F0',
-    badgeText:    '#334155',
-    tint:         '#334155',
-    darkBackground:    '#0A0D12',
-    darkSurface:       '#111620',
-    darkSurfaceSubtle: '#181F2E',
-    darkBorder:        'rgba(248,250,252,0.10)',
-    lightBackground:    '#F8FAFC',
-    lightSurfaceSubtle: '#EEF2F7',
-    lightBorder:        '#CBD5E1',
-  },
-
-  // 17. COBALT & WHITE
-  {
-    id: 'cobalt_white',
-    label: 'Cobalt & White',
-    tagline: 'Confident, energetic',
-    psychology: 'Cobalt blue is the colour of confidence, digital trust and global brands. Pure white gives it the clarity and energy of open sky. This combination is bold without being aggressive.',
-    themeType: 'two-tone',
-    tone1: '#1646A0',
-    tone2: '#FFFFFF',
-    gradientStart: '#1646A0', gradientMid: '#1D58C8', gradientEnd: '#246AF0',
-    assets: NULL_ASSETS,
-    primary:      '#1646A0',
-    primaryDark:  '#0E2E6A',
-    primaryLight: '#3A70D4',
-    secondary:    '#1D58C8',
-    accent:       '#1646A0',
-    badgeBg:      '#D4E2F8',
-    badgeText:    '#1646A0',
-    tint:         '#1646A0',
-    darkBackground:    '#040C22',
-    darkSurface:       '#081436',
-    darkSurfaceSubtle: '#0D1D4A',
-    darkBorder:        'rgba(255,255,255,0.10)',
-    lightBackground:    '#FFFFFF',
-    lightSurfaceSubtle: '#EBF0FB',
-    lightBorder:        '#B8CCEE',
-  },
-
-  // 18. OLIVE & LINEN
-  {
-    id: 'olive_linen',
-    label: 'Olive & Linen',
-    tagline: 'Natural, refined',
-    psychology: 'Warm olive draws from nature, art and Mediterranean lifestyle — it is the most sophisticated earthy tone. Linen is the textile of quiet luxury. Together they project refined taste and calm confidence.',
-    themeType: 'two-tone',
-    tone1: '#596B35',
-    tone2: '#F5F0E4',
-    gradientStart: '#596B35', gradientMid: '#6E8542', gradientEnd: '#839F50',
-    assets: NULL_ASSETS,
-    primary:      '#596B35',
-    primaryDark:  '#3E4C24',
-    primaryLight: '#758E48',
-    secondary:    '#6E8542',
-    accent:       '#596B35',
-    badgeBg:      '#E8EDD6',
-    badgeText:    '#596B35',
-    tint:         '#596B35',
-    darkBackground:    '#0E1109',
-    darkSurface:       '#171C0E',
-    darkSurfaceSubtle: '#202814',
-    darkBorder:        'rgba(245,240,228,0.10)',
-    lightBackground:    '#F5F0E4',
-    lightSurfaceSubtle: '#ECE6D6',
-    lightBorder:        '#D4CCBA',
-  },
-
-  // 19. DEEP BLUE & SAND
-  {
-    id: 'deep_blue_sand',
-    label: 'Deep Blue & Sand',
-    tagline: 'Trustworthy, grounded, premium',
-    psychology: 'Deep maritime blue anchors the composition with institutional trust. Sand recalls beach houses, fine linen and coastal elegance — it brings warmth and approachability to a potentially cold palette.',
-    themeType: 'two-tone',
-    tone1: '#19324D',
-    tone2: '#EDE2CF',
-    gradientStart: '#19324D', gradientMid: '#224468', gradientEnd: '#2B5880',
-    assets: NULL_ASSETS,
-    primary:      '#19324D',
-    primaryDark:  '#102030',
-    primaryLight: '#264870',
-    secondary:    '#224468',
-    accent:       '#19324D',
-    badgeBg:      '#DDD4BF',
-    badgeText:    '#19324D',
-    tint:         '#19324D',
-    darkBackground:    '#080F18',
-    darkSurface:       '#101E2E',
-    darkSurfaceSubtle: '#182B42',
-    darkBorder:        'rgba(237,226,207,0.10)',
-    lightBackground:    '#EDE2CF',
-    lightSurfaceSubtle: '#E2D5BC',
-    lightBorder:        '#C8BBA0',
-  },
-
-  // 20. WINE & PEARL
-  {
-    id: 'wine_pearl',
-    label: 'Wine & Pearl',
-    tagline: 'Elegant, distinctive, refined',
-    psychology: 'Wine red carries the heritage of viniculture and high culture — deeper and more serious than burgundy. Pearl is the most luxurious of neutrals with subtle iridescent warmth. This combination projects cultivated taste.',
-    themeType: 'two-tone',
-    tone1: '#672A3B',
-    tone2: '#F5F0F0',
-    gradientStart: '#672A3B', gradientMid: '#803550', gradientEnd: '#994060',
-    assets: NULL_ASSETS,
-    primary:      '#672A3B',
-    primaryDark:  '#481E28',
-    primaryLight: '#8C4058',
-    secondary:    '#803550',
-    accent:       '#672A3B',
-    badgeBg:      '#F0E0E4',
-    badgeText:    '#672A3B',
-    tint:         '#672A3B',
-    darkBackground:    '#160A0E',
-    darkSurface:       '#201018',
-    darkSurfaceSubtle: '#2A1620',
-    darkBorder:        'rgba(245,240,240,0.10)',
-    lightBackground:    '#F5F0F0',
-    lightSurfaceSubtle: '#EDE6E6',
-    lightBorder:        '#D8CCCC',
-  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -706,10 +446,19 @@ const LEGACY_MAP: Partial<Record<string, AppThemeId>> = {
   midnight_ocean:     'sapphire_celestial',
   neon_magenta:       'velvet_orchid',
   onyx_slate:         'champagne_gold',
-  // Brand combos → closest two-tone match
-  mossgrove:          'forest_luxury',
-  tidewell:           'ocean_prestige',
+  // Old two-tone IDs → closest remaining luxury match
+  mossgrove:          'midnight_classic',
+  tidewell:           'royal_contrast',
   blackridge:         'midnight_classic',
+  forest_luxury:      'royal_contrast',
+  ocean_prestige:     'royal_contrast',
+  royal_purple:       'burgundy_elegance',
+  chocolate_luxury:   'burgundy_elegance',
+  slate_cloud:        'modern_graphite',
+  cobalt_white:       'royal_contrast',
+  olive_linen:        'modern_graphite',
+  deep_blue_sand:     'royal_contrast',
+  wine_pearl:         'burgundy_elegance',
 };
 
 export function getThemeById(id: AppThemeId | string): AppThemeOption {
