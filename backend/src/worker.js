@@ -7,6 +7,10 @@
  */
 
 require('dotenv').config();
+const prisma = require('./config/db');
+const { closeRedisClients } = require('./config/redis');
+const { closeAllQueues } = require('./jobs');
+const { closeStreamSubscriber } = require('./utils/aiStream.util');
 const workerManager = require('./jobs/worker.manager');
 const schedulerService = require('./jobs/scheduler.service');
 
@@ -27,15 +31,32 @@ start().catch((err) => {
   process.exit(1);
 });
 
-// Graceful shutdown
+let isShuttingDown = false;
 const shutdown = async (signal) => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
   console.log(`\n[Worker] ${signal} received: gracefully shutting down workers...`);
-  schedulerService.stop();
-  await workerManager.stopAll();
-  console.log('[Worker] All workers closed. Exiting.');
-  process.exit(0);
+
+  const forceExitTimer = setTimeout(() => {
+    console.error('[Worker] Forced exit after shutdown timeout');
+    process.exit(1);
+  }, 15000);
+  forceExitTimer.unref();
+
+  try {
+    schedulerService.stop();
+    await workerManager.stopAll();
+    await closeAllQueues();
+    await closeStreamSubscriber();
+    await prisma.$disconnect();
+    await closeRedisClients();
+    console.log('[Worker] All workers closed. Exiting.');
+    process.exit(0);
+  } catch (err) {
+    console.error('[Worker] Shutdown error:', err.message);
+    process.exit(1);
+  }
 };
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
-

@@ -1,34 +1,53 @@
 const { Worker } = require('bullmq');
 const { connection, QUEUE_NAMES, getQueue } = require('../index');
 const prisma = require('../../config/db');
+const config = require('../../config');
 const { summarizationService } = require('../../modules/ai');
 
 /**
  * Creates and starts the BullMQ Worker for AI video summarization.
  */
 function createSummarizationWorker() {
+  const concurrency = config.ai?.workerConcurrency || parseInt(process.env.AI_WORKER_CONCURRENCY, 10) || 10;
+  const maxPerMinute = config.ai?.maxRequestsPerMinute || parseInt(process.env.AI_MAX_REQUESTS_PER_MINUTE, 10) || 120;
+
   const worker = new Worker(
     QUEUE_NAMES.AI_SUMMARIZATION,
     async (job) => {
-      const { videoId, channelId, title, videoUrl, transcript } = job.data;
+      const { videoId, channelId, title, videoUrl, transcript, directVideoFallback } = job.data;
       console.log(`[SummarizationWorker] Processing job ${job.id} for video: ${videoId}`);
 
       try {
-        // 1. Update status to 'processing'
-        await prisma.video.updateMany({
-          where: { videoId },
-          data: { summaryStatus: 'processing' },
-        });
+        const [, channelSource] = await Promise.all([
+          prisma.video.updateMany({
+            where: { videoId },
+            data: { summaryStatus: 'processing' },
+          }),
+          channelId
+            ? prisma.trackedSource
+                .findFirst({
+                  where: { sourceId: channelId, platform: 'youtube' },
+                  select: { sourceName: true },
+                })
+                .catch(() => null)
+            : Promise.resolve(null),
+        ]);
 
-        // 2. Generate grounded AI summary
-        const summary = await summarizationService.generateSummary({
-          videoId,
-          title,
-          videoUrl,
-          normalizedTranscript: transcript,
-        });
+        const summary = directVideoFallback
+          ? await summarizationService.generateSummaryFromVideo({
+              videoId,
+              title,
+              channelName: channelSource?.sourceName || undefined,
+              videoUrl,
+            })
+          : await summarizationService.generateSummary({
+              videoId,
+              title,
+              channelName: channelSource?.sourceName || undefined,
+              videoUrl,
+              normalizedTranscript: transcript,
+            });
 
-        // 3. Enqueue push notification job to notify all subscribers
         const notificationQueue = getQueue(QUEUE_NAMES.PUSH_NOTIFICATIONS);
         if (notificationQueue) {
           await notificationQueue.add(
@@ -42,10 +61,7 @@ function createSummarizationWorker() {
             {
               jobId: `notification-${videoId}`,
               attempts: 3,
-              backoff: {
-                type: 'exponential',
-                delay: 3000,
-              },
+              backoff: { type: 'exponential', delay: 3000 },
               removeOnComplete: true,
             }
           );
@@ -59,7 +75,6 @@ function createSummarizationWorker() {
       } catch (error) {
         console.error(`[SummarizationWorker] Job failed for video ${videoId}:`, error.message);
 
-        // Check if final attempt
         if (job.attemptsMade + 1 >= (job.opts?.attempts || 3)) {
           await prisma.video.updateMany({
             where: { videoId },
@@ -72,9 +87,9 @@ function createSummarizationWorker() {
     },
     {
       connection,
-      concurrency: parseInt(process.env.AI_WORKER_CONCURRENCY, 10) || 2,
+      concurrency,
       limiter: {
-        max: parseInt(process.env.AI_MAX_REQUESTS_PER_MINUTE, 10) || 15,
+        max: maxPerMinute,
         duration: 60000,
       },
     }
@@ -90,4 +105,3 @@ function createSummarizationWorker() {
 module.exports = {
   createSummarizationWorker,
 };
-

@@ -14,11 +14,12 @@ function createNotificationWorker() {
       console.log(`[NotificationWorker] Processing notifications for video ${videoId} (channel ${channelId})`);
 
       try {
-        // 1. Find all users tracking this channel
+        // 1. Find all users actively tracking this channel (isActive: true)
         const trackedSources = await prisma.trackedSource.findMany({
           where: {
             platform: 'youtube',
             sourceId: channelId,
+            isActive: true,
           },
           select: {
             userId: true,

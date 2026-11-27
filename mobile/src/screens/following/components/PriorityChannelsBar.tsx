@@ -54,7 +54,7 @@ export const PriorityChannelsBar: React.FC<PriorityChannelsBarProps> = ({
             activeOpacity={0.8}>
             <View style={styles.gradientRingWrapper}>
               <Image
-                source={accentTheme.assets.swatch}
+                source={accentTheme.assets.swatch ?? undefined}
                 style={StyleSheet.absoluteFill}
                 resizeMode="cover"
               />

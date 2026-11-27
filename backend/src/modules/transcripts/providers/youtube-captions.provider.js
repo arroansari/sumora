@@ -1,6 +1,9 @@
 const axios = require('axios');
+const https = require('https');
 const { XMLParser } = require('fast-xml-parser');
 const { BaseTranscriptProvider, TranscriptUnavailableError } = require('../transcript.provider');
+
+const ytHttpsAgent = new https.Agent({ keepAlive: true, maxSockets: 64 });
 
 class YouTubeCaptionsProvider extends BaseTranscriptProvider {
   constructor() {
@@ -82,6 +85,8 @@ class YouTubeCaptionsProvider extends BaseTranscriptProvider {
           'Accept-Language': 'en-US,en;q=0.9',
         },
         timeout: 2500,
+        httpsAgent: ytHttpsAgent,
+        signal: options.signal,
       });
 
       const html = response.data;
@@ -118,6 +123,8 @@ class YouTubeCaptionsProvider extends BaseTranscriptProvider {
       // 2. Fetch timedtext captions XML
       const timedTextResponse = await axios.get(selectedTrack.baseUrl, {
         timeout: 2500,
+        httpsAgent: ytHttpsAgent,
+        signal: options.signal,
       });
 
       const segments = this.parseTimedTextXml(timedTextResponse.data);

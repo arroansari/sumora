@@ -41,26 +41,29 @@ class AIService {
    * @param {string} [params.videoUrl]
    * @param {import('./ai.provider').BaseAIProvider} [params.preferredProvider]
    */
-  async generateStructuredJson({ prompt, systemInstruction, videoUrl = null, preferredProvider = null }) {
+  async generateStructuredJson({ prompt, systemInstruction, videoUrl = null, preferredProvider = null, onDelta = null }) {
     const primary = preferredProvider || this.getActiveProvider();
 
     try {
-      return await primary.generateStructuredJson({ prompt, systemInstruction, videoUrl });
+      return await primary.generateStructuredJson({ prompt, systemInstruction, videoUrl, onDelta });
     } catch (primaryErr) {
-      const isRateLimit =
-        primaryErr.message?.includes('RESOURCE_EXHAUSTED') ||
-        primaryErr.message?.includes('429') ||
-        primaryErr.message?.includes('rate_limit') ||
-        primaryErr.message?.includes('Quota exceeded');
+      const msg = primaryErr?.message || '';
+      const isFailoverWorthy =
+        msg.includes('RESOURCE_EXHAUSTED') ||
+        msg.includes('429') ||
+        msg.includes('rate_limit') ||
+        msg.includes('Quota exceeded') ||
+        msg.includes('timed out') ||
+        msg.includes('503');
 
-      if (isRateLimit) {
-        console.warn(`[AIService] ⚠️ Rate limit / quota exceeded on primary provider "${primary.name}". Attempting fallback provider...`);
+      if (isFailoverWorthy) {
+        console.warn(`[AIService] ⚠️ Failover triggered from "${primary.name}" (${msg.slice(0, 80)}). Switching provider...`);
         const fallbackName = primary.name === 'gemini' ? 'openai' : 'gemini';
         const fallback = this.providers.get(fallbackName);
 
-        if (fallback && fallback.client) {
-          console.log(`[AIService] 🔀 Seamlessly switched to fallback provider "${fallback.name}"`);
-          return await fallback.generateStructuredJson({ prompt, systemInstruction, videoUrl });
+        if (fallback && fallback.client && !videoUrl) {
+          console.log(`[AIService] 🔀 Switched cleanly to fallback provider "${fallback.name}"`);
+          return await fallback.generateStructuredJson({ prompt, systemInstruction, videoUrl, onDelta });
         }
       }
 

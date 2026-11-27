@@ -5,6 +5,7 @@ const config = require('../../../config');
 const prisma = require('../../../config/db');
 const { getQueue, QUEUE_NAMES } = require('../../../jobs');
 const inlinePipeline = require('../../pipeline/inline-pipeline.service');
+const { batchUpsertVideos } = require('../../../utils/videoBatch.util');
 
 const WEBSUB_HUB_URL = 'https://pubsubhubbub.appspot.com/subscribe';
 const YOUTUBE_FEED_TOPIC_BASE = 'https://www.youtube.com/xml/feeds/videos.xml?channel_id=';
@@ -203,7 +204,7 @@ class WebSubService {
       });
 
       // Upsert Video in PostgreSQL (idempotent; 1 record per YouTube video)
-      await prisma.video.upsert({
+      const video = await prisma.video.upsert({
         where: { videoId: entry.videoId },
         create: {
           videoId: entry.videoId,
@@ -225,6 +226,34 @@ class WebSubService {
       if (activeTrackingCount === 0) {
         console.log(`[WebSub] Skipping AI summarization for ${entry.videoId} - Channel ${entry.channelId} has 0 active tracking users.`);
         continue;
+      }
+
+      // Popular-channel pre-warming: when many users track the same creator and
+      // PREWARM_MIN_SUBSCRIBERS > 0, pre-compute the summary once for all subscribers.
+      const prewarmThreshold = config.ai?.prewarmMinSubscribers || 0;
+      if (prewarmThreshold > 0 && activeTrackingCount >= prewarmThreshold && video.summaryStatus !== 'completed') {
+        const jobPayload = {
+          videoId: entry.videoId,
+          channelId: entry.channelId,
+          title: entry.title,
+          videoUrl: entry.videoUrl,
+        };
+        if (queue) {
+          try {
+            await queue.add('fetch-transcript', jobPayload, {
+              jobId: `transcript-${entry.videoId}`,
+            });
+            console.log(
+              `[WebSub] Pre-warming summary for popular channel ${entry.channelId} (${activeTrackingCount} trackers) -> ${entry.videoId}`
+            );
+            continue;
+          } catch (qErr) {
+            console.warn(`[WebSub] Pre-warm queue failed for ${entry.videoId}:`, qErr.message);
+          }
+        } else {
+          inlinePipeline.fireAndForget(jobPayload);
+          continue;
+        }
       }
 
       // On-demand policy: Do not auto-fetch transcripts or summaries for feed items.
@@ -264,36 +293,26 @@ class WebSubService {
     const entries = this.parseAtomFeed(xmlText);
     if (!entries.length) return { upserted: 0, entries: [] };
 
-    let upserted = 0;
-    for (const entry of entries) {
-      await prisma.video.upsert({
-        where: { videoId: entry.videoId },
-        create: {
-          videoId: entry.videoId,
-          channelId: entry.channelId,
-          title: entry.title,
-          videoUrl: entry.videoUrl,
-          thumbnailUrl: `https://i.ytimg.com/vi/${entry.videoId}/hqdefault.jpg`,
-          publishedAt: new Date(entry.publishedAt),
-          transcriptStatus: 'pending',
-          summaryStatus: 'pending',
-        },
-        update: {
-          title: entry.title,
-          videoUrl: entry.videoUrl,
-          thumbnailUrl: `https://i.ytimg.com/vi/${entry.videoId}/hqdefault.jpg`,
-          publishedAt: new Date(entry.publishedAt),
-        },
-      });
-      upserted++;
+    const items = entries.map((entry) => ({
+      videoId: entry.videoId,
+      channelId: entry.channelId,
+      title: entry.title,
+      videoUrl: entry.videoUrl,
+      thumbnailUrl: `https://i.ytimg.com/vi/${entry.videoId}/hqdefault.jpg`,
+      publishedAt: new Date(entry.publishedAt),
+    }));
 
-      if (triggerPipeline && upserted <= 3) {
-        // Pre-distill the 3 newest uploads in the background if not already completed
-        const existing = await prisma.video.findUnique({
-          where: { videoId: entry.videoId },
-          select: { summaryStatus: true },
-        });
-        if (existing?.summaryStatus !== 'completed') {
+    const { totalProcessed: upserted } = await batchUpsertVideos(items);
+
+    if (triggerPipeline) {
+      const topEntries = entries.slice(0, 3);
+      const topStatuses = await prisma.video.findMany({
+        where: { videoId: { in: topEntries.map((e) => e.videoId) } },
+        select: { videoId: true, summaryStatus: true },
+      });
+      const statusMap = new Map(topStatuses.map((s) => [s.videoId, s.summaryStatus]));
+      for (const entry of topEntries) {
+        if (statusMap.get(entry.videoId) !== 'completed') {
           inlinePipeline.fireAndForget({
             videoId: entry.videoId,
             channelId: entry.channelId,

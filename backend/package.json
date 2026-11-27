@@ -7,14 +7,18 @@
     "start": "node src/server.js",
     "worker": "node src/worker.js",
     "dev": "nodemon src/server.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop ecosystem.config.js",
+    "pm2:delete": "pm2 delete ecosystem.config.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "test": "node tests/auth.test.js && node tests/oauth.test.js && node tests/redis_config.test.js && node tests/token_refresh.test.js && node tests/fcm_pruning.test.js && node tests/youtube_integration.test.js && node tests/transcript_engine.test.js && node tests/ai_summarization.test.js && node tests/advanced_11_section_summarization.test.js && node tests/background_processing.test.js && node tests/notifications.test.js && node tests/e2e_integration.test.js"
+    "test": "node tests/auth.test.js && node tests/oauth.test.js && node tests/redis_config.test.js && node tests/token_refresh.test.js && node tests/fcm_pruning.test.js && node tests/youtube_integration.test.js && node tests/transcript_engine.test.js && node tests/ai_summarization.test.js && node tests/advanced_11_section_summarization.test.js && node tests/background_processing.test.js && node tests/notifications.test.js && node tests/e2e_integration.test.js && node tests/performance_optimizations.test.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "@prisma/client": "^5.22.0",
     "axios": "^1.7.9",
+    "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.21.2",
     "cors": "^2.8.5",
@@ -28,10 +32,12 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "openai": "^4.73.0",
+    "rate-limit-redis": "^4.3.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "nodemon": "^3.1.7",
+    "pm2": "^7.1.2",
     "prisma": "^5.22.0",
     "supertest": "^7.0.0"
   },

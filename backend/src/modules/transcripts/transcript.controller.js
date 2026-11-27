@@ -65,6 +65,21 @@ class TranscriptController {
       next(error);
     }
   }
+
+  /**
+   * Non-blocking transcript warm-up before user taps "Read Summary".
+   */
+  async prefetchTranscript(req, res) {
+    const { videoId } = req.params;
+    setImmediate(() => {
+      transcriptService.getOrFetchTranscript(videoId).catch(() => {});
+    });
+    res.status(202).json({
+      success: true,
+      status: 'prefetching',
+      videoId,
+    });
+  }
 }
 
 module.exports = new TranscriptController();

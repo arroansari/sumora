@@ -1,5 +1,21 @@
 const prisma = require('../../config/db');
 const aiService = require('./ai.service');
+const cache = require('../../utils/cache.util');
+const aiStream = require('../../utils/aiStream.util');
+
+function createStreamProgressEmitter(videoId) {
+  let lastEmit = 0;
+  return (_delta, accumulatedText) => {
+    const now = Date.now();
+    if (now - lastEmit >= 250) {
+      lastEmit = now;
+      aiStream.publish(videoId, {
+        stage: 'streaming',
+        chars: typeof accumulatedText === 'string' ? accumulatedText.length : 0,
+      });
+    }
+  };
+}
 const {
   SYSTEM_INSTRUCTION,
   buildSinglePassPrompt,
@@ -206,6 +222,8 @@ class SummarizationService {
       // Best-effort status update; continue even if DB is in mock/test mode
     }
 
+    aiStream.publish(videoId, { stage: 'generating_summary' });
+    const emitStreamDelta = createStreamProgressEmitter(videoId);
     const startTime = Date.now();
 
     try {
@@ -272,6 +290,7 @@ class SummarizationService {
           prompt: consolidationPrompt,
           systemInstruction: SYSTEM_INSTRUCTION,
           preferredProvider: customProvider,
+          onDelta: emitStreamDelta,
         });
       } else {
         // Single Pass for normal length transcripts
@@ -287,6 +306,7 @@ class SummarizationService {
           prompt: singlePassPrompt,
           systemInstruction: SYSTEM_INSTRUCTION,
           preferredProvider: customProvider,
+          onDelta: emitStreamDelta,
         });
       }
 
@@ -351,6 +371,7 @@ class SummarizationService {
           where: { videoId },
           data: { summaryStatus: 'completed' },
         });
+        await cache.bumpEpochs('cache:videos:global_epoch');
       } catch (dbErr) {
         // In local/test mode without live DB, return the synthesized payload
       }
@@ -359,6 +380,7 @@ class SummarizationService {
         `[SummarizationService] In-depth 11-section summary successfully generated for video ${videoId} (${processingDurationMs}ms, ~${inputTokens + outputTokens} tokens)`
       );
 
+      aiStream.publish(videoId, { stage: 'completed', summary: savedSummary });
       return savedSummary;
     } catch (error) {
       console.error(`[SummarizationService] Failed to generate summary for video ${videoId}:`, error.message);
@@ -370,6 +392,7 @@ class SummarizationService {
         });
       } catch (_) {}
 
+      aiStream.publish(videoId, { stage: 'failed', error: error.message });
       throw error;
     }
   }
@@ -402,6 +425,8 @@ class SummarizationService {
       });
     } catch (_) {}
 
+    aiStream.publish(videoId, { stage: 'generating_summary', mode: 'direct_video' });
+    const emitStreamDelta = createStreamProgressEmitter(videoId);
     const startTime = Date.now();
 
     try {
@@ -417,6 +442,7 @@ class SummarizationService {
         prompt,
         systemInstruction: SYSTEM_INSTRUCTION,
         videoUrl: targetUrl,
+        onDelta: emitStreamDelta,
       });
 
       if (!rawAiResponse.originalVideoUrl) {
@@ -474,6 +500,7 @@ class SummarizationService {
           where: { videoId },
           data: { summaryStatus: 'completed', transcriptStatus: 'completed' },
         });
+        await cache.bumpEpochs('cache:videos:global_epoch');
       } catch (dbErr) {
         console.warn(`[SummarizationService] DB upsert warning for ${videoId}:`, dbErr.message);
       }
@@ -482,6 +509,7 @@ class SummarizationService {
         `[SummarizationService] Direct video 11-section summary successfully generated for video ${videoId} (${processingDurationMs}ms)`
       );
 
+      aiStream.publish(videoId, { stage: 'completed', summary: savedSummary });
       return savedSummary;
     } catch (error) {
       console.error(`[SummarizationService] Direct video summarization failed for video ${videoId}:`, error.message);
@@ -491,6 +519,7 @@ class SummarizationService {
           data: { summaryStatus: 'failed' },
         });
       } catch (_) {}
+      aiStream.publish(videoId, { stage: 'failed', error: error.message });
       throw error;
     }
   }
@@ -511,6 +540,7 @@ class SummarizationService {
     } catch (_) {
       // Best-effort status update; do not let connection errors mask anti-hallucination policy error
     }
+    aiStream.publish(videoId, { stage: 'transcript_unavailable' });
     throw new Error('Generating summaries from metadata alone is prohibited. A valid transcript is required.');
   }
 

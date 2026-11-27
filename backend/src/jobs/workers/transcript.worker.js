@@ -1,30 +1,60 @@
 const { Worker } = require('bullmq');
 const { connection, QUEUE_NAMES, getQueue } = require('../index');
 const prisma = require('../../config/db');
+const config = require('../../config');
 const { transcriptService } = require('../../modules/transcripts');
+const aiStream = require('../../utils/aiStream.util');
 
 /**
  * Creates and starts the BullMQ Worker for transcript ingestion.
  */
 function createTranscriptWorker() {
+  const concurrency = parseInt(process.env.TRANSCRIPT_WORKER_CONCURRENCY, 10) || 10;
+
   const worker = new Worker(
     QUEUE_NAMES.TRANSCRIPT_INGESTION,
     async (job) => {
       const { videoId, channelId, title, videoUrl } = job.data;
       console.log(`[TranscriptWorker] Processing job ${job.id} for video: ${videoId} (${title})`);
+      aiStream.publish(videoId, { stage: 'fetching_transcript' });
 
       try {
-        // 1. Update Video status to fetching_transcript
         await prisma.video.updateMany({
           where: { videoId },
           data: { transcriptStatus: 'fetching_transcript' },
         });
 
-        // 2. Retrieve & normalize transcript via provider chain
         const result = await transcriptService.getOrFetchTranscript(videoId);
 
-        // 3. Handle unavailable transcript
         if (result.status === 'transcript_unavailable' || !result.transcript) {
+          const allowDirectVideo =
+            process.env.ALLOW_DIRECT_VIDEO_AI !== 'false' &&
+            Boolean(config.ai.geminiApiKeys?.length || config.ai.geminiApiKey);
+
+          const summaryQueue = allowDirectVideo ? getQueue(QUEUE_NAMES.AI_SUMMARIZATION) : null;
+          if (summaryQueue) {
+            console.log(
+              `[TranscriptWorker] Transcript unavailable for ${videoId}; queuing direct Gemini video fallback.`
+            );
+            await summaryQueue.add(
+              'generate-summary-direct-video',
+              {
+                videoId,
+                channelId,
+                title,
+                videoUrl,
+                directVideoFallback: true,
+              },
+              {
+                jobId: `summary-${videoId}`,
+                attempts: 3,
+                backoff: { type: 'exponential', delay: 5000 },
+                removeOnComplete: true,
+              }
+            );
+            return { status: 'queued_direct_video', videoId };
+          }
+
           console.log(
             `[TranscriptWorker] Transcript unavailable for video ${videoId}. Halting pipeline without summary generation.`
           );
@@ -37,6 +67,11 @@ function createTranscriptWorker() {
             },
           });
 
+          aiStream.publish(videoId, {
+            stage: 'transcript_unavailable',
+            message: result.message,
+          });
+
           return {
             status: 'transcript_unavailable',
             videoId,
@@ -44,7 +79,11 @@ function createTranscriptWorker() {
           };
         }
 
-        // 4. On successful transcript retrieval, enqueue AI summarization job
+        aiStream.publish(videoId, {
+          stage: 'transcript_ready',
+          transcript: result.transcript,
+        });
+
         console.log(`[TranscriptWorker] Transcript retrieved for video ${videoId}. Enqueueing AI summarization...`);
         const summaryQueue = getQueue(QUEUE_NAMES.AI_SUMMARIZATION);
 
@@ -59,12 +98,9 @@ function createTranscriptWorker() {
               transcript: result.transcript,
             },
             {
-              jobId: `summary-${videoId}`, // Prevent duplicate summary jobs for the same video
+              jobId: `summary-${videoId}`,
               attempts: 3,
-              backoff: {
-                type: 'exponential',
-                delay: 5000,
-              },
+              backoff: { type: 'exponential', delay: 5000 },
               removeOnComplete: true,
             }
           );
@@ -87,7 +123,7 @@ function createTranscriptWorker() {
     },
     {
       connection,
-      concurrency: 5, // Process up to 5 video transcripts concurrently
+      concurrency,
     }
   );
 
@@ -101,4 +137,3 @@ function createTranscriptWorker() {
 module.exports = {
   createTranscriptWorker,
 };
-

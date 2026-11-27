@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -23,7 +23,7 @@ interface GradientButtonProps {
   activeOpacity?: number;
 }
 
-export const GradientButton: React.FC<GradientButtonProps> = ({
+export const GradientButton: React.FC<GradientButtonProps> = React.memo(({
   title,
   onPress,
   style,
@@ -34,35 +34,37 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
   activeOpacity = 0.8,
 }) => {
   const { accentTheme } = useAppTheme();
-  const flattenedStyle = StyleSheet.flatten([styles.container, style]) || {};
-  const radius =
-    typeof flattenedStyle.borderRadius === 'number' ? flattenedStyle.borderRadius : 21;
+
+  const radius = useMemo(() => {
+    const flattenedStyle = style ? StyleSheet.flatten(style) : null;
+    return typeof flattenedStyle?.borderRadius === 'number'
+      ? flattenedStyle.borderRadius
+      : 21;
+  }, [style]);
+
+  const dynamicButtonStyle = useMemo(
+    () => ({
+      backgroundColor: accentTheme.primary,
+      shadowColor: accentTheme.primaryDark,
+    }),
+    [accentTheme.primary, accentTheme.primaryDark]
+  );
+
+  const clipStyle = useMemo(
+    () => [StyleSheet.absoluteFill, { borderRadius: radius, overflow: 'hidden' as const }],
+    [radius]
+  );
 
   return (
     <TouchableOpacity
       activeOpacity={activeOpacity}
       onPress={onPress}
       disabled={disabled || loading}
-      style={[
-        styles.container,
-        {
-          backgroundColor: accentTheme.primary,
-          shadowColor: accentTheme.primaryDark,
-        },
-        style,
-      ]}>
+      style={[styles.container, dynamicButtonStyle, style]}>
       {/* 3-stop hardware-accelerated linear gradient asset */}
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          {
-            borderRadius: radius,
-            overflow: 'hidden',
-          },
-        ]}
-        pointerEvents="none">
+      <View style={clipStyle} pointerEvents="none">
         <Image
-          source={accentTheme.assets.button}
+          source={accentTheme.assets.button ?? undefined}
           style={styles.fillImage}
           resizeMode="cover"
         />
@@ -77,7 +79,7 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
       )}
     </TouchableOpacity>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

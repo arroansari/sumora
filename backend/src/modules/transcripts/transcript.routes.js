@@ -10,6 +10,11 @@ router.get('/:videoId', authenticate, transcriptLimiter, (req, res, next) =>
   transcriptController.getTranscript(req, res, next)
 );
 
+// POST background transcript prefetch (does not consume daily transcript quota)
+router.post('/:videoId/prefetch', authenticate, (req, res, next) =>
+  transcriptController.prefetchTranscript(req, res, next)
+);
+
 // POST user-provided transcript fallback
 router.post('/:videoId', authenticate, (req, res, next) =>
   transcriptController.submitTranscript(req, res, next)

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,6 @@ import { RedditPostItem } from '../../../types/models.types';
 import { SpaceIcon } from '../../../components/atoms/SpaceIcon';
 import { createHomeStyles } from '../HomeScreen.styles';
 import { GradientButton } from '../../../components/atoms';
-import { useAppTheme } from '../../../context/ThemeContext';
 
 export interface RedditDiscussionCardProps {
   item: RedditPostItem;
@@ -41,8 +40,6 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
     onMarkDone,
     onRestoreThread,
   }) => {
-    const { accentTheme } = useAppTheme();
-
     const publishedFormatted = useMemo(() => {
       if (!item.publishedAt) return 'Today';
       const d = new Date(item.publishedAt);
@@ -117,12 +114,27 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
     const cleanSubreddit = useMemo(() => (item.subreddit || '').replace(/^r\//i, ''), [item.subreddit]);
     const cleanAuthor = useMemo(() => (item.author || '').replace(/^u\//i, ''), [item.author]);
 
-    const handleOpenThread = () => {
+    const handleOpenThread = useCallback(() => {
       const url = item.permalink.startsWith('http')
         ? item.permalink
         : `https://www.reddit.com${item.permalink}`;
       Linking.openURL(url).catch(() => {});
-    };
+    }, [item.permalink]);
+
+    const handleRead = useCallback(
+      () => onReadSummary(item.externalId, item.title, item),
+      [onReadSummary, item]
+    );
+    const handleCopy = useCallback(() => onCopyTakeaways(item), [onCopyTakeaways, item]);
+    const handleBookmark = useCallback(
+      () => onToggleBookmark(item.externalId, item.title),
+      [onToggleBookmark, item.externalId, item.title]
+    );
+    const handleShare = useCallback(() => onShareThread(item), [onShareThread, item]);
+    const handleDoneRestore = useCallback(() => {
+      if (isCompletedView) onRestoreThread?.(item.externalId);
+      else onMarkDone?.(item.externalId, item.title);
+    }, [isCompletedView, onRestoreThread, onMarkDone, item.externalId, item.title]);
 
     const cardDynamicHeightStyle = useMemo(
       () => (cardHeight && cardHeight > 0 ? { height: cardHeight } : undefined),
@@ -133,31 +145,21 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
       <View style={[styles.cardPageSlot, cardDynamicHeightStyle]}>
         <View style={[styles.card, styles.cardInDeck]}>
           {/* Top Visual Community Banner */}
-          <View style={[styles.thumbnailContainer, { height: 114, backgroundColor: '#0F172A' }]}>
+          <View style={[styles.thumbnailContainer, localStyles.bannerBox]}>
             <View style={StyleSheet.absoluteFill}>
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: '#0F172A',
-                  paddingHorizontal: 14,
-                  paddingTop: 10,
-                  paddingBottom: 8,
-                  justifyContent: 'center',
-                }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <View style={localStyles.bannerInner}>
+                <View style={localStyles.bannerSubRow}>
                   <SpaceIcon space="REDDIT" size={28} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }} numberOfLines={1}>
+                  <View style={localStyles.flex1}>
+                    <Text style={localStyles.subTitle} numberOfLines={1}>
                       r/{cleanSubreddit}
                     </Text>
-                    <Text style={{ color: '#94A3B8', fontSize: 11, fontWeight: '500' }} numberOfLines={1}>
+                    <Text style={localStyles.subMeta} numberOfLines={1}>
                       u/{cleanAuthor} • {publishedFormatted}
                     </Text>
                   </View>
                 </View>
-                <Text
-                  style={{ color: '#CBD5E1', fontSize: 12, lineHeight: 16 }}
-                  numberOfLines={1}>
+                <Text style={localStyles.bannerExcerpt} numberOfLines={1}>
                   {item.selftext || `Discussion thread with ${formattedComments} community replies.`}
                 </Text>
               </View>
@@ -172,8 +174,8 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
                 </View>
               </View>
 
-              <View style={[styles.customBadge, { backgroundColor: 'rgba(255, 69, 0, 0.25)', borderColor: '#FF4500' }]}>
-                <Text style={[styles.customBadgeText, { color: '#FF4500' }]}>Reddit</Text>
+              <View style={[styles.customBadge, localStyles.redditBadge]}>
+                <Text style={[styles.customBadgeText, localStyles.redditOrange]}>Reddit</Text>
               </View>
             </View>
           </View>
@@ -189,7 +191,7 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
               {/* Community Metrics Row */}
               <View style={styles.channelRow}>
                 <View style={styles.channelInfoCol}>
-                  <Text style={[styles.channelName, { color: '#FF4500' }]} numberOfLines={1}>
+                  <Text style={[styles.channelName, localStyles.redditOrange]} numberOfLines={1}>
                     ▲ {formattedScore} upvotes
                   </Text>
                   <Text style={styles.dot}>•</Text>
@@ -200,7 +202,7 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
                 <View style={styles.utilityActionRow}>
                   <TouchableOpacity
                     style={styles.utilityBtn}
-                    onPress={() => onCopyTakeaways(item)}
+                    onPress={handleCopy}
                     activeOpacity={0.75}
                     accessibilityLabel="Copy debate takeaways">
                     <View style={styles.copyIconWrapper}>
@@ -211,7 +213,7 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
 
                   <TouchableOpacity
                     style={[styles.utilityBtn, isBookmarked && styles.utilityBtnActive]}
-                    onPress={() => onToggleBookmark(item.externalId, item.title)}
+                    onPress={handleBookmark}
                     activeOpacity={0.75}
                     accessibilityLabel="Bookmark debate">
                     <Image
@@ -227,7 +229,7 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
 
                   <TouchableOpacity
                     style={styles.utilityBtn}
-                    onPress={() => onShareThread(item)}
+                    onPress={handleShare}
                     activeOpacity={0.75}
                     accessibilityLabel="Share Reddit thread">
                     <View style={styles.shareIconWrapper}>
@@ -261,7 +263,7 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
               <View style={styles.actionsRow}>
                 <GradientButton
                   title="Read Summary"
-                  onPress={() => onReadSummary(item.externalId, item.title, item)}
+                  onPress={handleRead}
                   style={styles.readGradientBtn}
                 />
 
@@ -277,14 +279,14 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
                 {isCompletedView ? (
                   <TouchableOpacity
                     style={styles.restoreButton}
-                    onPress={() => onRestoreThread?.(item.externalId)}
+                    onPress={handleDoneRestore}
                     activeOpacity={0.75}>
                     <Text style={styles.restoreButtonText}>↺</Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity
                     style={styles.doneButton}
-                    onPress={() => onMarkDone?.(item.externalId, item.title)}
+                    onPress={handleDoneRestore}
                     activeOpacity={0.75}>
                     <Text style={styles.doneButtonText}>✓ Done</Text>
                   </TouchableOpacity>
@@ -301,4 +303,23 @@ export const RedditDiscussionCard = React.memo<RedditDiscussionCardProps>(
     );
   }
 );
+
+const localStyles = StyleSheet.create({
+  bannerBox: { height: 114, backgroundColor: '#0F172A' },
+  bannerInner: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 8,
+    justifyContent: 'center',
+  },
+  bannerSubRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  flex1: { flex: 1 },
+  subTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  subMeta: { color: '#94A3B8', fontSize: 11, fontWeight: '500' },
+  bannerExcerpt: { color: '#CBD5E1', fontSize: 12, lineHeight: 16 },
+  redditBadge: { backgroundColor: 'rgba(255, 69, 0, 0.25)', borderColor: '#FF4500' },
+  redditOrange: { color: '#FF4500' },
+});
 

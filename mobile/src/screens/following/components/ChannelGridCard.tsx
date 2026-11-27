@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import React, { useMemo, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import { TrackedSource } from '../../../types/models.types';
 import { createFollowingStyles } from '../FollowingScreen.styles';
@@ -17,31 +17,36 @@ export interface ChannelGridCardProps {
 
 export const ChannelGridCard = React.memo<ChannelGridCardProps>(
   ({ item, isFavorite, styles, onToggle, onToggleFavorite, onPress }) => {
-    const category = getCategoryForChannel(item.sourceName);
+    const category = useMemo(() => getCategoryForChannel(item.sourceName), [item.sourceName]);
+    const initials = useMemo(() => getInitials(item.sourceName), [item.sourceName]);
     const isActivelyTracked = item.isActive !== false;
+
+    const handleCardPress = useCallback(() => onPress(item), [onPress, item]);
+    const handleTogglePress = useCallback(() => onToggle(item), [onToggle, item]);
+    const handleFavoritePress = useCallback(() => onToggleFavorite(item), [onToggleFavorite, item]);
 
     return (
       <TouchableOpacity
         style={styles.channelGridCard}
-        onPress={() => onPress(item)}
+        onPress={handleCardPress}
         activeOpacity={0.8}>
         {/* Top bar: Category badge on left, Star priority button on right */}
         <View style={styles.gridCardTopRow}>
           {category ? (
             <View style={styles.gridCategoryBadge}>
-              <CategorySquircleIcon category={category.id} size={14} style={{ marginRight: 4 }} />
+              <CategorySquircleIcon category={category.id} size={14} style={localStyles.catIcon} />
               <Text style={styles.gridCategoryText} numberOfLines={1}>
                 {category.label.split(' ')[0]}
               </Text>
             </View>
           ) : (
-            <View style={{ flex: 1 }} />
+            <View style={localStyles.spacer} />
           )}
 
           <TouchableOpacity
             style={[styles.gridStarBtn, isFavorite && styles.gridStarBtnActive]}
-            onPress={() => onToggleFavorite(item)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={handleFavoritePress}
+            hitSlop={hitSlop}
             activeOpacity={0.7}>
             <Text style={styles.gridStarIcon}>{isFavorite ? '⭐' : '☆'}</Text>
           </TouchableOpacity>
@@ -61,7 +66,7 @@ export const ChannelGridCard = React.memo<ChannelGridCardProps>(
             />
           ) : (
             <View style={styles.gridAvatarPlaceholder}>
-              <Text style={styles.gridAvatarText}>{getInitials(item.sourceName)}</Text>
+              <Text style={styles.gridAvatarText}>{initials}</Text>
             </View>
           )}
         </View>
@@ -79,7 +84,7 @@ export const ChannelGridCard = React.memo<ChannelGridCardProps>(
         {/* Bottom: Tracking Pill Button with Active vs. Inactive styling */}
         <TouchableOpacity
           style={isActivelyTracked ? styles.gridTrackingBtn : styles.gridTrackingBtnInactive}
-          onPress={() => onToggle(item)}
+          onPress={handleTogglePress}
           activeOpacity={0.75}>
           <Text style={isActivelyTracked ? styles.gridTrackingText : styles.gridTrackingTextInactive}>
             {isActivelyTracked ? '⚡ Tracking Active' : '+ Track Channel'}
@@ -89,4 +94,10 @@ export const ChannelGridCard = React.memo<ChannelGridCardProps>(
     );
   }
 );
+
+const hitSlop = { top: 8, bottom: 8, left: 8, right: 8 };
+const localStyles = StyleSheet.create({
+  catIcon: { marginRight: 4 },
+  spacer: { flex: 1 },
+});
 

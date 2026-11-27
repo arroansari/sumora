@@ -1,0 +1,56 @@
+module.exports = {
+  apps: [
+    {
+      name: 'sumora-api',
+      script: './src/server.js',
+      exec_mode: 'cluster',
+      instances: process.env.WEB_CONCURRENCY || 'max',
+      kill_timeout: 10000,
+      listen_timeout: 8000,
+      max_memory_restart: '512M',
+      env: {
+        NODE_ENV: 'production',
+        PORT: process.env.PORT || 5001,
+        RUN_WORKERS_IN_PROCESS: 'false',
+        PRISMA_CONNECTION_LIMIT: process.env.PRISMA_CONNECTION_LIMIT || '8',
+      },
+      env_development: {
+        NODE_ENV: 'development',
+        PORT: process.env.PORT || 5001,
+        RUN_WORKERS_IN_PROCESS: 'false',
+        PRISMA_CONNECTION_LIMIT: process.env.PRISMA_CONNECTION_LIMIT || '8',
+      },
+      env_test: {
+        NODE_ENV: 'test',
+        PORT: process.env.PORT || 5099,
+        RUN_WORKERS_IN_PROCESS: 'false',
+        PRISMA_CONNECTION_LIMIT: process.env.PRISMA_CONNECTION_LIMIT || '8',
+        ENABLE_REDIS_CACHE_IN_TEST: process.env.ENABLE_REDIS_CACHE_IN_TEST || 'false',
+      },
+    },
+    {
+      name: 'sumora-worker',
+      script: './src/worker.js',
+      exec_mode: 'fork',
+      instances: parseInt(process.env.WORKER_INSTANCES, 10) || 1,
+      kill_timeout: 15000,
+      max_memory_restart: '512M',
+      env: {
+        NODE_ENV: 'production',
+        PRISMA_CONNECTION_LIMIT: process.env.WORKER_PRISMA_CONNECTION_LIMIT || '5',
+        TRANSCRIPT_WORKER_CONCURRENCY: process.env.TRANSCRIPT_WORKER_CONCURRENCY || '10',
+        AI_WORKER_CONCURRENCY: process.env.AI_WORKER_CONCURRENCY || '10',
+        AI_MAX_REQUESTS_PER_MINUTE: process.env.AI_MAX_REQUESTS_PER_MINUTE || '120',
+        TRANSCRIPT_HEDGE_DELAY_MS: process.env.TRANSCRIPT_HEDGE_DELAY_MS || '450',
+      },
+      env_development: {
+        NODE_ENV: 'development',
+        PRISMA_CONNECTION_LIMIT: process.env.WORKER_PRISMA_CONNECTION_LIMIT || '5',
+        TRANSCRIPT_WORKER_CONCURRENCY: process.env.TRANSCRIPT_WORKER_CONCURRENCY || '10',
+        AI_WORKER_CONCURRENCY: process.env.AI_WORKER_CONCURRENCY || '10',
+        AI_MAX_REQUESTS_PER_MINUTE: process.env.AI_MAX_REQUESTS_PER_MINUTE || '120',
+        TRANSCRIPT_HEDGE_DELAY_MS: process.env.TRANSCRIPT_HEDGE_DELAY_MS || '450',
+      },
+    },
+  ],
+};

@@ -16,7 +16,8 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
       borderBottomRightRadius: 28,
       paddingHorizontal: 16,
       paddingBottom: 16,
-      shadowColor: colors.primary,
+      backgroundColor: colors.sectionDark,
+      shadowColor: colors.sectionDark,
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.25,
       shadowRadius: 12,
@@ -96,6 +97,35 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
       fontWeight: '700',
       color: '#FFFFFF',
     },
+    headerTrackBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 18,
+      borderWidth: 1.2,
+      minWidth: 76,
+    },
+    headerTrackBtnActive: {
+      backgroundColor: 'rgba(16, 185, 129, 0.32)',
+      borderColor: 'rgba(16, 185, 129, 0.75)',
+    },
+    headerTrackBtnInactive: {
+      backgroundColor: 'rgba(255, 255, 255, 0.22)',
+      borderColor: 'rgba(255, 255, 255, 0.35)',
+    },
+    headerTrackBtnText: {
+      fontSize: 12.5,
+      fontFamily: 'PlusJakartaSans-Bold',
+      fontWeight: '700',
+    },
+    headerTrackBtnTextActive: {
+      color: '#A7F3D0',
+    },
+    headerTrackBtnTextInactive: {
+      color: '#FFFFFF',
+    },
 
     // ── Sticky Controls (Search + Tabs) ─────────────────────────────────────
     stickyControlsWrap: {
@@ -168,6 +198,51 @@ export const createChannelDetailStyles = (colors: ThemeColors) =>
       color: colors.textSecondary,
       marginTop: 4,
       textAlign: 'center',
+    },
+    heroTrackBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 14,
+      marginTop: 14,
+      width: '100%',
+      maxWidth: 320,
+      borderWidth: 1,
+      gap: 10,
+    },
+    heroTrackBtnActive: {
+      backgroundColor: '#10B98115',
+      borderColor: '#10B98145',
+    },
+    heroTrackBtnInactive: {
+      backgroundColor: colors.surfaceSubtle,
+      borderColor: colors.borderSubtle,
+    },
+    heroTrackBtnIcon: {
+      fontSize: 16,
+    },
+    heroTrackBtnTextCol: {
+      flex: 1,
+    },
+    heroTrackBtnTitle: {
+      fontSize: 13,
+      fontFamily: 'PlusJakartaSans-Bold',
+      fontWeight: '700',
+    },
+    heroTrackBtnTitleActive: {
+      color: '#10B981',
+    },
+    heroTrackBtnTitleInactive: {
+      color: colors.textPrimary,
+    },
+    heroTrackBtnSub: {
+      fontSize: 11,
+      fontFamily: 'PlusJakartaSans-Medium',
+      fontWeight: '500',
+      color: colors.textMuted,
+      marginTop: 1,
     },
 
     // ── Filter + Count ────────────────────────────────────────────────────────

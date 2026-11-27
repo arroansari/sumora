@@ -40,7 +40,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
       <View style={[styles.headerGradientWrapper, { paddingTop: insets.top + 6 }]}>
         {/* Real 3-stop diagonal gradient from active theme asset */}
         <Image
-          source={accentTheme.assets.header}
+          source={accentTheme.assets.header ?? undefined}
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />
@@ -100,7 +100,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = React.memo(
               style={[StyleSheet.absoluteFill, styles.headerSummarizeInnerClip]}
               pointerEvents="none">
               <Image
-                source={accentTheme.assets.button}
+                source={accentTheme.assets.button ?? undefined}
                 style={styles.fullSizeImage}
                 resizeMode="cover"
               />

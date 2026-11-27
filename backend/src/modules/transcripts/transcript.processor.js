@@ -1,19 +1,27 @@
+const HTML_ENTITY_MAP = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#39;': "'",
+  '&apos;': "'",
+};
+const HTML_ENTITY_RE = /&(?:amp|lt|gt|quot|apos|#39|#x([0-9a-fA-F]+)|#(\d+));/g;
+const CUE_AND_SYMBOL_RE = /\[(?:music|applause|laughter|cheering|silence|crosstalk|screaming|groan|groaning)\]|\((?:music|applause|laughter|cheering)\)|[♪♫#]/gi;
+
 /**
- * Decodes standard HTML entities commonly found in caption files.
+ * Decodes standard HTML entities commonly found in caption files in a single regex pass.
  * @param {string} text
  * @returns {string}
  */
 function decodeHtmlEntities(text) {
   if (!text) return '';
-  return text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
-    .replace(/&#([0-9]+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
+  if (!text.includes('&')) return text;
+  return text.replace(HTML_ENTITY_RE, (match, hex, dec) => {
+    if (hex) return String.fromCharCode(parseInt(hex, 16));
+    if (dec) return String.fromCharCode(parseInt(dec, 10));
+    return HTML_ENTITY_MAP[match] || match;
+  });
 }
 
 /**
@@ -26,17 +34,11 @@ function decodeHtmlEntities(text) {
  */
 function cleanSegmentText(rawText) {
   if (!rawText) return '';
-  let cleaned = decodeHtmlEntities(rawText);
-
-  // Remove bracketed cues, audio tags, musical symbols
-  cleaned = cleaned.replace(/\[(?:music|applause|laughter|cheering|silence|crosstalk|screaming|groan|groaning)\]/gi, '');
-  cleaned = cleaned.replace(/\((?:music|applause|laughter|cheering)\)/gi, '');
-  cleaned = cleaned.replace(/[♪♫#]/g, '');
-
-  // Replace newlines and excessive whitespace with a single space
-  cleaned = cleaned.replace(/\s+/g, ' ').trim();
-
-  return cleaned;
+  const decoded = decodeHtmlEntities(rawText);
+  return decoded
+    .replace(CUE_AND_SYMBOL_RE, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**

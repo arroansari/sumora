@@ -297,7 +297,7 @@ export const TextScaleScrollbar: React.FC<TextScaleScrollbarProps> = ({
               },
             ]}>
             <Image
-              source={accentTheme.assets.button}
+              source={accentTheme.assets.button ?? undefined}
               style={styles.thumbGradientImage}
               resizeMode="cover"
             />

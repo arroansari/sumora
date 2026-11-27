@@ -1,4 +1,5 @@
 const prisma = require('../../../config/db');
+const cache = require('../../../utils/cache.util');
 const tmdbService = require('../tmdb/tmdbService');
 const bookService = require('../books/bookService');
 const { summarizationService } = require('../../ai');
@@ -8,8 +9,13 @@ class ContentService {
    * Seed curated TMDB movies into ContentPost & PostSummary if DB is empty
    */
   async ensureCinemaData() {
+    const seededKey = 'cache:content:seeded:TMDB';
+    if (await cache.getJson(seededKey)) return;
     const count = await prisma.contentPost.count({ where: { platform: 'TMDB' } });
-    if (count >= 5) return;
+    if (count >= 5) {
+      await cache.setJson(seededKey, true, 3600);
+      return;
+    }
 
     console.log('[ContentService] Seeding high-signal TMDB movies into database...');
     const movies = await tmdbService.getTrendingMovies();
@@ -74,8 +80,13 @@ class ContentService {
    * Seed curated Open Library books into ContentPost & PostSummary if DB is empty
    */
   async ensureBookData() {
+    const seededKey = 'cache:content:seeded:OPEN_LIBRARY';
+    if (await cache.getJson(seededKey)) return;
     const count = await prisma.contentPost.count({ where: { platform: 'OPEN_LIBRARY' } });
-    if (count >= 12) return;
+    if (count >= 12) {
+      await cache.setJson(seededKey, true, 3600);
+      return;
+    }
 
     const books = bookService.getCuratedFallbackBooks();
 

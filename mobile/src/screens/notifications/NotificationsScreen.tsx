@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useDeferredValue, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useDeferredValue, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -190,7 +190,7 @@ const ChannelNotificationRow = React.memo<ChannelNotificationRowProps>(
                     styles.channelStatus,
                     { color: isNotifying ? '#10B981' : colors.textMuted },
                   ]}>
-                  {isNotifying ? 'Alerts active' : 'Muted'}
+                  {isNotifying ? 'Alerts active' : channel.isActive === false ? 'Inactive (Tracking off)' : 'Muted'}
                 </Text>
               </View>
             </View>
@@ -269,6 +269,9 @@ export const NotificationsScreen: React.FC = () => {
     });
   }, []);
 
+  const lastFetchedAtRef = useRef<number>(0);
+  const hasLoadedOnceRef = useRef<boolean>(false);
+
   const fetchNotificationData = useCallback(async () => {
     const [prefs, channels, accounts, subs, bks, cnm] = await Promise.all([
       preferencesApi.get().catch(() => []),
@@ -293,9 +296,15 @@ export const NotificationsScreen: React.FC = () => {
       let isMounted = true;
 
       async function loadNotificationData() {
+        const now = Date.now();
+        if (hasLoadedOnceRef.current && now - lastFetchedAtRef.current < 15000) {
+          return;
+        }
         try {
           const { prefs, channels, subreddits: subs, books, cinema, ytConnected } = await fetchNotificationData();
           if (isMounted) {
+            hasLoadedOnceRef.current = true;
+            lastFetchedAtRef.current = Date.now();
             setPreferences(prefs);
             setSources(channels);
             setSubreddits(subs);
@@ -324,6 +333,8 @@ export const NotificationsScreen: React.FC = () => {
     setRefreshing(true);
     try {
       const { prefs, channels, subreddits: subs, books, cinema, ytConnected } = await fetchNotificationData();
+      hasLoadedOnceRef.current = true;
+      lastFetchedAtRef.current = Date.now();
       setPreferences(prefs);
       setSources(channels);
       setSubreddits(subs);
@@ -406,14 +417,14 @@ export const NotificationsScreen: React.FC = () => {
     }
   }, [activeSpace, mutedBooks, mutedCinema, mutedSubreddits, mutedChannels]);
 
-  // Resolves mute status: actively tracked channels have alerts ON by default,
-  // while inactive/untracked channels are muted by default.
+  // Resolves mute status: alerts are enabled ONLY when channel is actively tracked (isActive !== false)
   const getIsMuted = useCallback(
     (item: TrackedSource) => {
+      // Inactive channel: alerts are disabled (muted)
+      if (item.isActive === false) return true;
       const explicit = currentMutedRecord[item.sourceId];
       if (explicit !== undefined) return explicit;
-      if (item.isActive === false) return true;
-      return false;
+      return false; // Active channels have alerts enabled by default
     },
     [currentMutedRecord]
   );
@@ -427,6 +438,20 @@ export const NotificationsScreen: React.FC = () => {
       const currentlyMuted = getIsMuted(targetSource);
       const nextMuted = !currentlyMuted;
       const nextActive = !nextMuted;
+
+      // When activating a channel, verify 50-slot limit
+      if (nextActive && targetSource.isActive === false) {
+        const currentActiveCount = sources.filter(
+          (s) => s.platform !== 'reddit' && s.isActive !== false
+        ).length;
+        if (currentActiveCount >= 50) {
+          Alert.alert(
+            'Tracking Limit Reached',
+            'You are actively tracking 50 channels. Please pause an existing active channel before enabling alerts for this channel.'
+          );
+          return;
+        }
+      }
 
       // Optimistically update sources and mute states
       setSources((prev) =>
@@ -732,16 +757,12 @@ export const NotificationsScreen: React.FC = () => {
     [
       activeSpace,
       isBooksEnabled,
-      mutedBooks,
       handleToggleBookMute,
       isCinemaEnabled,
-      mutedCinema,
       handleToggleCinemaMute,
       isRedditEnabled,
-      mutedSubreddits,
       handleToggleSubredditMute,
       isYouTubeEnabled,
-      mutedChannels,
       getIsMuted,
       handleToggleChannelMute,
       styles,
@@ -921,6 +942,11 @@ export const NotificationsScreen: React.FC = () => {
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={25}
+          windowSize={5}
+          removeClippedSubviews={true}
           ListHeaderComponent={listHeader}
           refreshControl={
             <RefreshControl

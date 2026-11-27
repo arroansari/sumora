@@ -3,6 +3,8 @@ const redditClient = require('./redditClient');
 const publicRedditService = require('./redditService');
 const summarizationService = require('../../ai/summarization.service');
 const { encrypt, decrypt } = require('../../../utils/encryption.util');
+const { acquireLock, releaseLock } = require('../../../utils/redisLock.util');
+const cache = require('../../../utils/cache.util');
 const { QUEUE_NAMES, getQueue } = require('../../../jobs');
 
 class RedditService {
@@ -51,6 +53,7 @@ class RedditService {
       console.warn(`[RedditService] Background sync error for r/${cleanSub}:`, err.message);
     });
 
+    await cache.del(`cache:sources:${userId}:reddit`, `cache:sources:${userId}:all`);
     return source;
   }
 
@@ -108,6 +111,7 @@ class RedditService {
       data: { isActive: !existing.isActive },
     });
 
+    await cache.del(`cache:sources:${userId}:reddit`, `cache:sources:${userId}:all`);
     return updated;
   }
 
@@ -123,6 +127,7 @@ class RedditService {
         sourceId: cleanSub,
       },
     });
+    await cache.del(`cache:sources:${userId}:reddit`, `cache:sources:${userId}:all`);
     return { success: true, message: `Removed r/${cleanSub}` };
   }
 
@@ -533,6 +538,18 @@ class RedditService {
           new Date(account.token.expiresAt).getTime() <= Date.now() + FIVE_MINUTES_MS;
 
         if (isExpiringSoon && account.token.encryptedRefreshToken) {
+          const lockKey = `lock:oauth:refresh:reddit:${userId}`;
+          const lockToken = await acquireLock(lockKey, 15000);
+          if (!lockToken) {
+            await new Promise((r) => setTimeout(r, 300));
+            const latest = await prisma.connectedAccount.findUnique({
+              where: { userId_platform: { userId, platform: 'reddit' } },
+              include: { token: true },
+            });
+            if (latest?.token && latest.status !== 'revoked') {
+              return decrypt(latest.token.encryptedAccessToken);
+            }
+          }
           try {
             const rawRefreshToken = decrypt(account.token.encryptedRefreshToken);
             const refreshed = await redditClient.refreshUserToken(rawRefreshToken);
@@ -572,6 +589,8 @@ class RedditService {
               return accessToken;
             }
             return null;
+          } finally {
+            await releaseLock(lockKey, lockToken);
           }
         }
 
