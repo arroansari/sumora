@@ -10,6 +10,8 @@ export interface FeedEmptyStateProps {
   onPasteLink: () => void;
   onExploreChannels: () => void;
   completedCount: number;
+  selectedChannelName?: string | null;
+  onClearChannelFilter?: () => void;
 }
 
 export const FeedEmptyState: React.FC<FeedEmptyStateProps> = React.memo(
@@ -20,7 +22,27 @@ export const FeedEmptyState: React.FC<FeedEmptyStateProps> = React.memo(
     onPasteLink,
     onExploreChannels,
     completedCount,
+    selectedChannelName,
+    onClearChannelFilter,
   }) => {
+    if (selectedChannelName && onClearChannelFilter) {
+      return (
+        <View style={styles.centerContainer}>
+          <Text style={styles.emptyIcon}>📺</Text>
+          <Text style={styles.emptyTitle}>No Videos for {selectedChannelName}</Text>
+          <Text style={styles.emptySubtitle}>
+            There are no matching videos for this channel under the current tab.
+          </Text>
+          <TouchableOpacity
+            style={styles.connectButton}
+            onPress={onClearChannelFilter}
+            activeOpacity={0.8}>
+            <Text style={styles.connectButtonText}>Show All Channels</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.centerContainer}>
         {activeTab === 'completed' ? (

@@ -1,10 +1,17 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Alert, Linking, Share } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { videosApi, redditApi, contentApi, sourcesApi } from '../../../services/api';
-import { VideoItem, RedditPostItem, ContentPostItem } from '../../../types/models.types';
+import { VideoItem, RedditPostItem, ContentPostItem, TrackedSource } from '../../../types/models.types';
 import { FeedTab } from '../components/HomeFilterBar';
+
+export interface FeedChannelOption {
+  channelId: string;
+  channelName: string;
+  thumbnailUrl?: string | null;
+  videoCount: number;
+}
 
 export const FAVORITES_STORAGE_KEY = 'sumora:favorite_channel_ids';
 export const READ_VIDEOS_KEY = 'sumora:read_video_ids';
@@ -36,6 +43,8 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<FeedTab>('all');
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const [trackedYouTubeChannels, setTrackedYouTubeChannels] = useState<TrackedSource[]>([]);
   const [favoriteChannelIds, setFavoriteChannelIds] = useState<Set<string>>(new Set());
   const [readVideoIds, setReadVideoIds] = useState<Set<string>>(new Set());
   const [bookmarkedVideoIds, setBookmarkedVideoIds] = useState<Set<string>>(new Set());
@@ -66,7 +75,12 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
   const [readBookIds, setReadBookIds] = useState<Set<string>>(new Set());
   const [bookmarkedBookIds, setBookmarkedBookIds] = useState<Set<string>>(new Set());
 
-  // Load user storage across all 4 domains
+  // Perf refs: avoid duplicate boot requests, tab-switch refetch storms, and redundant Set allocations
+  const rawStorageRef = useRef<Record<string, string | null>>({});
+  const lastFetchedRef = useRef<Record<string, number>>({});
+  const loadedSpacesRef = useRef<Set<string>>(new Set());
+
+  // Load user storage across all 4 domains cleanly (only updates state when raw value changes)
   const loadStoredData = useCallback(async () => {
     try {
       const [
@@ -93,23 +107,52 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
         AsyncStorage.getItem(CHANNEL_AVATARS_STORAGE_KEY),
       ]);
 
-      if (favStored) setFavoriteChannelIds(new Set(JSON.parse(favStored)));
-      if (readStored) setReadVideoIds(new Set(JSON.parse(readStored)));
-      if (bookmarkStored) setBookmarkedVideoIds(new Set(JSON.parse(bookmarkStored)));
-      if (avatarStored) {
+      const cache = rawStorageRef.current;
+      if (favStored && favStored !== cache[FAVORITES_STORAGE_KEY]) {
+        cache[FAVORITES_STORAGE_KEY] = favStored;
+        setFavoriteChannelIds(new Set(JSON.parse(favStored)));
+      }
+      if (readStored && readStored !== cache[READ_VIDEOS_KEY]) {
+        cache[READ_VIDEOS_KEY] = readStored;
+        setReadVideoIds(new Set(JSON.parse(readStored)));
+      }
+      if (bookmarkStored && bookmarkStored !== cache[BOOKMARKS_STORAGE_KEY]) {
+        cache[BOOKMARKS_STORAGE_KEY] = bookmarkStored;
+        setBookmarkedVideoIds(new Set(JSON.parse(bookmarkStored)));
+      }
+      if (avatarStored && avatarStored !== cache[CHANNEL_AVATARS_STORAGE_KEY]) {
+        cache[CHANNEL_AVATARS_STORAGE_KEY] = avatarStored;
         try {
           setChannelAvatarMap(JSON.parse(avatarStored));
         } catch {}
       }
 
-      if (readRedditStored) setReadRedditIds(new Set(JSON.parse(readRedditStored)));
-      if (bookmarkRedditStored) setBookmarkedRedditIds(new Set(JSON.parse(bookmarkRedditStored)));
+      if (readRedditStored && readRedditStored !== cache[READ_REDDIT_KEY]) {
+        cache[READ_REDDIT_KEY] = readRedditStored;
+        setReadRedditIds(new Set(JSON.parse(readRedditStored)));
+      }
+      if (bookmarkRedditStored && bookmarkRedditStored !== cache[BOOKMARKS_REDDIT_KEY]) {
+        cache[BOOKMARKS_REDDIT_KEY] = bookmarkRedditStored;
+        setBookmarkedRedditIds(new Set(JSON.parse(bookmarkRedditStored)));
+      }
 
-      if (readCinemaStored) setReadCinemaIds(new Set(JSON.parse(readCinemaStored)));
-      if (bookmarkCinemaStored) setBookmarkedCinemaIds(new Set(JSON.parse(bookmarkCinemaStored)));
+      if (readCinemaStored && readCinemaStored !== cache[READ_CINEMA_KEY]) {
+        cache[READ_CINEMA_KEY] = readCinemaStored;
+        setReadCinemaIds(new Set(JSON.parse(readCinemaStored)));
+      }
+      if (bookmarkCinemaStored && bookmarkCinemaStored !== cache[BOOKMARKS_CINEMA_KEY]) {
+        cache[BOOKMARKS_CINEMA_KEY] = bookmarkCinemaStored;
+        setBookmarkedCinemaIds(new Set(JSON.parse(bookmarkCinemaStored)));
+      }
 
-      if (readBookStored) setReadBookIds(new Set(JSON.parse(readBookStored)));
-      if (bookmarkBookStored) setBookmarkedBookIds(new Set(JSON.parse(bookmarkBookStored)));
+      if (readBookStored && readBookStored !== cache[READ_BOOK_KEY]) {
+        cache[READ_BOOK_KEY] = readBookStored;
+        setReadBookIds(new Set(JSON.parse(readBookStored)));
+      }
+      if (bookmarkBookStored && bookmarkBookStored !== cache[BOOKMARKS_BOOK_KEY]) {
+        cache[BOOKMARKS_BOOK_KEY] = bookmarkBookStored;
+        setBookmarkedBookIds(new Set(JSON.parse(bookmarkBookStored)));
+      }
     } catch {
       // ignore
     }
@@ -119,29 +162,29 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
   const loadYouTubeFeed = useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
     try {
-      const res = await videosApi.getFeed(1, 40);
+      const [res, sources] = await Promise.all([
+        videosApi.getFeed(1, 40),
+        sourcesApi.list({ platform: 'youtube' }).catch(() => null),
+      ]);
       if (res?.videos) {
         setVideos(res.videos);
       }
-      // Populate channel avatars for instant navigation from feed cards
-      sourcesApi
-        .list({ platform: 'youtube' })
-        .then((sources) => {
-          if (Array.isArray(sources)) {
-            const map: Record<string, string> = {};
-            for (const s of sources) {
-              if (s.sourceId && s.thumbnailUrl) {
-                map[s.sourceId] = s.thumbnailUrl;
-              }
-            }
-            setChannelAvatarMap((prev) => {
-              const next = { ...prev, ...map };
-              AsyncStorage.setItem(CHANNEL_AVATARS_STORAGE_KEY, JSON.stringify(next)).catch(() => {});
-              return next;
-            });
+      if (Array.isArray(sources)) {
+        setTrackedYouTubeChannels(sources);
+        const map: Record<string, string> = {};
+        for (const s of sources) {
+          if (s.sourceId && s.thumbnailUrl) {
+            map[s.sourceId] = s.thumbnailUrl;
           }
-        })
-        .catch(() => {});
+        }
+        setChannelAvatarMap((prev) => {
+          const next = { ...prev, ...map };
+          AsyncStorage.setItem(CHANNEL_AVATARS_STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+          return next;
+        });
+      }
+      loadedSpacesRef.current.add('YOUTUBE');
+      lastFetchedRef.current.YOUTUBE = Date.now();
     } catch (err) {
       console.warn('[HomeScreen] Could not fetch YouTube feed:', err);
     } finally {
@@ -152,7 +195,7 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
   // Fetch Reddit feed
   const loadRedditFeed = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRedditRefreshing(true);
-    else setRedditLoading(true);
+    else if (!loadedSpacesRef.current.has('REDDIT')) setRedditLoading(true);
 
     try {
       const subOpt = activeSubreddit !== 'all' ? activeSubreddit : undefined;
@@ -163,6 +206,8 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
       if (tracked.length > 0) {
         setSubreddits(tracked.map((t) => t.sourceId));
       }
+      loadedSpacesRef.current.add('REDDIT');
+      lastFetchedRef.current.REDDIT = Date.now();
     } catch (err) {
       console.warn('[HomeScreen] Could not fetch Reddit feed:', err);
     } finally {
@@ -174,12 +219,14 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
   // Fetch Cinema (TMDB) feed
   const loadCinemaFeed = useCallback(async (isRefresh = false) => {
     if (isRefresh) setCinemaRefreshing(true);
-    else setCinemaLoading(true);
+    else if (!loadedSpacesRef.current.has('TMDB')) setCinemaLoading(true);
 
     try {
       const filterOpt = activeCinemaFilter !== 'Saved' ? activeCinemaFilter : undefined;
       const res = await contentApi.getFeed('TMDB', 1, 40, { filter: filterOpt });
       setCinemaPosts(res?.posts || []);
+      loadedSpacesRef.current.add('TMDB');
+      lastFetchedRef.current.TMDB = Date.now();
     } catch (err) {
       console.warn('[HomeScreen] Could not fetch Cinema feed:', err);
     } finally {
@@ -191,12 +238,14 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
   // Fetch Book (Open Library) feed
   const loadBookFeed = useCallback(async (isRefresh = false) => {
     if (isRefresh) setBookRefreshing(true);
-    else setBookLoading(true);
+    else if (!loadedSpacesRef.current.has('OPEN_LIBRARY')) setBookLoading(true);
 
     try {
       const filterOpt = activeBookFilter !== 'Saved' && activeBookFilter !== 'All Books' ? activeBookFilter : undefined;
       const res = await contentApi.getFeed('OPEN_LIBRARY', 1, 40, { filter: filterOpt });
       setBookPosts(res?.posts || []);
+      loadedSpacesRef.current.add('OPEN_LIBRARY');
+      lastFetchedRef.current.OPEN_LIBRARY = Date.now();
     } catch (err) {
       console.warn('[HomeScreen] Could not fetch Book feed:', err);
     } finally {
@@ -205,37 +254,44 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
     }
   }, [activeBookFilter]);
 
-  // Refresh active space on focus
+  const prevCinemaFilterRef = useRef(activeCinemaFilter);
+  const prevBookFilterRef = useRef(activeBookFilter);
+  const prevRedditSubRef = useRef(activeSubreddit);
+
+  // Lazy load active space on mount/space change; reuse cached results within 15s focus cooldown
   useFocusEffect(
     useCallback(() => {
       loadStoredData();
-      if (activeSpace === 'YOUTUBE') loadYouTubeFeed();
-      if (activeSpace === 'REDDIT') loadRedditFeed();
-      if (activeSpace === 'TMDB') loadCinemaFeed();
-      if (activeSpace === 'OPEN_LIBRARY') loadBookFeed();
+      const now = Date.now();
+      const last = lastFetchedRef.current[activeSpace] || 0;
+      const isInitialForSpace = !loadedSpacesRef.current.has(activeSpace);
+      if (isInitialForSpace || now - last > 15000) {
+        if (activeSpace === 'YOUTUBE') loadYouTubeFeed(isInitialForSpace);
+        else if (activeSpace === 'REDDIT') loadRedditFeed(false);
+        else if (activeSpace === 'TMDB') loadCinemaFeed(false);
+        else if (activeSpace === 'OPEN_LIBRARY') loadBookFeed(false);
+      }
     }, [activeSpace, loadStoredData, loadYouTubeFeed, loadRedditFeed, loadCinemaFeed, loadBookFeed])
   );
 
-  // Load feeds when active filters change
+  // Refetch only when active space's sub-filter changes (not on initial mount)
   useEffect(() => {
-    if (activeSpace === 'TMDB') loadCinemaFeed();
+    if (prevCinemaFilterRef.current === activeCinemaFilter) return;
+    prevCinemaFilterRef.current = activeCinemaFilter;
+    if (activeSpace === 'TMDB') loadCinemaFeed(false);
   }, [activeSpace, activeCinemaFilter, loadCinemaFeed]);
 
   useEffect(() => {
-    if (activeSpace === 'OPEN_LIBRARY') loadBookFeed();
+    if (prevBookFilterRef.current === activeBookFilter) return;
+    prevBookFilterRef.current = activeBookFilter;
+    if (activeSpace === 'OPEN_LIBRARY') loadBookFeed(false);
   }, [activeSpace, activeBookFilter, loadBookFeed]);
 
   useEffect(() => {
-    if (activeSpace === 'REDDIT') loadRedditFeed();
+    if (prevRedditSubRef.current === activeSubreddit) return;
+    prevRedditSubRef.current = activeSubreddit;
+    if (activeSpace === 'REDDIT') loadRedditFeed(false);
   }, [activeSpace, activeSubreddit, loadRedditFeed]);
-
-  // Initial load
-  useEffect(() => {
-    loadYouTubeFeed(true);
-    loadRedditFeed();
-    loadCinemaFeed();
-    loadBookFeed();
-  }, [loadYouTubeFeed, loadRedditFeed, loadCinemaFeed, loadBookFeed]);
 
   // YouTube Refresh
   const handleRefresh = useCallback(async () => {
@@ -243,8 +299,13 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
     try {
       const favList = Array.from(favoriteChannelIds);
       await videosApi.syncFeed(favList).catch(() => {});
-      const res = await videosApi.getFeed(1, 40);
-      setVideos(res.videos);
+      const [res, sources] = await Promise.all([
+        videosApi.getFeed(1, 40),
+        sourcesApi.list({ platform: 'youtube' }).catch(() => null),
+      ]);
+      if (res?.videos) setVideos(res.videos);
+      if (Array.isArray(sources)) setTrackedYouTubeChannels(sources);
+      lastFetchedRef.current.YOUTUBE = Date.now();
       await loadStoredData();
     } catch (err) {
       console.warn('[HomeScreen] Feed refresh failed:', err);
@@ -578,16 +639,77 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
     } catch {}
   }, []);
 
+  // Tracked YouTube channels actually appearing in the current feed list
+  const availableFeedChannels = useMemo<FeedChannelOption[]>(() => {
+    const activeTrackedMap = new Map<string, TrackedSource>();
+    for (const src of trackedYouTubeChannels) {
+      if (src.platform === 'youtube' && src.isActive !== false && src.sourceId) {
+        activeTrackedMap.set(src.sourceId, src);
+      }
+    }
+
+    const requireTrackedMatch = activeTrackedMap.size > 0;
+    const feedBase =
+      activeTab === 'completed'
+        ? videos.filter((v) => readVideoIds.has(v.videoId))
+        : videos.filter((v) => !readVideoIds.has(v.videoId));
+
+    const counts = new Map<string, FeedChannelOption>();
+    for (const v of feedBase) {
+      if (!v.channelId || v.channelId === 'imported' || v.isCustomImport) continue;
+      if (requireTrackedMatch && !activeTrackedMap.has(v.channelId)) continue;
+
+      const tracked = activeTrackedMap.get(v.channelId);
+      const existing = counts.get(v.channelId);
+      if (existing) {
+        existing.videoCount += 1;
+      } else {
+        counts.set(v.channelId, {
+          channelId: v.channelId,
+          channelName: tracked?.sourceName || v.channelName || 'YouTube Channel',
+          thumbnailUrl: tracked?.thumbnailUrl || channelAvatarMap[v.channelId] || null,
+          videoCount: 1,
+        });
+      }
+    }
+
+    return Array.from(counts.values()).sort(
+      (a, b) => b.videoCount - a.videoCount || a.channelName.localeCompare(b.channelName)
+    );
+  }, [trackedYouTubeChannels, videos, readVideoIds, activeTab, channelAvatarMap]);
+
+  const selectedChannelOption = useMemo<FeedChannelOption | null>(() => {
+    if (!selectedChannelId) return null;
+    const inFeed = availableFeedChannels.find((c) => c.channelId === selectedChannelId);
+    if (inFeed) return inFeed;
+    const tracked = trackedYouTubeChannels.find((s) => s.sourceId === selectedChannelId);
+    if (tracked) {
+      return {
+        channelId: selectedChannelId,
+        channelName: tracked.sourceName,
+        thumbnailUrl: tracked.thumbnailUrl || channelAvatarMap[selectedChannelId] || null,
+        videoCount: 0,
+      };
+    }
+    return null;
+  }, [selectedChannelId, availableFeedChannels, trackedYouTubeChannels, channelAvatarMap]);
+
   // Filtered Feeds
   const displayedVideos = useMemo(() => {
     const active = videos.filter((v) => !readVideoIds.has(v.videoId));
     const completed = videos.filter((v) => readVideoIds.has(v.videoId));
-    if (activeTab === 'completed') return completed;
-    if (activeTab === 'saved') return active.filter((v) => bookmarkedVideoIds.has(v.videoId));
-    if (activeTab === 'custom') return active.filter((v) => v.isCustomImport || v.channelId === 'imported');
-    if (activeTab === 'favorites') return active.filter((v) => favoriteChannelIds.has(v.channelId));
-    return active;
-  }, [videos, readVideoIds, activeTab, bookmarkedVideoIds, favoriteChannelIds]);
+    let base: VideoItem[];
+    if (activeTab === 'completed') base = completed;
+    else if (activeTab === 'saved') base = active.filter((v) => bookmarkedVideoIds.has(v.videoId));
+    else if (activeTab === 'custom') base = active.filter((v) => v.isCustomImport || v.channelId === 'imported');
+    else if (activeTab === 'favorites') base = active.filter((v) => favoriteChannelIds.has(v.channelId));
+    else base = active;
+
+    if (selectedChannelId && activeTab !== 'custom') {
+      return base.filter((v) => v.channelId === selectedChannelId);
+    }
+    return base;
+  }, [videos, readVideoIds, activeTab, bookmarkedVideoIds, favoriteChannelIds, selectedChannelId]);
 
   const displayedRedditPosts = useMemo(() => {
     const active = redditPosts.filter((p) => !readRedditIds.has(p.externalId));
@@ -683,6 +805,10 @@ export function useHomeDomainData({ navigation, activeSpace }: UseHomeDomainData
     refreshing,
     activeTab,
     setActiveTab,
+    selectedChannelId,
+    setSelectedChannelId,
+    availableFeedChannels,
+    selectedChannelOption,
     favoriteChannelIds,
     readVideoIds,
     bookmarkedVideoIds,

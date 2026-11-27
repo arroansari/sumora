@@ -1,8 +1,7 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef, useDeferredValue } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   Linking,
   ActivityIndicator,
@@ -19,7 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { videosApi, redditApi, contentApi } from '../../services/api';
-import { VideoItem, VideoSummary, SummaryStatus, SpaceType, VideoTranscript } from '../../types/models.types';
+import { VideoItem, VideoSummary, SummaryStatus, SpaceType, VideoTranscript, TranscriptSegment } from '../../types/models.types';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types/navigation.types';
 import { createSummaryDetailStyles } from './SummaryDetailScreen.styles';
@@ -29,6 +28,7 @@ import { SummaryProgressCard } from './components/SummaryProgressCard';
 import { devanagariToHinglish, isDevanagariText } from '../../utils/transliterate';
 
 const READ_VIDEOS_KEY = 'sumora:read_video_ids';
+const TRANSCRIPT_BATCH_SIZE = 80;
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SummaryDetail'>;
 
@@ -42,6 +42,34 @@ function formatSecondsToTimestamp(totalSeconds: number): string {
   const ss = s < 10 ? `0${s}` : `${s}`;
   return `${mm}:${ss}`;
 }
+
+interface TranscriptSegmentRowProps {
+  segment: TranscriptSegment;
+  styles: ReturnType<typeof createSummaryDetailStyles>;
+  onJump: (seconds: number) => void;
+}
+
+const TranscriptSegmentRow = React.memo<TranscriptSegmentRowProps>(
+  ({ segment, styles, onJump }) => {
+    const timeLabel = useMemo(
+      () => `▶ ${formatSecondsToTimestamp(segment.start)}`,
+      [segment.start]
+    );
+    const handlePress = useCallback(() => onJump(segment.start), [onJump, segment.start]);
+
+    return (
+      <View style={styles.segmentCard}>
+        <TouchableOpacity
+          style={styles.segmentTimeBtn}
+          activeOpacity={0.7}
+          onPress={handlePress}>
+          <Text style={styles.segmentTimeText}>{timeLabel}</Text>
+        </TouchableOpacity>
+        <Text style={styles.transcriptLineText}>{segment.text}</Text>
+      </View>
+    );
+  }
+);
 
 function formatUploadDate(dateStr?: string): string {
   if (!dateStr) return '';
@@ -133,9 +161,15 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [submittingTranscript, setSubmittingTranscript] = useState<boolean>(false);
   const [transcript, setTranscript] = useState<VideoTranscript | null>(null);
   const [transcriptSearch, setTranscriptSearch] = useState<string>('');
+  const deferredTranscriptSearch = useDeferredValue(transcriptSearch);
+  const [transcriptVisibleCount, setTranscriptVisibleCount] = useState<number>(TRANSCRIPT_BATCH_SIZE);
   const [transcriptCopied, setTranscriptCopied] = useState<boolean>(false);
   const [useHinglish, setUseHinglish] = useState<boolean>(true);
   const scrollViewRef = useRef<any>(null);
+
+  useEffect(() => {
+    setTranscriptVisibleCount(TRANSCRIPT_BATCH_SIZE);
+  }, [videoId, deferredTranscriptSearch, useHinglish]);
 
   const hasHindiSubtitles = useMemo(() => {
     if (transcript?.language?.toLowerCase().startsWith('hi')) return true;
@@ -146,8 +180,8 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const filteredSegments = useMemo(() => {
     if (!transcript?.segments) return [];
     let segs = transcript.segments;
-    if (transcriptSearch.trim()) {
-      const query = transcriptSearch.toLowerCase();
+    if (deferredTranscriptSearch.trim()) {
+      const query = deferredTranscriptSearch.toLowerCase();
       segs = segs.filter(
         (s) =>
           s.text.toLowerCase().includes(query) ||
@@ -161,7 +195,12 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       }));
     }
     return segs;
-  }, [transcript, transcriptSearch, useHinglish, hasHindiSubtitles]);
+  }, [transcript, deferredTranscriptSearch, useHinglish, hasHindiSubtitles]);
+
+  const visibleTranscriptSegments = useMemo(
+    () => filteredSegments.slice(0, transcriptVisibleCount),
+    [filteredSegments, transcriptVisibleCount]
+  );
 
   const handleCopyTranscript = useCallback(() => {
     if (!transcript) return;
@@ -202,6 +241,11 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       }
     },
     [video, passedUrl]
+  );
+
+  const handleJumpToSegment = useCallback(
+    (seconds: number) => handleOpenTimestamp(undefined, seconds),
+    [handleOpenTimestamp]
   );
 
   useEffect(() => {
@@ -269,48 +313,88 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     } catch {}
   }, [videoId]);
 
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPollingActiveRef = useRef(false);
+
+  const stopPolling = useCallback(() => {
+    isPollingActiveRef.current = false;
+    if (pollTimerRef.current) {
+      clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
 
   const startPolling = useCallback(() => {
-    if (pollTimerRef.current || activeSpace !== 'YOUTUBE') return;
+    if (isPollingActiveRef.current || activeSpace !== 'YOUTUBE') return;
+    isPollingActiveRef.current = true;
+    let attempt = 0;
 
-    pollTimerRef.current = setInterval(async () => {
+    const pollOnce = async () => {
+      if (!isPollingActiveRef.current) return;
+      attempt += 1;
+
       try {
-        const freshVideo = await videosApi.getVideo(videoId);
+        const statusRes = await videosApi.getSummaryStatus(videoId);
+        if (!isPollingActiveRef.current) return;
 
-        // Progressive Disclosure: As soon as transcript arrives in ~1.5s, update state immediately
-        if (freshVideo.transcript) {
-          setTranscript((prev) => prev || freshVideo.transcript || null);
-        }
-
-        if (freshVideo.summaryStatus === 'completed' && freshVideo.summary && freshVideo.summary.videoOverview) {
-          setVideo(freshVideo);
-          setSummary(freshVideo.summary);
-          if (freshVideo.transcript) {
-            setTranscript(freshVideo.transcript);
+        if (statusRes.status === 'completed') {
+          const freshVideo = await videosApi.getVideo(videoId);
+          if (!isPollingActiveRef.current) return;
+          if (freshVideo.summary && freshVideo.summary.videoOverview) {
+            setVideo(freshVideo);
+            setSummary(freshVideo.summary);
+            if (freshVideo.transcript) {
+              setTranscript(freshVideo.transcript);
+            }
+            setStatus('completed');
+            setGenerating(false);
+            stopPolling();
+            return;
           }
-          setStatus('completed');
-          setGenerating(false);
-          if (pollTimerRef.current) {
-            clearInterval(pollTimerRef.current);
-            pollTimerRef.current = null;
-          }
-        } else if (freshVideo.summaryStatus === 'failed') {
+        } else if (statusRes.status === 'failed') {
           setStatus('failed');
           setStatusMessage('Failed to generate summary. Tap below to retry.');
           setGenerating(false);
-          if (pollTimerRef.current) {
-            clearInterval(pollTimerRef.current);
-            pollTimerRef.current = null;
-          }
+          stopPolling();
+          return;
+        } else if (statusRes.status === 'transcript_unavailable') {
+          setStatus('transcript_unavailable');
+          setStatusMessage(
+            statusRes.message || 'No captions available for this video. Paste a transcript to summarize.'
+          );
+          setGenerating(false);
+          stopPolling();
+          return;
         } else {
-          setStatus(freshVideo.summaryStatus);
+          setStatus(statusRes.status);
+          if (statusRes.transcriptStatus === 'completed') {
+            setTranscript((prev) => {
+              if (!prev) {
+                videosApi
+                  .getVideo(videoId)
+                  .then((fresh) => {
+                    if (isPollingActiveRef.current && fresh.transcript) {
+                      setTranscript(fresh.transcript);
+                    }
+                  })
+                  .catch(() => {});
+              }
+              return prev;
+            });
+          }
         }
       } catch (err: any) {
         console.warn('[SummaryDetail] Polling error:', err.message);
       }
-    }, 2000);
-  }, [activeSpace, videoId]);
+
+      if (isPollingActiveRef.current) {
+        const nextDelayMs = attempt <= 5 ? 600 : 1200;
+        pollTimerRef.current = setTimeout(pollOnce, nextDelayMs);
+      }
+    };
+
+    pollTimerRef.current = setTimeout(pollOnce, 600);
+  }, [activeSpace, videoId, stopPolling]);
 
   const handleTriggerSummary = useCallback(async () => {
     if (activeSpace !== 'YOUTUBE') return;
@@ -322,8 +406,12 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       await videosApi.triggerSummarize(videoId);
     } catch (err: any) {
       console.warn('[SummaryDetail] Trigger error:', err.message);
+      stopPolling();
+      setGenerating(false);
+      setStatus('failed');
+      setStatusMessage(err?.message || 'Unable to start summarization. Please try again.');
     }
-  }, [activeSpace, videoId, startPolling]);
+  }, [activeSpace, videoId, startPolling, stopPolling]);
 
   const handleSubmitManualTranscript = useCallback(async () => {
     if (!manualTranscriptText.trim()) {
@@ -522,6 +610,14 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             await videosApi.triggerSummarize(videoId);
           } catch (triggerErr: any) {
             console.warn('[SummaryDetail] Initial trigger note:', triggerErr?.message);
+            if (isMounted && videoData.summaryStatus !== 'processing') {
+              stopPolling();
+              setGenerating(false);
+              setStatus('failed');
+              setStatusMessage(
+                triggerErr?.message || 'Unable to start summarization right now.'
+              );
+            }
           }
         } catch (err: any) {
           console.warn('[SummaryDetail] YouTube initial load error:', err.message);
@@ -614,10 +710,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
     return () => {
       isMounted = false;
-      if (pollTimerRef.current) {
-        clearInterval(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
+      stopPolling();
     };
   }, [
     videoId,
@@ -630,6 +723,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     passedUrl,
     redditItem,
     startPolling,
+    stopPolling,
   ]);
 
   const handleShare = useCallback(() => {
@@ -783,12 +877,14 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     return formatUploadDate(video?.publishedAt || passedPublishedAt);
   }, [video?.publishedAt, passedPublishedAt]);
 
+  const videoTranscriptSegments = (video as any)?.transcript?.segments;
+  const overviewDuration = summary?.videoOverview?.duration || undefined;
   const videoDurationText = useMemo(() => {
     return computeVideoDuration(
-      (transcript?.segments || (video as any)?.transcript?.segments) as any,
-      summary?.videoOverview?.duration || undefined
+      (transcript?.segments || videoTranscriptSegments) as any,
+      overviewDuration
     );
-  }, [transcript?.segments, (video as any)?.transcript?.segments, summary?.videoOverview?.duration]);
+  }, [transcript?.segments, videoTranscriptSegments, overviewDuration]);
 
   // ── Scroll Animation Values for Collapsible Header & Sticky Tabs ──
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -1135,6 +1231,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               status={status}
               themeColor={domainMeta.themeColor}
               onRetry={handleTriggerSummary}
+              errorMessage={statusMessage}
             />
           )}
 
@@ -1639,22 +1736,30 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     </View>
                   </View>
 
-                  {/* Segments List */}
-                  {filteredSegments.length > 0 ? (
+                  {/* Segments List (Batched 80 rows at a time for instant tab switch) */}
+                  {visibleTranscriptSegments.length > 0 ? (
                     <View style={styles.segmentsList}>
-                      {filteredSegments.map((segment, idx) => (
-                        <View key={idx} style={styles.segmentCard}>
-                          <TouchableOpacity
-                            style={styles.segmentTimeBtn}
-                            activeOpacity={0.7}
-                            onPress={() => handleOpenTimestamp(undefined, segment.start)}>
-                            <Text style={styles.segmentTimeText}>
-                              ▶ {formatSecondsToTimestamp(segment.start)}
-                            </Text>
-                          </TouchableOpacity>
-                          <Text style={styles.transcriptLineText}>{segment.text}</Text>
-                        </View>
+                      {visibleTranscriptSegments.map((segment, idx) => (
+                        <TranscriptSegmentRow
+                          key={`${segment.start}-${idx}`}
+                          segment={segment}
+                          styles={styles}
+                          onJump={handleJumpToSegment}
+                        />
                       ))}
+                      {filteredSegments.length > transcriptVisibleCount && (
+                        <TouchableOpacity
+                          style={[styles.secondaryButton, { marginTop: 10, height: 42 }]}
+                          activeOpacity={0.75}
+                          onPress={() =>
+                            setTranscriptVisibleCount((prev) => prev + TRANSCRIPT_BATCH_SIZE)
+                          }>
+                          <Text style={styles.secondaryButtonText}>
+                            Show More Segments ({visibleTranscriptSegments.length} of{' '}
+                            {filteredSegments.length}) ↓
+                          </Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   ) : (
                     <View style={styles.emptyTranscriptCard}>
@@ -1678,6 +1783,30 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </>
           )}
 
+          {/* Psychological Retention Nudge: Pull reader deeper into Sumora instead of exiting to YouTube */}
+          {summary && viewMode === 'highlights' && (
+            <View style={styles.deepDiveRetentionCard}>
+              <View style={styles.deepDiveRetentionHeader}>
+                <Text style={styles.deepDiveRetentionBadge}>STAY INSIDE SUMORA</Text>
+                <Text style={styles.deepDiveRetentionTitle}>
+                  Want full story context, claims & timestamps?
+                </Text>
+                <Text style={styles.deepDiveRetentionSub}>
+                  Explore the chapter breakdown, key people, quotes, and searchable transcript right here — no 20-minute video needed.
+                </Text>
+              </View>
+              <GradientButton
+                title="📖 Continue to Deep Dive →"
+                onPress={() => {
+                  setViewMode('deepdive');
+                  (scrollViewRef.current as any)?.scrollTo?.({ y: 0, animated: true });
+                }}
+                style={styles.deepDiveRetentionBtn}
+                textStyle={styles.deepDiveRetentionBtnText}
+              />
+            </View>
+          )}
+
           {/* Completion & Auto-Archive Prompt Card */}
           {summary && (
             <View style={styles.completionCard}>
@@ -1690,7 +1819,7 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                   <Text style={styles.completionSubtitle}>
                     {isCompleted
                       ? 'This item has been completed and removed from your active Activity Feed.'
-                      : 'Mark as completed to automatically archive it and keep your feed fresh.'}
+                      : 'Mark as completed to archive it and move straight to your next summary.'}
                   </Text>
                 </View>
               </View>
@@ -1702,6 +1831,13 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                   activeOpacity={0.75}>
                   <Text style={styles.completedBadgeText}>↺ Restore to Feed</Text>
                 </TouchableOpacity>
+              ) : viewMode !== 'highlights' ? (
+                <GradientButton
+                  title="✅ Yes, Mark Finished & Archive"
+                  onPress={handleConfirmComplete}
+                  style={styles.completeGradientBtn}
+                  textStyle={styles.completeBtnText}
+                />
               ) : (
                 <TouchableOpacity
                   style={[styles.completeBtn, { backgroundColor: domainMeta.themeColor }]}
@@ -1713,19 +1849,8 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
           )}
 
-          {/* Action Buttons */}
+          {/* Action Buttons: In-app actions prioritized; external Watch link intentionally understated */}
           <View style={styles.actionsContainer}>
-            <GradientButton
-              title={domainMeta.buttonTitle}
-              onPress={handleOpenOriginal}
-              style={[
-                styles.watchOriginalGradient,
-                activeSpace === 'OPEN_LIBRARY' && { shadowColor: '#10B981' },
-                activeSpace === 'TMDB' && { shadowColor: '#F59E0B' },
-              ]}
-              textStyle={styles.watchOriginalText}
-            />
-
             {summary && (
               <View style={styles.shareRow}>
                 <TouchableOpacity
@@ -1746,14 +1871,28 @@ export const SummaryDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               </View>
             )}
 
-            {summary && (
+            <View style={styles.quietFooterLinks}>
               <TouchableOpacity
-                style={styles.flagButton}
-                onPress={handleFlagContent}
-                activeOpacity={0.7}>
-                <Text style={styles.flagButtonText}>🚩 Flag Inaccurate Summary or Content</Text>
+                style={styles.watchSubtleButton}
+                onPress={handleOpenOriginal}
+                activeOpacity={0.65}
+                accessibilityLabel={domainMeta.buttonTitle}>
+                <Text style={styles.watchSubtleText}>
+                  {activeSpace === 'YOUTUBE'
+                    ? 'Already reviewed everything? Watch Original Video ↗'
+                    : domainMeta.buttonTitle}
+                </Text>
               </TouchableOpacity>
-            )}
+
+              {summary && (
+                <TouchableOpacity
+                  style={styles.flagButton}
+                  onPress={handleFlagContent}
+                  activeOpacity={0.7}>
+                  <Text style={styles.flagButtonText}>🚩 Flag Inaccurate Summary or Content</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
       </Animated.ScrollView>

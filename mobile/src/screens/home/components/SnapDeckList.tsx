@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -84,6 +84,47 @@ export function SnapDeckList<T>({
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, []);
 
+  const getItemLayout = useCallback(
+    (_data: ArrayLike<T> | null | undefined, index: number) => ({
+      length: cardContainerHeight,
+      offset: cardContainerHeight * index,
+      index,
+    }),
+    [cardContainerHeight]
+  );
+
+  const fabThemeStyle = useMemo(
+    () => ({
+      backgroundColor: accentTheme.primary,
+      shadowColor: accentTheme.primaryDark || '#4338CA',
+    }),
+    [accentTheme.primary, accentTheme.primaryDark]
+  );
+
+  const fabAnimatedStyle = useMemo(
+    () => [
+      styles.scrollTopFloatingContainer,
+      {
+        opacity: animValue,
+        transform: [
+          {
+            scale: animValue.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.4, 1],
+            }),
+          },
+          {
+            translateY: animValue.interpolate({
+              inputRange: [0, 1],
+              outputRange: [18, 0],
+            }),
+          },
+        ],
+      },
+    ],
+    [styles.scrollTopFloatingContainer, animValue]
+  );
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -98,12 +139,13 @@ export function SnapDeckList<T>({
   }
 
   return (
-    <View style={{ flex: 1, position: 'relative' }}>
+    <View style={localStyles.root}>
       <FlatList
         ref={flatListRef}
         data={data}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
+        getItemLayout={cardContainerHeight > 0 ? getItemLayout : undefined}
         contentContainerStyle={styles.listContentNoPadding}
         pagingEnabled={true}
         snapToInterval={cardContainerHeight > 0 ? cardContainerHeight : undefined}
@@ -112,8 +154,9 @@ export function SnapDeckList<T>({
         disableIntervalMomentum={true}
         showsVerticalScrollIndicator={false}
         initialNumToRender={2}
-        maxToRenderPerBatch={4}
-        windowSize={5}
+        maxToRenderPerBatch={2}
+        updateCellsBatchingPeriod={25}
+        windowSize={3}
         removeClippedSubviews={true}
         onScroll={handleScroll}
         scrollEventThrottle={16}
@@ -129,44 +172,19 @@ export function SnapDeckList<T>({
       {/* Floating Fast Forward Scroll-To-Top Button */}
       <Animated.View
         pointerEvents={showScrollTop ? 'auto' : 'none'}
-        style={[
-          styles.scrollTopFloatingContainer,
-          {
-            opacity: animValue,
-            transform: [
-              {
-                scale: animValue.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.4, 1],
-                }),
-              },
-              {
-                translateY: animValue.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [18, 0],
-                }),
-              },
-            ],
-          },
-        ]}>
+        style={fabAnimatedStyle}>
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={handleScrollToTop}
           accessibilityLabel="Fast forward to first card"
           accessibilityRole="button"
-          style={[
-            styles.scrollTopFab,
-            {
-              backgroundColor: accentTheme.primary,
-              shadowColor: accentTheme.primaryDark || '#4338CA',
-            },
-          ]}>
+          style={[styles.scrollTopFab, fabThemeStyle]}>
           <View
             style={[StyleSheet.absoluteFill, styles.scrollTopGradientClip]}
             pointerEvents="none">
             <Image
               source={accentTheme.assets.button ?? undefined}
-              style={{ width: '100%', height: '100%' }}
+              style={localStyles.fullFill}
               resizeMode="cover"
             />
           </View>
@@ -179,3 +197,14 @@ export function SnapDeckList<T>({
     </View>
   );
 }
+
+const localStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    position: 'relative',
+  },
+  fullFill: {
+    width: '100%',
+    height: '100%',
+  },
+});

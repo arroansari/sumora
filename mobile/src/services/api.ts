@@ -3,6 +3,7 @@ import {
   User,
   VideoItem,
   VideoSummary,
+  SummaryStatus,
   ConnectedAccount,
   TrackedSource,
   NotificationPreference,
@@ -247,11 +248,21 @@ export const videosApi = {
     return res.data;
   },
 
-  getSummaryStatus: async (videoId: string): Promise<{ status: string; message: string }> => {
-    const res = await request<{ data: { status: string; message: string } }>(
-      `/videos/${videoId}/summary/status`
-    );
+  getSummaryStatus: async (
+    videoId: string
+  ): Promise<{ videoId?: string; status: SummaryStatus; transcriptStatus?: string; message: string; updatedAt?: string }> => {
+    const res = await request<{
+      data: { videoId?: string; status: SummaryStatus; transcriptStatus?: string; message: string; updatedAt?: string };
+    }>(`/videos/${videoId}/summary/status`);
     return res.data;
+  },
+
+  getSummaryStreamUrl: (videoId: string): string => {
+    return `${API_BASE_URL}/videos/${videoId}/summary/stream`;
+  },
+
+  prefetchTranscript: async (videoId: string): Promise<void> => {
+    await request(`/transcripts/${videoId}/prefetch`, { method: 'POST' });
   },
 
   triggerSummarize: async (videoId: string): Promise<{ status: string; message: string }> => {

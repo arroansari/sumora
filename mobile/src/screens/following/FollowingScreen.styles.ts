@@ -591,6 +591,19 @@ export const createFollowingStyles = (colors: ThemeColors) =>
       paddingTop: 6,
       paddingBottom: 40,
     },
+    gridListContainer: {
+      paddingBottom: 40,
+    },
+    gridFlatListRow: {
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+    },
+    listFlatListRowWrap: {
+      paddingHorizontal: 16,
+    },
+    gridSectionHeaderPadded: {
+      paddingHorizontal: 16,
+    },
     gridColumnWrapper: {
       flexDirection: 'row',
       flexWrap: 'wrap',

@@ -1,16 +1,14 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   Image,
-  StyleSheet,
 } from 'react-native';
 import FastImage, { ImageStyle } from '@d11/react-native-fast-image';
-import { VideoItem, SummaryStatus } from '../../../types/models.types';
+import { VideoItem } from '../../../types/models.types';
 import { createHomeStyles } from '../HomeScreen.styles';
 import { GradientButton } from '../../../components/atoms';
-import { useAppTheme } from '../../../context/ThemeContext';
 
 export interface FeedCardProps {
   item: VideoItem;
@@ -29,23 +27,6 @@ export interface FeedCardProps {
   onChannelPress?: (channelId: string, channelName?: string) => void;
 }
 
-const getStatusConfig = (status: SummaryStatus) => {
-  switch (status) {
-    case 'completed':
-      return { dot: '#10B981', label: 'Summary Ready' };
-    case 'processing':
-      return { dot: '#60A5FA', label: 'Generating Summary...' };
-    case 'fetching_transcript':
-      return { dot: '#60A5FA', label: 'Fetching Transcript...' };
-    case 'transcript_unavailable':
-      return { dot: '#FBBF24', label: 'Transcript Unavailable' };
-    case 'failed':
-      return { dot: '#F87171', label: 'Summary Failed' };
-    default:
-      return { dot: '#94A3B8', label: 'Pending' };
-  }
-};
-
 export const FeedItemCard = React.memo<FeedCardProps>(
   ({
     item,
@@ -63,35 +44,66 @@ export const FeedItemCard = React.memo<FeedCardProps>(
     onRestoreVideo,
     onChannelPress,
   }) => {
-    const { accentTheme } = useAppTheme();
-    const publishedFormatted = item.publishedAt
-      ? new Date(item.publishedAt).toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })
-      : 'Recently';
+    const publishedFormatted = useMemo(
+      () =>
+        item.publishedAt
+          ? new Date(item.publishedAt).toLocaleDateString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })
+          : 'Recently',
+      [item.publishedAt]
+    );
 
     const isDetailedReady = item.summaryStatus === 'completed' && !!item.summary?.videoOverview;
     const isProcessing = item.summaryStatus === 'processing';
 
-    const shortOverview = isDetailedReady
-      ? item.summary?.videoOverview?.whatViewerLearns || item.summary?.overview || 'Summary ready to read.'
-      : isProcessing
-        ? 'Distilling video summary…'
-        : item.summaryStatus === 'transcript_unavailable'
-          ? 'An accessible transcript could not be retrieved, so a summary cannot be generated yet.'
-          : item.summaryStatus === 'failed'
-            ? 'Unable to generate summary. Tap to retry.'
-            : 'Tap Read Summary to generate a detailed breakdown with facts & timestamps.';
+    const shortOverview = useMemo(
+      () =>
+        isDetailedReady
+          ? item.summary?.videoOverview?.whatViewerLearns || item.summary?.overview || 'Summary ready to read.'
+          : isProcessing
+            ? 'Distilling video summary…'
+            : item.summaryStatus === 'transcript_unavailable'
+              ? 'An accessible transcript could not be retrieved, so a summary cannot be generated yet.'
+              : item.summaryStatus === 'failed'
+                ? 'Unable to generate summary. Tap to retry.'
+                : 'Tap Read Summary to generate a detailed breakdown with facts & timestamps.',
+      [isDetailedReady, isProcessing, item.summaryStatus, item.summary?.videoOverview?.whatViewerLearns, item.summary?.overview]
+    );
 
-    const statusConfig = isDetailedReady
-      ? { dot: '#10B981', label: 'Summary Ready' }
-      : isProcessing
-        ? { dot: '#60A5FA', label: 'Generating Summary...' }
-        : { dot: '#8B5CF6', label: 'Tap to Distill' };
+    const statusConfig = useMemo(
+      () =>
+        isDetailedReady
+          ? { dot: '#10B981', label: 'Summary Ready' }
+          : isProcessing
+            ? { dot: '#60A5FA', label: 'Generating Summary...' }
+            : { dot: '#8B5CF6', label: 'Tap to Distill' },
+      [isDetailedReady, isProcessing]
+    );
 
     const isCustom = item.isCustomImport || item.channelId === 'imported';
+
+    const handleChannelTap = useCallback(() => {
+      onChannelPress?.(item.channelId, item.channelName);
+    }, [onChannelPress, item.channelId, item.channelName]);
+
+    const handleCopy = useCallback(() => onCopyTakeaways(item), [onCopyTakeaways, item]);
+    const handleBookmark = useCallback(
+      () => onToggleBookmark(item.videoId, item.title),
+      [onToggleBookmark, item.videoId, item.title]
+    );
+    const handleShare = useCallback(() => onShareVideo(item), [onShareVideo, item]);
+    const handleRead = useCallback(
+      () => onReadSummary(item.videoId, item.title),
+      [onReadSummary, item.videoId, item.title]
+    );
+    const handleWatch = useCallback(() => onWatchVideo(item.videoUrl), [onWatchVideo, item.videoUrl]);
+    const handleDoneRestore = useCallback(() => {
+      if (isCompletedView) onRestoreVideo?.(item.videoId);
+      else onMarkDone?.(item.videoId, item.title);
+    }, [isCompletedView, onRestoreVideo, onMarkDone, item.videoId, item.title]);
 
     const takeawayBullets = useMemo(() => {
       if (!isDetailedReady && !item.summary?.keyTakeaways?.length) {
@@ -158,7 +170,7 @@ export const FeedItemCard = React.memo<FeedCardProps>(
       }
 
       return points.slice(0, 4);
-    }, [item.summary, item.description, shortOverview]);
+    }, [isDetailedReady, item.summary, item.description, shortOverview]);
 
     const cardDynamicHeightStyle = useMemo(
       () =>
@@ -176,7 +188,7 @@ export const FeedItemCard = React.memo<FeedCardProps>(
               <FastImage
                 source={{
                   uri: item.thumbnailUrl,
-                  priority: FastImage.priority.high,
+                  priority: FastImage.priority.normal,
                   cache: FastImage.cacheControl.immutable,
                 }}
                 style={styles.thumbnail as ImageStyle}
@@ -224,7 +236,7 @@ export const FeedItemCard = React.memo<FeedCardProps>(
               <View style={styles.channelRow}>
                 <View style={styles.channelInfoCol}>
                   <TouchableOpacity
-                    onPress={() => onChannelPress?.(item.channelId, item.channelName)}
+                    onPress={handleChannelTap}
                     disabled={!onChannelPress || !item.channelId}
                     activeOpacity={0.7}
                     hitSlop={{ top: 8, bottom: 8, left: 4, right: 6 }}>
@@ -242,7 +254,7 @@ export const FeedItemCard = React.memo<FeedCardProps>(
                 <View style={styles.utilityActionRow}>
                   <TouchableOpacity
                     style={styles.utilityBtn}
-                    onPress={() => onCopyTakeaways(item)}
+                    onPress={handleCopy}
                     activeOpacity={0.75}
                     accessibilityLabel="Copy summary takeaways">
                     <View style={styles.copyIconWrapper}>
@@ -253,7 +265,7 @@ export const FeedItemCard = React.memo<FeedCardProps>(
 
                   <TouchableOpacity
                     style={[styles.utilityBtn, isBookmarked && styles.utilityBtnActive]}
-                    onPress={() => onToggleBookmark(item.videoId, item.title)}
+                    onPress={handleBookmark}
                     activeOpacity={0.75}
                     accessibilityLabel="Bookmark video summary">
                     <Image
@@ -269,7 +281,7 @@ export const FeedItemCard = React.memo<FeedCardProps>(
 
                   <TouchableOpacity
                     style={styles.utilityBtn}
-                    onPress={() => onShareVideo(item)}
+                    onPress={handleShare}
                     activeOpacity={0.75}
                     accessibilityLabel="Share video summary">
                     <View style={styles.shareIconWrapper}>
@@ -302,13 +314,13 @@ export const FeedItemCard = React.memo<FeedCardProps>(
               <View style={styles.actionsRow}>
                 <GradientButton
                   title="Read Summary"
-                  onPress={() => onReadSummary(item.videoId, item.title)}
+                  onPress={handleRead}
                   style={styles.readGradientBtn}
                 />
 
                 <TouchableOpacity
                   style={styles.secondaryActionBtn}
-                  onPress={() => onWatchVideo(item.videoUrl)}
+                  onPress={handleWatch}
                   activeOpacity={0.75}>
                   <Text style={styles.secondaryActionBtnText} numberOfLines={1}>
                     Watch
@@ -318,14 +330,14 @@ export const FeedItemCard = React.memo<FeedCardProps>(
                 {isCompletedView ? (
                   <TouchableOpacity
                     style={styles.restoreButton}
-                    onPress={() => onRestoreVideo?.(item.videoId)}
+                    onPress={handleDoneRestore}
                     activeOpacity={0.75}>
                     <Text style={styles.restoreButtonText}>↺</Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity
                     style={styles.doneButton}
-                    onPress={() => onMarkDone?.(item.videoId, item.title)}
+                    onPress={handleDoneRestore}
                     activeOpacity={0.75}>
                     <Text style={styles.doneButtonText}>✓ Done</Text>
                   </TouchableOpacity>

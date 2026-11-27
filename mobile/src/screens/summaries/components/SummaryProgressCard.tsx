@@ -14,6 +14,7 @@ interface SummaryProgressCardProps {
   status: string;
   themeColor?: string;
   onRetry?: () => void;
+  errorMessage?: string;
 }
 
 interface StepInfo {
@@ -48,6 +49,7 @@ export const SummaryProgressCard: React.FC<SummaryProgressCardProps> = ({
   status,
   themeColor = '#10B981',
   onRetry,
+  errorMessage,
 }) => {
   const { colors } = useAppTheme();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -148,14 +150,19 @@ export const SummaryProgressCard: React.FC<SummaryProgressCardProps> = ({
   });
 
   if (status === 'failed') {
+    const isQuotaError =
+      typeof errorMessage === 'string' &&
+      (errorMessage.toLowerCase().includes('limit') || errorMessage.toLowerCase().includes('quota'));
     return (
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: '#EF4444' }]}>
         <View style={styles.errorHeader}>
           <Text style={styles.errorIcon}>⚠️</Text>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.cardTitle, { color: '#EF4444' }]}>Distillation Interrupted</Text>
+            <Text style={[styles.cardTitle, { color: '#EF4444' }]}>
+              {isQuotaError ? 'Daily Limit Reached' : 'Distillation Interrupted'}
+            </Text>
             <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-              The AI summarizer encountered an error while processing this video.
+              {errorMessage || 'The AI summarizer encountered an error while processing this video.'}
             </Text>
           </View>
         </View>

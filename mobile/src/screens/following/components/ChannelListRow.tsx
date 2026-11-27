@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import React, { useMemo, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import FastImage from '@d11/react-native-fast-image';
 import { TrackedSource } from '../../../types/models.types';
 import { createFollowingStyles } from '../FollowingScreen.styles';
@@ -17,13 +17,18 @@ export interface ChannelListRowProps {
 
 export const ChannelListRow = React.memo<ChannelListRowProps>(
   ({ item, isFavorite, styles, onToggle, onToggleFavorite, onPress }) => {
-    const category = getCategoryForChannel(item.sourceName);
+    const category = useMemo(() => getCategoryForChannel(item.sourceName), [item.sourceName]);
+    const initials = useMemo(() => getInitials(item.sourceName), [item.sourceName]);
     const isActivelyTracked = item.isActive !== false;
+
+    const handleRowPress = useCallback(() => onPress(item), [onPress, item]);
+    const handleTogglePress = useCallback(() => onToggle(item), [onToggle, item]);
+    const handleFavoritePress = useCallback(() => onToggleFavorite(item), [onToggleFavorite, item]);
 
     return (
       <TouchableOpacity
         style={styles.channelListRow}
-        onPress={() => onPress(item)}
+        onPress={handleRowPress}
         activeOpacity={0.75}>
         {/* Left: Circular Channel Avatar */}
         <View style={styles.listRowAvatarContainer}>
@@ -39,7 +44,7 @@ export const ChannelListRow = React.memo<ChannelListRowProps>(
             />
           ) : (
             <View style={styles.listRowAvatarPlaceholder}>
-              <Text style={styles.listRowAvatarText}>{getInitials(item.sourceName)}</Text>
+              <Text style={styles.listRowAvatarText}>{initials}</Text>
             </View>
           )}
           {isFavorite && (
@@ -57,7 +62,7 @@ export const ChannelListRow = React.memo<ChannelListRowProps>(
           <View style={styles.listRowMetaRow}>
             {category && (
               <View style={styles.listRowCategoryBadge}>
-                <CategorySquircleIcon category={category.id} size={11} style={{ marginRight: 3 }} />
+                <CategorySquircleIcon category={category.id} size={11} style={localStyles.catIcon} />
                 <Text style={styles.listRowCategoryText} numberOfLines={1}>
                   {category.label}
                 </Text>
@@ -71,7 +76,7 @@ export const ChannelListRow = React.memo<ChannelListRowProps>(
         <View style={styles.listRowActions}>
           <TouchableOpacity
             style={isActivelyTracked ? styles.listRowTrackBtnActive : styles.listRowTrackBtn}
-            onPress={() => onToggle(item)}
+            onPress={handleTogglePress}
             activeOpacity={0.75}>
             <Text style={isActivelyTracked ? styles.listRowTrackBtnTextActive : styles.listRowTrackBtnText}>
               {isActivelyTracked ? '✓ Active' : '+ Track'}
@@ -80,8 +85,8 @@ export const ChannelListRow = React.memo<ChannelListRowProps>(
 
           <TouchableOpacity
             style={[styles.listRowStarBtn, isFavorite && styles.listRowStarBtnActive]}
-            onPress={() => onToggleFavorite(item)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={handleFavoritePress}
+            hitSlop={hitSlop}
             activeOpacity={0.7}>
             <Text style={styles.listRowStarIcon}>{isFavorite ? '⭐' : '☆'}</Text>
           </TouchableOpacity>
@@ -90,3 +95,8 @@ export const ChannelListRow = React.memo<ChannelListRowProps>(
     );
   }
 );
+
+const hitSlop = { top: 8, bottom: 8, left: 8, right: 8 };
+const localStyles = StyleSheet.create({
+  catIcon: { marginRight: 3 },
+});

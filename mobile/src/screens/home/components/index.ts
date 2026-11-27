@@ -6,6 +6,7 @@ export * from './SpaceSwitcherModal';
 export { Space3DDeckModal } from '../../../components/spaces/Space3DDeckModal';
 export * from './HomeHeader';
 export * from './HomeFilterBar';
+export * from './ChannelFilterModal';
 export * from './FeedEmptyState';
 export * from './ImportVideoModal';
 export * from './SavedCelebrationModal';

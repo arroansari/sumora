@@ -5,18 +5,15 @@ import { AppThemeOption } from '../../theme/appThemes';
 
 export const createProfileStyles = (
   colors: ThemeColors,
-  accent: AppThemeOption,
+  _accent: AppThemeOption,
   scale: number = 1.0,
-  insets: EdgeInsets = { top: 0, bottom: 0, left: 0, right: 0 }
+  _insets: EdgeInsets = { top: 0, bottom: 0, left: 0, right: 0 }
 ) => {
   const fs = (n: number) => Math.round(n * scale);
 
-  // ── Hero tokens ───────────────────────────────────────────────
-  // For gradient themes the ImageBackground renders the image;
-  // backgroundColor acts as a fallback for two-tone themes (tone1 = dark structural color).
-  const heroBg    = colors.sectionDark;        // = tone1 (dark primary)
-  const heroText  = '#FFFFFF';                  // always white on dark hero
-  const heroMuted = 'rgba(255,255,255,0.60)';
+  const heroBg = colors.sectionDark;
+  const heroText = '#FFFFFF';
+  const heroMuted = 'rgba(255,255,255,0.70)';
 
   return StyleSheet.create({
     root: {
@@ -25,86 +22,207 @@ export const createProfileStyles = (
     },
 
     // ═══════════════════════════════════════════════════
-    // HERO — ImageBackground (gradient image OR solid tone1)
+    // STICKY COLLAPSED COMPACT BAR (Reveals on scroll)
     // ═══════════════════════════════════════════════════
-    heroBanner: {
-      minHeight: 230,
-      backgroundColor: heroBg,     // solid fallback for two-tone themes
-      paddingHorizontal: 20,
-      paddingBottom: 20,
-      justifyContent: 'flex-end',
+    stickyCompactBar: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 20,
+      backgroundColor: heroBg,
+      paddingHorizontal: 16,
+      paddingBottom: 10,
+      borderBottomLeftRadius: 22,
+      borderBottomRightRadius: 22,
       overflow: 'hidden',
+      shadowColor: heroBg,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.24,
+      shadowRadius: 12,
+      elevation: 10,
     },
-    heroOverlay: {
-      ...StyleSheet.absoluteFill,
-      backgroundColor: 'rgba(0,0,0,0.38)',
-    },
-
-    heroTopRow: {
+    stickyCompactInner: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 20,
+      gap: 10,
     },
-    heroScreenLabel: {
-      fontSize: fs(12),
-      fontFamily: 'PlusJakartaSans-SemiBold',
-      color: heroMuted,
-      letterSpacing: 1.0,
-      textTransform: 'uppercase',
+    stickyUserLeft: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 9,
     },
-    heroBadge: {
-      backgroundColor: 'rgba(255,255,255,0.15)',
-      borderRadius: 20,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
+    stickyMiniAvatar: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      backgroundColor: 'rgba(255,255,255,0.18)',
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.25)',
+      borderColor: 'rgba(255,255,255,0.34)',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    heroBadgeText: {
-      fontSize: fs(10),
+    stickyMiniAvatarText: {
+      fontSize: fs(13),
       fontFamily: 'PlusJakartaSans-ExtraBold',
+      fontWeight: '800',
       color: heroText,
-      letterSpacing: 0.6,
+    },
+    stickyUserTextWrap: {
+      flex: 1,
+    },
+    stickyUsername: {
+      fontSize: fs(14),
+      fontFamily: 'PlusJakartaSans-ExtraBold',
+      fontWeight: '800',
+      color: heroText,
+      letterSpacing: -0.3,
+    },
+    stickySubmeta: {
+      fontSize: fs(9.5),
+      fontFamily: 'PlusJakartaSans-Medium',
+      color: 'rgba(255,255,255,0.74)',
+    },
+    stickySpacesRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: 'rgba(8, 8, 16, 0.28)',
+      padding: 3.5,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.14)',
+    },
+    stickySpacePill: {
+      width: 26,
+      height: 26,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    stickySpacePillActive: {
+      backgroundColor: 'rgba(255,255,255,0.22)',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.42)',
     },
 
-    // Identity row (avatar + text)
+    // ═══════════════════════════════════════════════════
+    // HERO — Curved Editorial Multi-Domain Command Header
+    // ═══════════════════════════════════════════════════
+    heroBanner: {
+      backgroundColor: heroBg,
+      paddingHorizontal: 16,
+      paddingBottom: 14,
+      marginBottom: 18,
+      borderBottomLeftRadius: 30,
+      borderBottomRightRadius: 30,
+      overflow: 'hidden',
+      shadowColor: heroBg,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.28,
+      shadowRadius: 16,
+      elevation: 9,
+    },
+    heroOverlay: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: 'rgba(6, 6, 14, 0.28)',
+    },
+    heroGlowOrbTop: {
+      position: 'absolute',
+      top: -40,
+      right: -30,
+      width: 170,
+      height: 170,
+      borderRadius: 85,
+      backgroundColor: 'rgba(255,255,255,0.08)',
+    },
+    heroGlowOrbBottom: {
+      position: 'absolute',
+      bottom: -55,
+      left: -40,
+      width: 150,
+      height: 150,
+      borderRadius: 75,
+      backgroundColor: 'rgba(255,255,255,0.05)',
+    },
+
+    // Identity row (top-left squircle monogram + live space badge + text)
     heroIdentityRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 16,
+      marginBottom: 12,
     },
-    heroAvatarRing: {
-      width: 70,
-      height: 70,
-      borderRadius: 35,
-      borderWidth: 2.5,
-      borderColor: 'rgba(255,255,255,0.50)',
-      padding: 3,
-      marginRight: 14,
+    heroAvatarWrap: {
+      position: 'relative',
+      marginRight: 12,
+    },
+    heroAvatarFrame: {
+      width: 52,
+      height: 52,
+      borderRadius: 16,
+      borderWidth: 1.5,
+      borderColor: 'rgba(255,255,255,0.38)',
+      backgroundColor: 'rgba(255,255,255,0.14)',
+      padding: 2.5,
     },
     heroAvatar: {
       flex: 1,
-      borderRadius: 32,
-      backgroundColor: 'rgba(255,255,255,0.18)',
+      borderRadius: 13,
+      backgroundColor: 'rgba(255,255,255,0.16)',
       alignItems: 'center',
       justifyContent: 'center',
     },
     heroAvatarLetter: {
-      fontSize: fs(26),
-      fontFamily: 'PlusJakartaSans-ExtraBold',
-      fontWeight: '800',
-      color: heroText,
-    },
-    heroIdentityText: {
-      flex: 1,
-    },
-    heroUsername: {
-      fontSize: fs(22),
+      fontSize: fs(21),
       fontFamily: 'PlusJakartaSans-ExtraBold',
       fontWeight: '800',
       color: heroText,
       letterSpacing: -0.5,
+    },
+    heroAvatarSpaceBadge: {
+      position: 'absolute',
+      right: -4,
+      bottom: -4,
+      borderRadius: 7,
+      padding: 1.5,
+      backgroundColor: 'rgba(255,255,255,0.94)',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+    heroIdentityText: {
+      flex: 1,
+    },
+    heroNameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    heroUsername: {
+      fontSize: fs(21),
+      fontFamily: 'PlusJakartaSans-ExtraBold',
+      fontWeight: '800',
+      color: heroText,
+      letterSpacing: -0.5,
+      flexShrink: 1,
+    },
+    heroMemberTag: {
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      borderRadius: 8,
+      backgroundColor: 'rgba(255,255,255,0.14)',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.18)',
+    },
+    heroMemberTagText: {
+      fontSize: fs(9),
+      fontFamily: 'PlusJakartaSans-Bold',
+      fontWeight: '700',
+      color: 'rgba(255,255,255,0.88)',
     },
     heroEmail: {
       fontSize: fs(12),
@@ -112,63 +230,90 @@ export const createProfileStyles = (
       marginTop: 2,
       fontFamily: 'PlusJakartaSans-Regular',
     },
-    heroThemePill: {
+    heroMetaLine: {
       flexDirection: 'row',
       alignItems: 'center',
-      alignSelf: 'flex-start',
-      marginTop: 8,
-      borderRadius: 10,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      backgroundColor: 'rgba(255,255,255,0.15)',
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.25)',
-      gap: 5,
+      marginTop: 6,
+      gap: 6,
     },
-    heroThemeDot: {
+    heroLiveDot: {
       width: 6,
       height: 6,
       borderRadius: 3,
+      backgroundColor: '#34D399',
     },
-    heroThemePillText: {
+    heroMetaText: {
       fontSize: fs(10.5),
-      fontFamily: 'PlusJakartaSans-SemiBold',
-      fontWeight: '600',
-      color: heroText,
+      fontFamily: 'PlusJakartaSans-Medium',
+      fontWeight: '500',
+      color: 'rgba(255,255,255,0.88)',
     },
 
-    // Stats strip
-    heroStats: {
+    // Compact 4-Space Knowledge Dock
+    spacesDock: {
       flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: 'rgba(0,0,0,0.30)',
+      alignItems: 'stretch',
+      backgroundColor: 'rgba(8, 8, 16, 0.34)',
       borderRadius: 16,
-      paddingVertical: 12,
-      paddingHorizontal: 8,
+      padding: 4,
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.12)',
+      borderColor: 'rgba(255,255,255,0.15)',
+      gap: 4,
     },
-    heroStatBlock: {
+    spaceTile: {
       flex: 1,
       alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 6,
+      paddingHorizontal: 3,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: 'transparent',
     },
-    heroStatNum: {
-      fontSize: fs(17),
-      fontFamily: 'PlusJakartaSans-ExtraBold',
-      fontWeight: '800',
-      color: heroText,
-      letterSpacing: -0.3,
+    spaceTileActive: {
+      backgroundColor: 'rgba(255,255,255,0.16)',
+      borderColor: 'rgba(255,255,255,0.34)',
     },
-    heroStatLbl: {
+    spaceTileHeader: {
+      position: 'relative',
+      marginBottom: 3,
+    },
+    spaceActivePip: {
+      position: 'absolute',
+      top: -2,
+      right: -3,
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: '#34D399',
+      borderWidth: 1,
+      borderColor: '#FFFFFF',
+    },
+    spaceTileName: {
       fontSize: fs(10),
-      color: heroMuted,
-      marginTop: 2,
-      fontFamily: 'PlusJakartaSans-Medium',
+      fontFamily: 'PlusJakartaSans-Bold',
+      fontWeight: '700',
+      color: heroText,
     },
-    heroStatSep: {
-      width: 1,
-      height: 26,
-      backgroundColor: 'rgba(255,255,255,0.15)',
+    spaceTileMetric: {
+      fontSize: fs(9),
+      fontFamily: 'PlusJakartaSans-Medium',
+      fontWeight: '500',
+      color: 'rgba(255,255,255,0.68)',
+      marginTop: 1,
+    },
+    spaceTileMetricActive: {
+      color: '#FFFFFF',
+      fontFamily: 'PlusJakartaSans-Bold',
+      fontWeight: '700',
+    },
+    dockHintText: {
+      fontSize: fs(9.5),
+      fontFamily: 'PlusJakartaSans-Regular',
+      color: 'rgba(255,255,255,0.58)',
+      textAlign: 'center',
+      marginTop: 7,
+      letterSpacing: 0.1,
     },
 
     // ═══════════════════════════════════════════════════
@@ -179,7 +324,7 @@ export const createProfileStyles = (
       backgroundColor: colors.background,
     },
     scrollContent: {
-      paddingTop: 20,
+      paddingTop: 0,
       paddingBottom: 8,
     },
 

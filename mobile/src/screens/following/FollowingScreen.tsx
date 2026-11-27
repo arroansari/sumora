@@ -10,8 +10,6 @@ import {
   View,
   Text,
   FlatList,
-  ScrollView,
-  Animated,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -57,7 +55,6 @@ const ACTIVE_TRACKED_KEY = 'sumora:active_channel_ids';
 const SYNC_DONE_KEY = 'sumora:yt_thumb_sync_done';
 const TRACKED_BOOKS_STORAGE_KEY = 'sumora:tracked_book_authors';
 const TRACKED_CINEMA_STORAGE_KEY = 'sumora:tracked_cinema_sources';
-const PAGE_SIZE = 24;
 const MAX_ACTIVE_TRACKING = 50;
 
 const GRADIENT_STEPS = [
@@ -111,6 +108,15 @@ export const FollowingScreen: React.FC = () => {
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [sortFilter, setSortFilter] = useState<SortFilter>('newest');
   const [selectedCategory, setSelectedCategory] = useState<CategoryId>('active');
+
+  // Perf refs so callbacks stay identity-stable across 391-item lists
+  const sourcesRef = useRef<TrackedSource[]>(sources);
+  sourcesRef.current = sources;
+  const favoriteIdsRef = useRef<string[]>(favoriteIds);
+  favoriteIdsRef.current = favoriteIds;
+  const lastFetchedAtRef = useRef<number>(0);
+  const hasLoadedOnceRef = useRef<boolean>(false);
+  const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
 
   const route = useRoute<any>();
   useEffect(() => {
@@ -202,6 +208,10 @@ export const FollowingScreen: React.FC = () => {
       let isMounted = true;
 
       async function fetchSources() {
+        const now = Date.now();
+        if (hasLoadedOnceRef.current && now - lastFetchedAtRef.current < 15000) {
+          return;
+        }
         try {
           const [data, accounts, subs] = await Promise.all([
             sourcesApi.list(),
@@ -209,18 +219,8 @@ export const FollowingScreen: React.FC = () => {
             redditApi.listSources().catch(() => []),
           ]);
           if (isMounted) {
-            // Read stored favorites & stored active channels
-            let favs: string[] = [];
-            let storedActive: string[] | null = null;
-            try {
-              const [rawFavs, rawActive] = await Promise.all([
-                AsyncStorage.getItem(FAVORITES_STORAGE_KEY),
-                AsyncStorage.getItem(ACTIVE_TRACKED_KEY),
-              ]);
-              if (rawFavs) favs = JSON.parse(rawFavs);
-              if (rawActive) storedActive = JSON.parse(rawActive);
-            } catch {}
-
+            hasLoadedOnceRef.current = true;
+            lastFetchedAtRef.current = Date.now();
             setSources(data);
             const activeIds = data
               .filter((s: TrackedSource) => s.platform !== 'reddit' && s.isActive !== false)
@@ -259,29 +259,29 @@ export const FollowingScreen: React.FC = () => {
     }, [])
   );
 
-  // YouTube Handlers
-  const handleToggleFavorite = useCallback(
-    async (source: TrackedSource) => {
-      const isFav = favoriteIds.includes(source.sourceId);
-      let updated: string[];
+  // YouTube Handlers (use refs so callback references stay stable across all 391 cards)
+  const handleToggleFavorite = useCallback(async (source: TrackedSource) => {
+    const currentFavs = favoriteIdsRef.current;
+    const isFav = currentFavs.includes(source.sourceId);
+    let updated: string[];
 
-      if (isFav) {
-        updated = favoriteIds.filter((id) => id !== source.sourceId);
-      } else {
-        updated = [...favoriteIds, source.sourceId];
-        integrationsApi.backfillChannel(source.sourceId).catch(() => {});
-      }
+    if (isFav) {
+      updated = currentFavs.filter((id) => id !== source.sourceId);
+    } else {
+      updated = [...currentFavs, source.sourceId];
+      integrationsApi.backfillChannel(source.sourceId).catch(() => {});
+    }
 
-      setFavoriteIds(updated);
-      await AsyncStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(updated));
-    },
-    [favoriteIds]
-  );
+    setFavoriteIds(updated);
+    await AsyncStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(updated));
+  }, []);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       const data = await sourcesApi.list();
+      lastFetchedAtRef.current = Date.now();
+      hasLoadedOnceRef.current = true;
       setSources(data);
       const activeIds = data
         .filter((s: TrackedSource) => s.platform !== 'reddit' && s.isActive !== false)
@@ -292,72 +292,69 @@ export const FollowingScreen: React.FC = () => {
     }
   }, []);
 
-  const handleToggleTracking = useCallback(
-    async (source: TrackedSource) => {
-      const isCurrentlyActive = source.isActive !== false;
+  const handleToggleTracking = useCallback(async (source: TrackedSource) => {
+    const currentSources = sourcesRef.current;
+    const isCurrentlyActive = source.isActive !== false;
 
-      if (isCurrentlyActive) {
-        Alert.alert(
-          'Pause AI Tracking?',
-          `Pause automatic AI summarization for "${source.sourceName}"? This frees up 1 tracking slot.`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Pause Tracking',
-              style: 'default',
-              onPress: async () => {
-                const nextSources = sources.map((s) =>
-                  s.id === source.id ? { ...s, isActive: false } : s
-                );
-                setSources(nextSources);
+    if (isCurrentlyActive) {
+      Alert.alert(
+        'Pause AI Tracking?',
+        `Pause automatic AI summarization for "${source.sourceName}"? This frees up 1 tracking slot.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Pause Tracking',
+            style: 'default',
+            onPress: async () => {
+              const nextSources = sourcesRef.current.map((s) =>
+                s.id === source.id ? { ...s, isActive: false } : s
+              );
+              setSources(nextSources);
 
-                const activeIds = nextSources
-                  .filter((s) => s.platform !== 'reddit' && s.isActive !== false)
-                  .map((s) => s.id);
-                await AsyncStorage.setItem(ACTIVE_TRACKED_KEY, JSON.stringify(activeIds)).catch(() => {});
+              const activeIds = nextSources
+                .filter((s) => s.platform !== 'reddit' && s.isActive !== false)
+                .map((s) => s.id);
+              await AsyncStorage.setItem(ACTIVE_TRACKED_KEY, JSON.stringify(activeIds)).catch(() => {});
 
-                try {
-                  await sourcesApi.toggle(source.id);
-                } catch (err: any) {
-                  // Silently preserve local preference if backend is pending server restart
-                  console.warn('[handleToggleTracking] Backend toggle pending server restart:', err.message);
-                }
-              },
+              try {
+                await sourcesApi.toggle(source.id);
+              } catch (err: any) {
+                console.warn('[handleToggleTracking] Backend toggle pending server restart:', err.message);
+              }
             },
-          ]
+          },
+        ]
+      );
+    } else {
+      const currentActiveCount = currentSources.filter(
+        (s) => s.platform !== 'reddit' && s.isActive !== false
+      ).length;
+
+      if (currentActiveCount >= MAX_ACTIVE_TRACKING) {
+        Alert.alert(
+          'Tracking Limit Reached',
+          `You are actively tracking ${currentActiveCount} of ${MAX_ACTIVE_TRACKING} channels. Please pause an existing active channel before adding "${source.sourceName}".`
         );
-      } else {
-        const currentActiveCount = sources.filter(
-          (s) => s.platform !== 'reddit' && s.isActive !== false
-        ).length;
-
-        if (currentActiveCount >= MAX_ACTIVE_TRACKING) {
-          Alert.alert(
-            'Tracking Limit Reached',
-            `You are actively tracking ${currentActiveCount} of ${MAX_ACTIVE_TRACKING} channels. Please pause an existing active channel before adding "${source.sourceName}".`
-          );
-          return;
-        }
-
-        const nextSources = sources.map((s) =>
-          s.id === source.id ? { ...s, isActive: true } : s
-        );
-        setSources(nextSources);
-
-        const activeIds = nextSources
-          .filter((s) => s.platform !== 'reddit' && s.isActive !== false)
-          .map((s) => s.id);
-        await AsyncStorage.setItem(ACTIVE_TRACKED_KEY, JSON.stringify(activeIds)).catch(() => {});
-
-        try {
-          await sourcesApi.toggle(source.id);
-        } catch (err: any) {
-          console.warn('[handleToggleTracking] Backend toggle pending server restart:', err.message);
-        }
+        return;
       }
-    },
-    [sources]
-  );
+
+      const nextSources = currentSources.map((s) =>
+        s.id === source.id ? { ...s, isActive: true } : s
+      );
+      setSources(nextSources);
+
+      const activeIds = nextSources
+        .filter((s) => s.platform !== 'reddit' && s.isActive !== false)
+        .map((s) => s.id);
+      await AsyncStorage.setItem(ACTIVE_TRACKED_KEY, JSON.stringify(activeIds)).catch(() => {});
+
+      try {
+        await sourcesApi.toggle(source.id);
+      } catch (err: any) {
+        console.warn('[handleToggleTracking] Backend toggle pending server restart:', err.message);
+      }
+    }
+  }, []);
 
   const handleAddManualChannel = useCallback(async () => {
     const id = newChannelId.trim();
@@ -582,8 +579,8 @@ export const FollowingScreen: React.FC = () => {
   );
 
   const prioritySources = useMemo(
-    () => channelSources.filter((s) => favoriteIds.includes(s.sourceId)),
-    [channelSources, favoriteIds]
+    () => channelSources.filter((s) => favoriteSet.has(s.sourceId)),
+    [channelSources, favoriteSet]
   );
 
   const activeTrackedCount = useMemo(
@@ -604,7 +601,7 @@ export const FollowingScreen: React.FC = () => {
     if (selectedCategory === 'active') {
       list = list.filter((s) => s.isActive !== false);
     } else if (selectedCategory === 'favorites') {
-      list = list.filter((s) => favoriteIds.includes(s.sourceId));
+      list = list.filter((s) => favoriteSet.has(s.sourceId));
     } else if (selectedCategory !== 'all') {
       list = list.filter((s) => {
         const cat = classifyChannel(s.sourceName, false);
@@ -612,7 +609,7 @@ export const FollowingScreen: React.FC = () => {
       });
     }
     return sortSources(list, sortFilter);
-  }, [channelSources, favoriteIds, deferredSearchQuery, selectedCategory, sortFilter]);
+  }, [channelSources, favoriteSet, deferredSearchQuery, selectedCategory, sortFilter]);
 
   const visibleSources = useMemo(
     () => filteredSources.slice(0, displayLimit),
@@ -680,28 +677,30 @@ export const FollowingScreen: React.FC = () => {
       }
     }
     for (const s of channelSources) {
-      const isFav = favoriteIds.includes(s.sourceId);
+      const isFav = favoriteSet.has(s.sourceId);
       const catId = classifyChannel(s.sourceName, isFav);
       counts[catId] = (counts[catId] || 0) + 1;
     }
     return counts;
-  }, [channelSources, favoriteIds]);
+  }, [channelSources, favoriteSet]);
 
   const keyExtractor = useCallback((item: TrackedSource) => item.id, []);
 
   const renderItem = useCallback(
     ({ item }: { item: TrackedSource }) => {
-      const isFav = favoriteIds.includes(item.sourceId);
+      const isFav = favoriteSet.has(item.sourceId);
       if (viewMode === 'list') {
         return (
-          <ChannelListRow
-            item={item}
-            isFavorite={isFav}
-            styles={styles}
-            onToggle={handleToggleTracking}
-            onToggleFavorite={handleToggleFavorite}
-            onPress={handleChannelPress}
-          />
+          <View style={styles.listFlatListRowWrap}>
+            <ChannelListRow
+              item={item}
+              isFavorite={isFav}
+              styles={styles}
+              onToggle={handleToggleTracking}
+              onToggleFavorite={handleToggleFavorite}
+              onPress={handleChannelPress}
+            />
+          </View>
         );
       }
       return (
@@ -715,7 +714,7 @@ export const FollowingScreen: React.FC = () => {
         />
       );
     },
-    [viewMode, favoriteIds, styles, handleToggleTracking, handleToggleFavorite, handleChannelPress]
+    [viewMode, favoriteSet, styles, handleToggleTracking, handleToggleFavorite, handleChannelPress]
   );
 
   // Dynamic Header Meta per Active Space
@@ -751,7 +750,7 @@ export const FollowingScreen: React.FC = () => {
           color: colors.primary,
         };
     }
-  }, [activeSpace, bookSources.length, cinemaSources.length, subreddits.length, channelSources.length, activeTrackedCount, colors.primary]);
+  }, [activeSpace, bookSources.length, cinemaSources.length, subreddits.length, channelSources.length, colors.primary]);
 
   const searchPlaceholder = useMemo(() => {
     if (selectedCategory === 'all') return 'Search in All Channels…';
@@ -759,6 +758,178 @@ export const FollowingScreen: React.FC = () => {
     const cat = CATEGORIES.find((c) => c.id === selectedCategory);
     return cat ? `Search in ${cat.label}…` : 'Search channels by name or ID…';
   }, [selectedCategory]);
+
+  const quotaPercent = Math.round((activeTrackedCount / MAX_ACTIVE_TRACKING) * 100);
+  const fillWidthPct = Math.max(18, Math.min(100, quotaPercent));
+
+  const youtubeListHeader = useMemo(
+    () => (
+      <View>
+        {/* Top Overview Section (Tracked Channels + Quota Card + Priority Bar) */}
+        <View style={styles.topSectionWrapper}>
+          <FollowingHeader
+            styles={styles}
+            title={spaceHeaderMeta.title}
+            subtitle={spaceHeaderMeta.subtitle}
+            count={spaceHeaderMeta.count}
+            badgeColor={spaceHeaderMeta.color}
+            addButtonColor={spaceHeaderMeta.color}
+            isAddActive={showAddForm}
+            onToggleAdd={() => setShowAddForm((prev) => !prev)}
+          />
+
+          {showAddForm && (
+            <ManualChannelAddForm
+              styles={styles}
+              channelName={newChannelName}
+              channelId={newChannelId}
+              onChangeName={setNewChannelName}
+              onChangeId={setNewChannelId}
+              onSubmit={handleAddManualChannel}
+              adding={adding}
+            />
+          )}
+
+          {/* Active AI Tracking Quota Card */}
+          <View style={styles.quotaCard}>
+            <View style={styles.quotaCardHeader}>
+              <View style={styles.quotaCardTitleRow}>
+                <Text style={styles.quotaCardTitle}>⚡ Active AI Tracking Slots</Text>
+              </View>
+              <View style={styles.quotaCardCountBadge}>
+                <Text style={styles.quotaCardCountText}>
+                  {activeTrackedCount} of {MAX_ACTIVE_TRACKING} Active
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.quotaTrack}>
+              <View style={[styles.quotaFill, { width: `${fillWidthPct}%` }]}>
+                <View style={styles.gradientFillContainer}>
+                  {GRADIENT_STEPS.map((color, idx) => (
+                    <View key={idx} style={{ flex: 1, backgroundColor: color }} />
+                  ))}
+                </View>
+                <Text style={styles.quotaPercentText}>{quotaPercent}%</Text>
+              </View>
+            </View>
+
+            <Text style={styles.quotaSubText}>
+              Automated AI transcripts & digests run only for Active channels to ensure fast, high-signal summaries.
+            </Text>
+          </View>
+
+          <PriorityChannelsBar
+            prioritySources={prioritySources}
+            styles={styles}
+            selectedCategory={selectedCategory}
+            onToggleCategoryFilter={() =>
+              setSelectedCategory((prev) => (prev === 'favorites' ? 'all' : 'favorites'))
+            }
+            onChannelPress={handleChannelPress}
+          />
+        </View>
+
+        {/* Search, Filter & Category Tabs */}
+        <View style={styles.stickyHeaderContainer}>
+          <View style={styles.searchBarRow}>
+            <View style={{ flex: 1 }}>
+              <SearchBar
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={searchPlaceholder}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.filterBtn,
+                (selectedCategory !== 'all' || sortFilter !== 'newest') && styles.filterBtnActive,
+              ]}
+              onPress={() => setShowFilterModal(true)}
+              activeOpacity={0.8}>
+              <Text
+                style={[
+                  styles.filterBtnText,
+                  (selectedCategory !== 'all' || sortFilter !== 'newest') && styles.filterBtnTextActive,
+                ]}>
+                ⚡ Filters{selectedCategory !== 'all' ? ` (${CATEGORIES.find((c) => c.id === selectedCategory)?.icon || '1'})` : ''}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.viewModeToggleBtn,
+                viewMode === 'list' && styles.viewModeToggleBtnActive,
+              ]}
+              onPress={handleToggleViewMode}
+              activeOpacity={0.8}>
+              <Text
+                style={[
+                  styles.viewModeToggleIconText,
+                  viewMode === 'list' && { color: colors.primary },
+                ]}>
+                {viewMode === 'grid' ? '☰' : '⊞'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <CategoryPillsBar
+            styles={styles}
+            selectedCategory={selectedCategory}
+            totalChannelsCount={channelSources.length}
+            categoryCounts={categoryCounts}
+            onSelectCategory={setSelectedCategory}
+          />
+        </View>
+
+        {/* Section Header */}
+        <View style={[styles.gridSectionHeaderRow, styles.gridSectionHeaderPadded]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <CategorySquircleIcon category={selectedCategory} size={16} style={{ marginRight: 6 }} />
+            <Text style={styles.gridSectionTitle}>
+              {selectedCategory === 'all'
+                ? `All Channels (${filteredSources.length})`
+                : `${CATEGORIES.find((c) => c.id === selectedCategory)?.label || 'Channels'} (${filteredSources.length})`}
+            </Text>
+          </View>
+          <Text style={styles.gridSectionSub}>
+            {sortFilter === 'newest'
+              ? 'Newest'
+              : sortFilter === 'oldest'
+              ? 'Oldest'
+              : sortFilter === 'a_z'
+              ? 'A → Z'
+              : 'Z → A'}
+          </Text>
+        </View>
+      </View>
+    ),
+    [
+      styles,
+      spaceHeaderMeta,
+      showAddForm,
+      newChannelName,
+      newChannelId,
+      handleAddManualChannel,
+      adding,
+      activeTrackedCount,
+      fillWidthPct,
+      quotaPercent,
+      prioritySources,
+      selectedCategory,
+      handleChannelPress,
+      searchQuery,
+      searchPlaceholder,
+      sortFilter,
+      viewMode,
+      handleToggleViewMode,
+      colors.primary,
+      channelSources.length,
+      categoryCounts,
+      filteredSources.length,
+    ]
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -785,7 +956,7 @@ export const FollowingScreen: React.FC = () => {
         />
       )}
 
-      {/* 1. YouTube Space */}
+      {/* 1. YouTube Space (Virtualized FlatList for 60fps across 300+ channels) */}
       {activeSpace === 'YOUTUBE' && (
         <View style={{ flex: 1 }}>
           {loading ? (
@@ -801,203 +972,33 @@ export const FollowingScreen: React.FC = () => {
               </Text>
             </View>
           ) : (
-            <ScrollView
-              stickyHeaderIndices={[1]}
+            <FlatList
+              key={viewMode}
+              data={visibleSources}
+              keyExtractor={keyExtractor}
+              renderItem={renderItem}
+              numColumns={viewMode === 'grid' ? 2 : 1}
+              columnWrapperStyle={viewMode === 'grid' ? styles.gridFlatListRow : undefined}
+              contentContainerStyle={styles.gridListContainer}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 40 }}
+              keyboardShouldPersistTaps="handled"
+              initialNumToRender={10}
+              maxToRenderPerBatch={8}
+              updateCellsBatchingPeriod={25}
+              windowSize={5}
+              removeClippedSubviews={true}
+              onEndReached={handleEndReached}
+              onEndReachedThreshold={0.4}
               refreshControl={
                 <RefreshControl
                   refreshing={refreshing}
                   onRefresh={handleRefresh}
                   tintColor={colors.primary}
                 />
-              }>
-              {/* Child 0: Top Overview Section (Tracked Channels + Quota Card) - Scrolls naturally away */}
-              <View style={styles.topSectionWrapper}>
-                <FollowingHeader
-                  styles={styles}
-                  title={spaceHeaderMeta.title}
-                  subtitle={spaceHeaderMeta.subtitle}
-                  count={spaceHeaderMeta.count}
-                  badgeColor={spaceHeaderMeta.color}
-                  addButtonColor={spaceHeaderMeta.color}
-                  isAddActive={showAddForm}
-                  onToggleAdd={() => setShowAddForm((prev) => !prev)}
-                />
-
-                {showAddForm && (
-                  <ManualChannelAddForm
-                    styles={styles}
-                    channelName={newChannelName}
-                    channelId={newChannelId}
-                    onChangeName={setNewChannelName}
-                    onChangeId={setNewChannelId}
-                    onSubmit={handleAddManualChannel}
-                    adding={adding}
-                  />
-                )}
-
-                {/* Active AI Tracking Quota Card */}
-                {(() => {
-                  const quotaPercent = Math.round((activeTrackedCount / MAX_ACTIVE_TRACKING) * 100);
-                  const fillWidthPct = Math.max(18, Math.min(100, quotaPercent));
-
-                  return (
-                    <View style={styles.quotaCard}>
-                      <View style={styles.quotaCardHeader}>
-                        <View style={styles.quotaCardTitleRow}>
-                          <Text style={styles.quotaCardTitle}>⚡ Active AI Tracking Slots</Text>
-                        </View>
-                        <View style={styles.quotaCardCountBadge}>
-                          <Text style={styles.quotaCardCountText}>
-                            {activeTrackedCount} of {MAX_ACTIVE_TRACKING} Active
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.quotaTrack}>
-                        <View style={[styles.quotaFill, { width: `${fillWidthPct}%` }]}>
-                          <View style={styles.gradientFillContainer}>
-                            {GRADIENT_STEPS.map((color, idx) => (
-                              <View key={idx} style={{ flex: 1, backgroundColor: color }} />
-                            ))}
-                          </View>
-                          <Text style={styles.quotaPercentText}>
-                            {quotaPercent}%
-                          </Text>
-                        </View>
-                      </View>
-
-                      <Text style={styles.quotaSubText}>
-                        Automated AI transcripts & digests run only for Active channels to ensure fast, high-signal summaries.
-                      </Text>
-                    </View>
-                  );
-                })()}
-
-                {/* Priority Channels Avatar Bar - Scrolls naturally with the page */}
-                <PriorityChannelsBar
-                  prioritySources={prioritySources}
-                  styles={styles}
-                  selectedCategory={selectedCategory}
-                  onToggleCategoryFilter={() =>
-                    setSelectedCategory((prev) => (prev === 'favorites' ? 'all' : 'favorites'))
-                  }
-                  onChannelPress={handleChannelPress}
-                />
-              </View>
-
-              {/* Child 1: Sticky Header (Search & Filters + Category Tabs Only) */}
-              <View style={styles.stickyHeaderContainer}>
-                <View style={styles.searchBarRow}>
-                  <View style={{ flex: 1 }}>
-                    <SearchBar
-                      value={searchQuery}
-                      onChangeText={setSearchQuery}
-                      placeholder={searchPlaceholder}
-                    />
-                  </View>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.filterBtn,
-                      (selectedCategory !== 'all' || sortFilter !== 'newest') && styles.filterBtnActive,
-                    ]}
-                    onPress={() => setShowFilterModal(true)}
-                    activeOpacity={0.8}>
-                    <Text
-                      style={[
-                        styles.filterBtnText,
-                        (selectedCategory !== 'all' || sortFilter !== 'newest') && styles.filterBtnTextActive,
-                      ]}>
-                      ⚡ Filters{selectedCategory !== 'all' ? ` (${CATEGORIES.find((c) => c.id === selectedCategory)?.icon || '1'})` : ''}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.viewModeToggleBtn,
-                      viewMode === 'list' && styles.viewModeToggleBtnActive,
-                    ]}
-                    onPress={handleToggleViewMode}
-                    activeOpacity={0.8}>
-                    <Text
-                      style={[
-                        styles.viewModeToggleIconText,
-                        viewMode === 'list' && { color: colors.primary },
-                      ]}>
-                      {viewMode === 'grid' ? '☰' : '⊞'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                <CategoryPillsBar
-                  styles={styles}
-                  selectedCategory={selectedCategory}
-                  totalChannelsCount={channelSources.length}
-                  categoryCounts={categoryCounts}
-                  onSelectCategory={setSelectedCategory}
-                />
-              </View>
-
-              {/* Child 2: Channels Section Header & Items */}
-              <View style={styles.gridListContent}>
-                {/* 2-Column Grid Section Header */}
-                <View style={styles.gridSectionHeaderRow}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <CategorySquircleIcon category={selectedCategory} size={16} style={{ marginRight: 6 }} />
-                    <Text style={styles.gridSectionTitle}>
-                      {selectedCategory === 'all'
-                        ? `All Channels (${filteredSources.length})`
-                        : `${CATEGORIES.find((c) => c.id === selectedCategory)?.label || 'Channels'} (${filteredSources.length})`}
-                    </Text>
-                  </View>
-                  <Text style={styles.gridSectionSub}>
-                    {sortFilter === 'newest'
-                      ? 'Newest'
-                      : sortFilter === 'oldest'
-                      ? 'Oldest'
-                      : sortFilter === 'a_z'
-                      ? 'A → Z'
-                      : 'Z → A'}
-                  </Text>
-                </View>
-
-                {/* Items in Grid or List */}
-                {viewMode === 'grid' ? (
-                  <View style={styles.gridColumnWrapper}>
-                    {visibleSources.map((item) => (
-                      <ChannelGridCard
-                        key={item.id}
-                        item={item}
-                        isFavorite={favoriteIds.includes(item.sourceId)}
-                        styles={styles}
-                        onToggle={handleToggleTracking}
-                        onToggleFavorite={handleToggleFavorite}
-                        onPress={handleChannelPress}
-                      />
-                    ))}
-                  </View>
-                ) : (
-                  <View>
-                    {visibleSources.map((item) => (
-                      <ChannelListRow
-                        key={item.id}
-                        item={item}
-                        isFavorite={favoriteIds.includes(item.sourceId)}
-                        styles={styles}
-                        onToggle={handleToggleTracking}
-                        onToggleFavorite={handleToggleFavorite}
-                        onPress={handleChannelPress}
-                      />
-                    ))}
-                  </View>
-                )}
-
-                {/* Footer */}
-                {ListFooter}
-              </View>
-            </ScrollView>
+              }
+              ListHeaderComponent={youtubeListHeader}
+              ListFooterComponent={ListFooter}
+            />
           )}
         </View>
       )}

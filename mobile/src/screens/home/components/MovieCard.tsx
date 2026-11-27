@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -72,110 +72,71 @@ export const MovieCard = React.memo<MovieCardProps>(
       return points.slice(0, 4);
     }, [item.summary, item.author, item.streamingPlatforms]);
 
-    const handleWatchTrailer = () => {
-      const url = item.trailerUrl || `https://www.youtube.com/results?search_query=${encodeURIComponent(item.title + ' official trailer')}`;
+    const handleWatchTrailer = useCallback(() => {
+      const url =
+        item.trailerUrl ||
+        `https://www.youtube.com/results?search_query=${encodeURIComponent(item.title + ' official trailer')}`;
       Linking.openURL(url).catch(() => {});
-    };
+    }, [item.trailerUrl, item.title]);
+
+    const handleRead = useCallback(() => onReadReview(item), [onReadReview, item]);
+    const handleCopy = useCallback(() => onCopyTakeaways(item), [onCopyTakeaways, item]);
+    const handleBookmark = useCallback(
+      () => onToggleBookmark(item.externalId, item.title),
+      [onToggleBookmark, item.externalId, item.title]
+    );
+    const handleShare = useCallback(() => onShareMovie(item), [onShareMovie, item]);
+    const handleDoneRestore = useCallback(() => {
+      if (isCompletedView) onRestoreMovie?.(item.externalId);
+      else onMarkDone?.(item.externalId, item.title);
+    }, [isCompletedView, onRestoreMovie, onMarkDone, item.externalId, item.title]);
 
     const cardDynamicHeightStyle = useMemo(
       () => (cardHeight && cardHeight > 0 ? { height: cardHeight } : undefined),
       [cardHeight]
     );
 
-    const bannerImage = item.backdropUrl || item.posterUrl || 'https://image.tmdb.org/t/p/w1280/xOMo8BRK7PfcJv9JCnx7s5200SV.jpg';
+    const bannerImage =
+      item.backdropUrl ||
+      item.posterUrl ||
+      'https://image.tmdb.org/t/p/w1280/xOMo8BRK7PfcJv9JCnx7s5200SV.jpg';
 
     return (
       <View style={[styles.cardPageSlot, cardDynamicHeightStyle]}>
         <View style={[styles.card, styles.cardInDeck]}>
           {/* Top Movie Poster / Backdrop Banner */}
-          <View style={[styles.thumbnailContainer, { height: 114, backgroundColor: '#0B0F19' }]}>
+          <View style={[styles.thumbnailContainer, localStyles.bannerBox]}>
             <FastImage
-              source={{ uri: bannerImage }}
+              source={{
+                uri: bannerImage,
+                priority: FastImage.priority.normal,
+                cache: FastImage.cacheControl.immutable,
+              }}
               style={StyleSheet.absoluteFill as any}
               resizeMode={FastImage.resizeMode.cover}
             />
 
             {/* Gradient Overlays for Readability */}
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  backgroundColor: 'rgba(11, 15, 25, 0.45)',
-                },
-              ]}
-            />
+            <View style={[StyleSheet.absoluteFill, localStyles.bannerScrim]} />
 
             {/* Top Badges Row */}
-            <View
-              style={{
-                position: 'absolute',
-                top: 8,
-                left: 8,
-                right: 8,
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: 'rgba(245, 158, 11, 0.95)',
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: 12,
-                }}>
-                <Text style={{ fontSize: 10, fontWeight: '900', color: '#FFFFFF' }}>
-                  ★ {formattedRating}/10 TMDB
-                </Text>
+            <View style={localStyles.topBadgesRow}>
+              <View style={localStyles.ratingPill}>
+                <Text style={localStyles.ratingText}>★ {formattedRating}/10 TMDB</Text>
               </View>
 
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: 12,
-                  borderWidth: 0.5,
-                  borderColor: 'rgba(255, 255, 255, 0.4)',
-                }}>
-                <SpaceIcon space="TMDB" size={13} style={{ marginRight: 4 }} />
-                <Text style={{ fontSize: 10, fontWeight: '800', color: '#FFFFFF' }}>
-                  Cinema
-                </Text>
+              <View style={localStyles.cinemaPill}>
+                <SpaceIcon space="TMDB" size={13} style={localStyles.spaceIcon} />
+                <Text style={localStyles.cinemaText}>Cinema</Text>
               </View>
             </View>
 
             {/* Bottom Meta Overlay on Banner */}
-            <View
-              style={{
-                position: 'absolute',
-                bottom: 6,
-                left: 10,
-                right: 10,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}>
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontWeight: '700',
-                  color: 'rgba(255, 255, 255, 0.9)',
-                }}
-                numberOfLines={1}>
+            <View style={localStyles.bottomMetaRow}>
+              <Text style={localStyles.dirText} numberOfLines={1}>
                 Dir. {item.author || 'Director'} • {item.releaseYear || '2024'}
               </Text>
-              <Text
-                style={{
-                  fontSize: 10.5,
-                  fontWeight: '600',
-                  color: 'rgba(255, 255, 255, 0.75)',
-                }}>
-                ⏱ {item.runtime || '2h 15m'}
-              </Text>
+              <Text style={localStyles.runtimeText}>⏱ {item.runtime || '2h 15m'}</Text>
             </View>
           </View>
 
@@ -188,9 +149,9 @@ export const MovieCard = React.memo<MovieCardProps>(
 
               {/* Genres & Streaming Row */}
               <View style={styles.channelRow}>
-                <View style={[styles.channelInfoCol, { flexWrap: 'nowrap' }]}>
-                  <Text style={[styles.channelName, { color: '#F59E0B' }]} numberOfLines={1}>
-                    {(item.genres && item.genres.length > 0) ? item.genres.slice(0, 2).join(' • ') : 'Cinema'}
+                <View style={[styles.channelInfoCol, localStyles.nowrap]}>
+                  <Text style={[styles.channelName, localStyles.amberText]} numberOfLines={1}>
+                    {item.genres && item.genres.length > 0 ? item.genres.slice(0, 2).join(' • ') : 'Cinema'}
                   </Text>
                   <Text style={styles.dot}>•</Text>
                   <Text style={styles.dateText} numberOfLines={1}>
@@ -204,7 +165,7 @@ export const MovieCard = React.memo<MovieCardProps>(
                 <View style={styles.utilityActionRow}>
                   <TouchableOpacity
                     style={styles.utilityBtn}
-                    onPress={() => onCopyTakeaways(item)}
+                    onPress={handleCopy}
                     activeOpacity={0.75}
                     accessibilityLabel="Copy critic consensus">
                     <View style={styles.copyIconWrapper}>
@@ -215,7 +176,7 @@ export const MovieCard = React.memo<MovieCardProps>(
 
                   <TouchableOpacity
                     style={[styles.utilityBtn, isBookmarked && styles.utilityBtnActive]}
-                    onPress={() => onToggleBookmark(item.externalId, item.title)}
+                    onPress={handleBookmark}
                     activeOpacity={0.75}
                     accessibilityLabel="Bookmark movie">
                     <Image
@@ -231,7 +192,7 @@ export const MovieCard = React.memo<MovieCardProps>(
 
                   <TouchableOpacity
                     style={styles.utilityBtn}
-                    onPress={() => onShareMovie(item)}
+                    onPress={handleShare}
                     activeOpacity={0.75}
                     accessibilityLabel="Share movie">
                     <View style={styles.shareIconWrapper}>
@@ -265,7 +226,7 @@ export const MovieCard = React.memo<MovieCardProps>(
               <View style={styles.actionsRow}>
                 <GradientButton
                   title="Read Review"
-                  onPress={() => onReadReview(item)}
+                  onPress={handleRead}
                   style={styles.readGradientBtn}
                 />
 
@@ -281,14 +242,14 @@ export const MovieCard = React.memo<MovieCardProps>(
                 {isCompletedView ? (
                   <TouchableOpacity
                     style={styles.restoreButton}
-                    onPress={() => onRestoreMovie?.(item.externalId)}
+                    onPress={handleDoneRestore}
                     activeOpacity={0.75}>
                     <Text style={styles.restoreButtonText}>↺</Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity
                     style={styles.doneButton}
-                    onPress={() => onMarkDone?.(item.externalId, item.title)}
+                    onPress={handleDoneRestore}
                     activeOpacity={0.75}>
                     <Text style={styles.doneButtonText}>✓ Watched</Text>
                   </TouchableOpacity>
@@ -305,3 +266,51 @@ export const MovieCard = React.memo<MovieCardProps>(
     );
   }
 );
+
+const localStyles = StyleSheet.create({
+  bannerBox: { height: 114, backgroundColor: '#0B0F19' },
+  bannerScrim: { backgroundColor: 'rgba(11, 15, 25, 0.45)' },
+  topBadgesRow: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    right: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  ratingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.95)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  ratingText: { fontSize: 10, fontWeight: '900', color: '#FFFFFF' },
+  cinemaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  spaceIcon: { marginRight: 4 },
+  cinemaText: { fontSize: 10, fontWeight: '800', color: '#FFFFFF' },
+  bottomMetaRow: {
+    position: 'absolute',
+    bottom: 6,
+    left: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dirText: { fontSize: 11, fontWeight: '700', color: 'rgba(255, 255, 255, 0.9)' },
+  runtimeText: { fontSize: 10.5, fontWeight: '600', color: 'rgba(255, 255, 255, 0.75)' },
+  nowrap: { flexWrap: 'nowrap' },
+  amberText: { color: '#F59E0B' },
+});

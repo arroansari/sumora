@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, ListRenderItemInfo, Alert, Share } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
@@ -14,6 +14,7 @@ import {
   Space3DDeckModal,
   HomeHeader,
   HomeFilterBar,
+  ChannelFilterModal,
   FeedEmptyState,
   ImportVideoModal,
   SavedCelebrationModal,
@@ -36,6 +37,7 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
   const [urlInput, setUrlInput] = useState<string>('');
   const [importing, setImporting] = useState<boolean>(false);
   const [showImportModal, setShowImportModal] = useState<boolean>(false);
+  const [showChannelFilterModal, setShowChannelFilterModal] = useState<boolean>(false);
 
   // Domain data and feed handlers hook
   const {
@@ -44,6 +46,10 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
     refreshing,
     activeTab,
     setActiveTab,
+    selectedChannelId,
+    setSelectedChannelId,
+    availableFeedChannels,
+    selectedChannelOption,
     favoriteChannelIds,
     bookmarkedVideoIds,
     channelAvatarMap,
@@ -296,6 +302,9 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         space={activeSpace}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
+        selectedChannel={selectedChannelOption}
+        onOpenChannelFilter={() => setShowChannelFilterModal(true)}
+        onClearChannelFilter={() => setSelectedChannelId(null)}
         savedCount={activeSavedCount}
         customCount={customCount}
         completedCount={completedCount}
@@ -342,6 +351,8 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
                   onPasteLink={() => setShowImportModal(true)}
                   onExploreChannels={() => navigation.navigate('Following')}
                   completedCount={completedCount}
+                  selectedChannelName={selectedChannelOption?.channelName || null}
+                  onClearChannelFilter={() => setSelectedChannelId(null)}
                 />
               }
               styles={styles}
@@ -466,6 +477,23 @@ export const HomeScreen: React.FC<any> = ({ navigation }) => {
         onChangeUrlInput={setUrlInput}
         onImport={handleGlobalImport}
         importing={importing}
+        styles={styles}
+        colors={colors}
+      />
+
+      {/* ── Modal: Filter Feed by Tracked Channel ── */}
+      <ChannelFilterModal
+        visible={showChannelFilterModal}
+        onClose={() => setShowChannelFilterModal(false)}
+        channels={availableFeedChannels}
+        selectedChannelId={selectedChannelId}
+        onSelectChannel={(channelId) => {
+          setSelectedChannelId(channelId);
+          if (channelId && activeTab === 'custom') {
+            setActiveTab('all');
+          }
+        }}
+        totalFeedCount={availableFeedChannels.reduce((sum, ch) => sum + ch.videoCount, 0)}
         styles={styles}
         colors={colors}
       />

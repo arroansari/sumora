@@ -134,13 +134,38 @@ interface VideoCardProps {
 const VideoCard = React.memo<VideoCardProps>(({ item, styles, colors, onPress }) => {
   const hasOverview = Boolean(item.summary?.overview);
 
-  const thumbnailUri =
-    item.thumbnailUrl || `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`;
+  const thumbnailUri = useMemo(
+    () => item.thumbnailUrl || `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
+    [item.thumbnailUrl, item.videoId]
+  );
+
+  const dateLabel = useMemo(
+    () => item.publishedTime || formatRelativeDate(item.publishedAt),
+    [item.publishedTime, item.publishedAt]
+  );
+
+  const handleCardPress = useCallback(() => onPress(item), [onPress, item]);
+
+  const labelStyle = useMemo(
+    () => [
+      styles.readLabel,
+      {
+        color:
+          item.summaryStatus === 'completed'
+            ? colors.primary
+            : item.summaryStatus === 'processing'
+            ? '#EAB308'
+            : colors.primary,
+        fontWeight: (item.summaryStatus === 'completed' ? '700' : '600') as '700' | '600',
+      },
+    ],
+    [styles.readLabel, item.summaryStatus, colors.primary]
+  );
 
   return (
     <TouchableOpacity
       style={styles.videoCard}
-      onPress={() => onPress(item)}
+      onPress={handleCardPress}
       activeOpacity={0.75}>
       <View style={styles.videoCardInner}>
         {/* FastImage Thumbnail */}
@@ -148,7 +173,7 @@ const VideoCard = React.memo<VideoCardProps>(({ item, styles, colors, onPress })
           <FastImage
             source={{
               uri: thumbnailUri,
-              priority: FastImage.priority.high,
+              priority: FastImage.priority.normal,
               cache: FastImage.cacheControl.immutable,
             }}
             style={styles.thumbnail as ImageStyle}
@@ -167,7 +192,7 @@ const VideoCard = React.memo<VideoCardProps>(({ item, styles, colors, onPress })
             {item.title}
           </Text>
           <Text style={styles.videoDate}>
-            {item.publishedTime || formatRelativeDate(item.publishedAt)}
+            {dateLabel}
             {item.duration ? ` · ⏱️ ${item.duration}` : ''}
           </Text>
           {hasOverview && (
@@ -180,19 +205,7 @@ const VideoCard = React.memo<VideoCardProps>(({ item, styles, colors, onPress })
 
       {/* Read Summary CTA */}
       <View style={styles.readRow}>
-        <Text
-          style={[
-            styles.readLabel,
-            {
-              color:
-                item.summaryStatus === 'completed'
-                  ? colors.primary
-                  : item.summaryStatus === 'processing'
-                  ? '#EAB308'
-                  : colors.primary,
-              fontWeight: item.summaryStatus === 'completed' ? '700' : '600',
-            },
-          ]}>
+        <Text style={labelStyle}>
           {item.summaryStatus === 'completed'
             ? '✨ Read Summary →'
             : item.summaryStatus === 'processing' || item.summaryStatus === 'fetching_transcript'
@@ -1131,8 +1144,9 @@ export const ChannelDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           { minHeight: SCREEN_HEIGHT + heroHeight + 50 },
         ]}
         keyboardShouldPersistTaps="handled"
-        initialNumToRender={10}
-        maxToRenderPerBatch={6}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        updateCellsBatchingPeriod={25}
         windowSize={5}
         removeClippedSubviews={false}
         refreshControl={

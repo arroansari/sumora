@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useDeferredValue, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useDeferredValue, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -269,6 +269,9 @@ export const NotificationsScreen: React.FC = () => {
     });
   }, []);
 
+  const lastFetchedAtRef = useRef<number>(0);
+  const hasLoadedOnceRef = useRef<boolean>(false);
+
   const fetchNotificationData = useCallback(async () => {
     const [prefs, channels, accounts, subs, bks, cnm] = await Promise.all([
       preferencesApi.get().catch(() => []),
@@ -293,9 +296,15 @@ export const NotificationsScreen: React.FC = () => {
       let isMounted = true;
 
       async function loadNotificationData() {
+        const now = Date.now();
+        if (hasLoadedOnceRef.current && now - lastFetchedAtRef.current < 15000) {
+          return;
+        }
         try {
           const { prefs, channels, subreddits: subs, books, cinema, ytConnected } = await fetchNotificationData();
           if (isMounted) {
+            hasLoadedOnceRef.current = true;
+            lastFetchedAtRef.current = Date.now();
             setPreferences(prefs);
             setSources(channels);
             setSubreddits(subs);
@@ -324,6 +333,8 @@ export const NotificationsScreen: React.FC = () => {
     setRefreshing(true);
     try {
       const { prefs, channels, subreddits: subs, books, cinema, ytConnected } = await fetchNotificationData();
+      hasLoadedOnceRef.current = true;
+      lastFetchedAtRef.current = Date.now();
       setPreferences(prefs);
       setSources(channels);
       setSubreddits(subs);
@@ -746,16 +757,12 @@ export const NotificationsScreen: React.FC = () => {
     [
       activeSpace,
       isBooksEnabled,
-      mutedBooks,
       handleToggleBookMute,
       isCinemaEnabled,
-      mutedCinema,
       handleToggleCinemaMute,
       isRedditEnabled,
-      mutedSubreddits,
       handleToggleSubredditMute,
       isYouTubeEnabled,
-      mutedChannels,
       getIsMuted,
       handleToggleChannelMute,
       styles,
@@ -935,6 +942,11 @@ export const NotificationsScreen: React.FC = () => {
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={25}
+          windowSize={5}
+          removeClippedSubviews={true}
           ListHeaderComponent={listHeader}
           refreshControl={
             <RefreshControl
