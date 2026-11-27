@@ -8,6 +8,9 @@ const { notFoundHandler, errorHandler } = require('./middlewares/errorHandler');
 
 const app = express();
 
+// Respect X-Forwarded-For behind ALB / Nginx reverse proxies so rate limiters see real client IP
+app.set('trust proxy', parseInt(process.env.TRUST_PROXY_HOPS || '1', 10));
+
 // Global Middlewares & Security Headers
 app.use(
   helmet({

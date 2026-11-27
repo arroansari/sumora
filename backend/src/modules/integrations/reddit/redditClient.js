@@ -1,6 +1,7 @@
 const axios = require('axios');
 const config = require('../../../config');
 const { signOAuthState } = require('../../../utils/oauth.util');
+const { getFastRedisClient, isRedisReady } = require('../../../config/redis');
 
 class RedditClient {
   constructor() {
@@ -25,6 +26,20 @@ class RedditClient {
       return this.accessToken;
     }
 
+    if (isRedisReady()) {
+      try {
+        const cached = await getFastRedisClient().get('cache:reddit:app_token');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.token && parsed.expiresAt > now + 60000) {
+            this.accessToken = parsed.token;
+            this.tokenExpiresAt = parsed.expiresAt;
+            return this.accessToken;
+          }
+        }
+      } catch {}
+    }
+
     try {
       const authHeader = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
       const response = await axios.post(
@@ -44,6 +59,16 @@ class RedditClient {
         this.accessToken = response.data.access_token;
         const expiresInSec = response.data.expires_in || 3600;
         this.tokenExpiresAt = now + expiresInSec * 1000;
+        if (isRedisReady() && expiresInSec > 60) {
+          getFastRedisClient()
+            .set(
+              'cache:reddit:app_token',
+              JSON.stringify({ token: this.accessToken, expiresAt: this.tokenExpiresAt }),
+              'EX',
+              expiresInSec - 60
+            )
+            .catch(() => {});
+        }
         return this.accessToken;
       }
     } catch (err) {

@@ -3,6 +3,9 @@ const webSubService = require('../modules/integrations/youtube/websub.service');
 const youTubeService = require('../modules/integrations/youtube/youtube.service');
 const integrationsService = require('../modules/integrations/integrations.service');
 const inlinePipeline = require('../modules/pipeline/inline-pipeline.service');
+const { getFastRedisClient, isRedisReady } = require('../config/redis');
+const { withDistributedLock } = require('../utils/redisLock.util');
+const { batchUpsertVideos } = require('../utils/videoBatch.util');
 
 class SchedulerService {
   constructor() {
@@ -23,14 +26,26 @@ class SchedulerService {
   async renewWebSubSubscriptions(channelIds) {
     const now = Date.now();
     let renewedCount = 0;
+    const useRedis = isRedisReady();
+    const redis = useRedis ? getFastRedisClient() : null;
 
     for (const channelId of channelIds) {
-      const lastRenewed = this.webSubRenewals.get(channelId) || 0;
+      let lastRenewed = this.webSubRenewals.get(channelId) || 0;
+      if (useRedis && redis) {
+        try {
+          const cached = await redis.get(`websub:renewed:${channelId}`);
+          if (cached) lastRenewed = Math.max(lastRenewed, parseInt(cached, 10) || 0);
+        } catch {}
+      }
+
       if (now - lastRenewed >= this.RENEWAL_THRESHOLD_MS) {
         try {
           const success = await webSubService.subscribeToChannel(channelId);
           if (success) {
             this.webSubRenewals.set(channelId, now);
+            if (useRedis && redis) {
+              redis.set(`websub:renewed:${channelId}`, String(now), 'PX', this.RENEWAL_THRESHOLD_MS).catch(() => {});
+            }
             renewedCount++;
           }
         } catch (err) {
@@ -74,10 +89,11 @@ class SchedulerService {
       return { skipped: true };
     }
 
-    this.isRunning = true;
-    console.log(`[Scheduler] Starting background feed sync pass (${triggerSource})...`);
+    return withDistributedLock('lock:scheduler:feed-sync', 10 * 60 * 1000, async () => {
+      this.isRunning = true;
+      console.log(`[Scheduler] Starting background feed sync pass (${triggerSource})...`);
 
-    try {
+      try {
       // Find all unique YouTube channel IDs tracked across all users
       const tracked = await prisma.trackedSource.findMany({
         where: { platform: 'youtube' },
@@ -106,36 +122,8 @@ class SchedulerService {
         if (accessToken) {
           const uploads = await youTubeService.getChannelUploads(channelId, accessToken, 3);
           if (uploads.length > 0) {
-            for (const upload of uploads) {
-              const existing = await prisma.video.findUnique({
-                where: { videoId: upload.videoId },
-                select: { id: true, summaryStatus: true },
-              });
-
-              await prisma.video.upsert({
-                where: { videoId: upload.videoId },
-                create: {
-                  videoId: upload.videoId,
-                  channelId: upload.channelId,
-                  title: upload.title,
-                  videoUrl: upload.videoUrl,
-                  thumbnailUrl: upload.thumbnailUrl,
-                  publishedAt: new Date(upload.publishedAt),
-                  transcriptStatus: 'pending',
-                  summaryStatus: 'pending',
-                },
-                update: {
-                  title: upload.title,
-                  thumbnailUrl: upload.thumbnailUrl,
-                },
-              });
-
-              if (!existing) {
-                totalUpserted++;
-                // On-Demand Architecture: Historical/backlog videos are indexed in DB at $0 cost.
-                // AI summarization is generated lazily only when a user taps "Read Summary".
-              }
-            }
+            const { createdCount } = await batchUpsertVideos(uploads);
+            totalUpserted += createdCount;
             return { upserted: uploads.length };
           }
         }
@@ -181,12 +169,13 @@ class SchedulerService {
         channelsChecked: channelIds.length,
         newVideos: totalUpserted,
       };
-    } catch (err) {
-      console.error('[Scheduler] Error during feed sync pass:', err.message);
-      throw err;
-    } finally {
-      this.isRunning = false;
-    }
+      } catch (err) {
+        console.error('[Scheduler] Error during feed sync pass:', err.message);
+        throw err;
+      } finally {
+        this.isRunning = false;
+      }
+    });
   }
 }
 

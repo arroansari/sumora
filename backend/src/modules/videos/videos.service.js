@@ -5,6 +5,8 @@ const inlinePipeline = require('../pipeline/inline-pipeline.service');
 const webSubService = require('../integrations/youtube/websub.service');
 const youTubeService = require('../integrations/youtube/youtube.service');
 const integrationsService = require('../integrations/integrations.service');
+const { batchUpsertVideos } = require('../../utils/videoBatch.util');
+const cache = require('../../utils/cache.util');
 
 function extractYouTubeVideoId(input) {
   if (!input) return null;
@@ -25,47 +27,71 @@ class VideosService {
    * @param {string} userId
    * @param {object} [pagination]
    */
-  async getFeed(userId, { page = 1, limit = 20, channelId = null, from = null, to = null, search = null } = {}) {
+  async getFeedHttpJson(userId, opts = {}) {
+    const { page = 1, limit = 20, cursor = null, channelId = null, from = null, to = null, search = null } = opts;
+    const [userEpoch, globalEpoch] = await cache.getEpochs(
+      `cache:feed_epoch:${userId}`,
+      'cache:videos:global_epoch'
+    );
+    const httpKey = `cache:http:videos:feed:${userId}:u${userEpoch}:g${globalEpoch}:p${page}:l${limit}:c${cursor || ''}:ch${channelId || ''}:f${from || ''}:t${to || ''}:s${search ? search.trim() : ''}`;
+    const cachedRaw = await cache.getRaw(httpKey);
+    if (cachedRaw) return cachedRaw;
+
+    const result = await this.getFeed(userId, opts);
+    const serialized = JSON.stringify({
+      success: true,
+      data: result.videos,
+      pagination: result.pagination,
+    });
+    await cache.setRaw(httpKey, serialized, 30);
+    return serialized;
+  }
+
+  async getFeed(userId, { page = 1, limit = 20, cursor = null, channelId = null, from = null, to = null, search = null } = {}) {
     const skip = (page - 1) * limit;
 
-    // Get list of channel IDs tracked by user (with their display names)
-    // Home feed (channelId = null) exclusively serves actively tracked channels (isActive: true)
-    const trackedWhere = { userId, platform: 'youtube' };
-    if (!channelId) {
-      trackedWhere.isActive = true;
+    // Fetch YouTube channels & custom imports in ONE roundtrip instead of 2 sequential queries
+    const userSources = await prisma.trackedSource.findMany({
+      where: {
+        userId,
+        OR: [
+          channelId ? { platform: 'youtube' } : { platform: 'youtube', isActive: true },
+          { platform: 'custom_import' },
+        ],
+      },
+      select: { platform: true, sourceId: true, sourceName: true },
+    });
+
+    const channelIds = [];
+    const channelNameMap = new Map();
+    const customVideoIds = [];
+    const customNameMap = new Map();
+
+    for (const s of userSources) {
+      if (s.platform === 'custom_import') {
+        customVideoIds.push(s.sourceId);
+        customNameMap.set(s.sourceId, s.sourceName);
+      } else {
+        channelIds.push(s.sourceId);
+        channelNameMap.set(s.sourceId, s.sourceName);
+      }
     }
-
-    const tracked = await prisma.trackedSource.findMany({
-      where: trackedWhere,
-      select: { sourceId: true, sourceName: true },
-    });
-
-    const channelIds = tracked.map((t) => t.sourceId);
-
-    // Build a quick lookup map: channelId → channelName
-    const channelNameMap = new Map(tracked.map((t) => [t.sourceId, t.sourceName]));
-
-    // Also get list of custom imported videos for this user
-    const customImports = await prisma.trackedSource.findMany({
-      where: { userId, platform: 'custom_import' },
-      select: { sourceId: true, sourceName: true },
-    });
-    const customVideoIds = customImports.map((c) => c.sourceId);
-    const customNameMap = new Map(customImports.map((c) => [c.sourceId, c.sourceName]));
 
     // If user has not tracked any channels, has no custom imports, and didn't specify a channel, return empty feed
     if (channelIds.length === 0 && customVideoIds.length === 0 && !channelId) {
       return {
         videos: [],
-        pagination: { page, limit, total: 0, totalPages: 0 },
+        pagination: cursor
+          ? { limit, nextCursor: null, hasMore: false }
+          : { page, limit, total: 0, totalPages: 0 },
       };
     }
 
     // Build where clause — optionally filter to a single channel and/or date range
-    let whereClause = {};
+    const andConditions = [];
 
     if (channelId) {
-      whereClause.channelId = channelId;
+      andConditions.push({ channelId });
     } else {
       const orConditions = [];
       if (channelIds.length > 0) {
@@ -74,39 +100,113 @@ class VideosService {
       if (customVideoIds.length > 0) {
         orConditions.push({ videoId: { in: customVideoIds } });
       }
-
       if (orConditions.length === 1) {
-        whereClause = orConditions[0];
+        andConditions.push(orConditions[0]);
       } else if (orConditions.length > 1) {
-        whereClause.OR = orConditions;
+        andConditions.push({ OR: orConditions });
       }
     }
 
     if (search && search.trim()) {
-      whereClause.title = {
-        contains: search.trim(),
-        mode: 'insensitive',
-      };
+      andConditions.push({
+        title: {
+          contains: search.trim(),
+          mode: 'insensitive',
+        },
+      });
     }
 
     if (from || to) {
-      whereClause.publishedAt = {};
-      if (from) whereClause.publishedAt.gte = new Date(from);
-      if (to)   whereClause.publishedAt.lte = new Date(to);
+      const publishedFilter = {};
+      if (from) publishedFilter.gte = new Date(from);
+      if (to) publishedFilter.lte = new Date(to);
+      andConditions.push({ publishedAt: publishedFilter });
     }
 
-    const [videos, total] = await Promise.all([
-      prisma.video.findMany({
-        where: whereClause,
-        orderBy: { publishedAt: 'desc' },
-        skip,
-        take: limit,
-        include: {
-          summary: true,
+    // Keyset/cursor pagination avoids deep OFFSET scans and skips COUNT(*)
+    let parsedCursor = null;
+    if (cursor && typeof cursor === 'string' && cursor.includes('|')) {
+      const [tsStr, cursorId] = cursor.split('|');
+      const cursorDate = new Date(tsStr);
+      if (!isNaN(cursorDate.getTime()) && cursorId) {
+        parsedCursor = { cursorDate, cursorId };
+        andConditions.push({
+          OR: [
+            { publishedAt: { lt: cursorDate } },
+            { publishedAt: cursorDate, id: { lt: cursorId } },
+          ],
+        });
+      }
+    }
+
+    const whereClause = andConditions.length === 1 ? andConditions[0] : { AND: andConditions };
+
+    // Selective projection for feed cards (omits heavy deep-dive JSON arrays fetched on detail screen)
+    const videoSelect = {
+      id: true,
+      videoId: true,
+      channelId: true,
+      title: true,
+      description: true,
+      thumbnailUrl: true,
+      videoUrl: true,
+      publishedAt: true,
+      transcriptStatus: true,
+      summaryStatus: true,
+      summary: {
+        select: {
+          id: true,
+          videoId: true,
+          overview: true,
+          keyPoints: true,
+          importantConcepts: true,
+          detailedSummary: true,
+          conclusion: true,
+          topicsCovered: true,
+          aiProvider: true,
+          modelName: true,
+          videoOverview: true,
+          keyTakeaways: true,
         },
-      }),
-      prisma.video.count({ where: whereClause }),
-    ]);
+      },
+    };
+
+    const orderBy = [{ publishedAt: 'desc' }, { id: 'desc' }];
+
+    let videos;
+    let total = null;
+    let hasMore = false;
+
+    if (parsedCursor || cursor === 'start') {
+      const rows = await prisma.video.findMany({
+        where: whereClause,
+        orderBy,
+        take: limit + 1,
+        select: videoSelect,
+      });
+      hasMore = rows.length > limit;
+      videos = hasMore ? rows.slice(0, limit) : rows;
+    } else {
+      const [rows, countResult] = await Promise.all([
+        prisma.video.findMany({
+          where: whereClause,
+          orderBy,
+          skip,
+          take: limit,
+          select: videoSelect,
+        }),
+        prisma.video.count({ where: whereClause }),
+      ]);
+      videos = rows;
+      total = countResult;
+      hasMore = skip + videos.length < total;
+    }
+
+    const lastVideo = videos[videos.length - 1];
+    const nextCursor =
+      hasMore && lastVideo
+        ? `${new Date(lastVideo.publishedAt).toISOString()}|${lastVideo.id}`
+        : null;
 
     // Enrich each video with its channelName and custom import flag
     const enrichedVideos = videos.map((v) => {
@@ -125,12 +225,21 @@ class VideosService {
 
     return {
       videos: enrichedVideos,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      pagination:
+        total !== null
+          ? {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+            nextCursor,
+            hasMore,
+          }
+          : {
+            limit,
+            nextCursor,
+            hasMore,
+          },
     };
   }
 
@@ -251,6 +360,93 @@ class VideosService {
     };
   }
 
+  async _hasActiveQueueJob(videoId) {
+    try {
+      const tq = getQueue(QUEUE_NAMES.TRANSCRIPT_INGESTION);
+      const sq = getQueue(QUEUE_NAMES.AI_SUMMARIZATION);
+      const activeStates = new Set(['active', 'waiting', 'delayed', 'prioritized', 'waiting-children']);
+      const jobs = await Promise.all([
+        tq ? tq.getJob(`transcript-${videoId}`).catch(() => null) : null,
+        sq ? sq.getJob(`summary-${videoId}`).catch(() => null) : null,
+      ]);
+      for (const job of jobs) {
+        if (!job) continue;
+        const state = await job.getState().catch(() => null);
+        if (activeStates.has(state)) return true;
+      }
+    } catch {
+      // Fall back to timestamp age check if queue lookup fails
+    }
+    return false;
+  }
+
+  async _enqueueOrRunPipeline(video) {
+    let transcriptQueue = null;
+    try {
+      transcriptQueue = getQueue(QUEUE_NAMES.TRANSCRIPT_INGESTION);
+    } catch (err) {
+      console.warn('[VideosService] BullMQ unavailable, using inline pipeline:', err.message);
+    }
+
+    if (transcriptQueue) {
+      try {
+        const jobId = `transcript-${video.videoId}`;
+        const existingJob = await transcriptQueue.getJob(jobId).catch(() => null);
+        if (existingJob) {
+          const state = await existingJob.getState().catch(() => null);
+          if (state === 'failed' || state === 'completed') {
+            await existingJob.remove().catch(() => {});
+          }
+        }
+        await transcriptQueue.add(
+          'fetch-transcript',
+          {
+            videoId: video.videoId,
+            channelId: video.channelId,
+            title: video.title,
+            videoUrl: video.videoUrl,
+          },
+          { jobId }
+        );
+        await prisma.video.update({
+          where: { videoId: video.videoId },
+          data: { summaryStatus: 'processing', transcriptStatus: 'fetching_transcript' },
+        });
+        return { message: 'Summarization job queued', status: 'processing' };
+      } catch (queueErr) {
+        console.warn(`[VideosService] Queue.add failed, falling back to inline: ${queueErr.message}`);
+      }
+    }
+
+    // Run inline — fire and forget so the HTTP response returns immediately
+    inlinePipeline.fireAndForget({
+      videoId: video.videoId,
+      channelId: video.channelId,
+      title: video.title,
+      videoUrl: video.videoUrl,
+    });
+    await prisma.video.update({
+      where: { videoId: video.videoId },
+      data: { summaryStatus: 'processing', transcriptStatus: 'fetching_transcript' },
+    });
+    return { message: 'Summarization started (inline)', status: 'processing' };
+  }
+
+  async getSummaryStreamSnapshot(videoId) {
+    const video = await prisma.video.findUnique({
+      where: { videoId },
+      include: { summary: true, transcript: true },
+    });
+
+    if (!video) {
+      const error = new Error('Video record not found');
+      error.status = 404;
+      throw error;
+    }
+
+    return video;
+  }
+
   /**
    * Manually triggers transcript + AI summarization for a video.
    * Uses BullMQ if Redis is available; falls back to inline pipeline otherwise.
@@ -276,65 +472,32 @@ class VideosService {
       };
     }
 
-    // Auto-recover stale jobs stuck in 'processing' (e.g. after server restart or crash >45s ago)
-    const isStaleProcessing =
-      video.summaryStatus === 'processing' &&
-      video.updatedAt &&
-      Date.now() - new Date(video.updatedAt).getTime() > 45000;
+    if (video.summaryStatus === 'processing') {
+      const ageMs = video.updatedAt ? Date.now() - new Date(video.updatedAt).getTime() : 0;
+      const hasActiveQueueJob = await this._hasActiveQueueJob(videoId);
 
-    if (video.summaryStatus === 'processing' && !isStaleProcessing) {
-      return {
-        message: 'Summarization already processing',
-        status: 'processing',
-      };
-    }
-
-    if (isStaleProcessing) {
-      console.warn(`[VideosService] Video ${videoId} was stuck in processing for >45s. Recovering and re-running pipeline.`);
-    }
-
-    // Try BullMQ queue first; fall back to inline pipeline
-    let transcriptQueue = null;
-    try {
-      transcriptQueue = getQueue(QUEUE_NAMES.TRANSCRIPT_INGESTION);
-    } catch (err) {
-      console.warn('[VideosService] BullMQ unavailable, using inline pipeline:', err.message);
-    }
-
-    if (transcriptQueue) {
-      try {
-        await transcriptQueue.add(
-          'fetch-transcript',
-          {
-            videoId: video.videoId,
-            channelId: video.channelId,
-            title: video.title,
-            videoUrl: video.videoUrl,
-          },
-          { jobId: `transcript-${video.videoId}` }
-        );
-        await prisma.video.update({
-          where: { videoId },
-          data: { summaryStatus: 'processing', transcriptStatus: 'fetching_transcript' },
-        });
-        return { message: 'Summarization job queued', status: 'processing' };
-      } catch (queueErr) {
-        console.warn(`[VideosService] Queue.add failed, falling back to inline: ${queueErr.message}`);
+      // Avoid duplicating legitimately queued BullMQ jobs during high-load backlogs (up to 10 min)
+      if (hasActiveQueueJob && ageMs <= 600000) {
+        return {
+          message: 'Summarization already processing',
+          status: 'processing',
+        };
       }
+
+      const isStaleProcessing = !hasActiveQueueJob && ageMs > 45000;
+      if (!isStaleProcessing && ageMs <= 600000) {
+        return {
+          message: 'Summarization already processing',
+          status: 'processing',
+        };
+      }
+
+      console.warn(
+        `[VideosService] Video ${videoId} was stuck in processing for ${Math.round(ageMs / 1000)}s (activeJob=${hasActiveQueueJob}). Recovering pipeline.`
+      );
     }
 
-    // Run inline — fire and forget so the HTTP response returns immediately
-    inlinePipeline.fireAndForget({
-      videoId: video.videoId,
-      channelId: video.channelId,
-      title: video.title,
-      videoUrl: video.videoUrl,
-    });
-    await prisma.video.update({
-      where: { videoId },
-      data: { summaryStatus: 'processing', transcriptStatus: 'fetching_transcript' },
-    });
-    return { message: 'Summarization started (inline)', status: 'processing' };
+    return this._enqueueOrRunPipeline(video);
   }
 
   /**
@@ -386,14 +549,9 @@ class VideosService {
         }
       }
 
-      // If not yet summarized, trigger summarization in background
+      // If not yet summarized, trigger summarization via queue or inline pipeline
       if (video.summaryStatus !== 'completed') {
-        inlinePipeline.fireAndForget({
-          videoId: video.videoId,
-          channelId: video.channelId,
-          title: video.title,
-          videoUrl: video.videoUrl,
-        });
+        await this._enqueueOrRunPipeline(video);
       }
       return {
         ...video,
@@ -471,14 +629,10 @@ class VideosService {
       }
     }
 
-    // 5. Trigger inline AI distillation pipeline
-    inlinePipeline.fireAndForget({
-      videoId: video.videoId,
-      channelId: video.channelId,
-      title: video.title,
-      videoUrl: video.videoUrl,
-    });
+    // 5. Enqueue AI distillation pipeline (BullMQ when available, inline fallback)
+    await this._enqueueOrRunPipeline(video);
 
+    await cache.bumpEpochs(`cache:feed_epoch:${userId}`, 'cache:videos:global_epoch');
     return {
       ...video,
       isCustomImport: true,
@@ -527,36 +681,8 @@ class VideosService {
       if (accessToken) {
         const uploads = await youTubeService.getChannelUploads(channelId, accessToken, 3);
         if (uploads.length > 0) {
-          for (const upload of uploads) {
-            const existing = await prisma.video.findUnique({
-              where: { videoId: upload.videoId },
-              select: { id: true, summaryStatus: true },
-            });
-
-            await prisma.video.upsert({
-              where: { videoId: upload.videoId },
-              create: {
-                videoId: upload.videoId,
-                channelId: upload.channelId,
-                title: upload.title,
-                videoUrl: upload.videoUrl,
-                thumbnailUrl: upload.thumbnailUrl,
-                publishedAt: new Date(upload.publishedAt),
-                transcriptStatus: 'pending',
-                summaryStatus: 'pending',
-              },
-              update: {
-                title: upload.title,
-                thumbnailUrl: upload.thumbnailUrl,
-              },
-            });
-
-            if (!existing) {
-              newVideosCount++;
-              // On-Demand Architecture: Sync adds fresh feed items to library without incurring upfront AI costs.
-              // Summarization is lazily executed when user taps to read.
-            }
-          }
+          const { createdCount } = await batchUpsertVideos(uploads);
+          newVideosCount += createdCount;
           return { upserted: uploads.length };
         }
       }
@@ -585,6 +711,10 @@ class VideosService {
       }, 1000);
     }
 
+    if (newVideosCount > 0) {
+      await cache.bumpEpochs(`cache:feed_epoch:${userId}`, 'cache:videos:global_epoch');
+    }
+
     return {
       channelsSynced: immediateChannels.length,
       totalChannels: allChannelIds.length,
@@ -605,28 +735,12 @@ class VideosService {
     const popular = await youtubeService.getPopularVideos(channelId, maxResults);
 
     if (popular && popular.length > 0) {
-      for (const v of popular) {
-        await prisma.video
-          .upsert({
-            where: { videoId: v.videoId },
-            create: {
-              videoId: v.videoId,
-              channelId: v.channelId,
-              title: v.title,
-              videoUrl: v.videoUrl,
-              thumbnailUrl: v.thumbnailUrl,
-              publishedAt: v.publishedAt || new Date(0),
-              transcriptStatus: 'pending',
-              summaryStatus: 'pending',
-            },
-            update: {
-              title: v.title,
-              videoUrl: v.videoUrl,
-              ...(v.thumbnailUrl ? { thumbnailUrl: v.thumbnailUrl } : {}),
-            },
-          })
-          .catch(() => {});
-      }
+      await batchUpsertVideos(
+        popular.map((v) => ({
+          ...v,
+          publishedAt: v.publishedAt || new Date(0),
+        }))
+      ).catch(() => { });
     }
 
     // Now query from DB with summary relation included
@@ -674,29 +788,18 @@ class VideosService {
     const rawResults = await youtubeService.searchVideos(fullQuery, limit);
     if (!rawResults || rawResults.length === 0) return [];
 
-    // Pre-upsert metadata into DB so records exist when accessed
-    for (const v of rawResults) {
-      await prisma.video
-        .upsert({
-          where: { videoId: v.videoId },
-          create: {
-            videoId: v.videoId,
-            channelId: v.channelId || channelId || 'youtube_search',
-            title: v.title,
-            description: v.channelName || channelName || 'YouTube Creator',
-            videoUrl: v.videoUrl,
-            thumbnailUrl: v.thumbnailUrl,
-            publishedAt: new Date(),
-            transcriptStatus: 'pending',
-            summaryStatus: 'pending',
-          },
-          update: {
-            title: v.title,
-            thumbnailUrl: v.thumbnailUrl,
-          },
-        })
-        .catch(() => {});
-    }
+    // Pre-upsert metadata into DB in batch so records exist when accessed
+    await batchUpsertVideos(
+      rawResults.map((v) => ({
+        videoId: v.videoId,
+        channelId: v.channelId || channelId || 'youtube_search',
+        title: v.title,
+        description: v.channelName || channelName || 'YouTube Creator',
+        videoUrl: v.videoUrl,
+        thumbnailUrl: v.thumbnailUrl,
+        publishedAt: new Date(),
+      }))
+    ).catch(() => { });
 
     const videoIds = rawResults.map((r) => r.videoId);
     const dbVideos = await prisma.video.findMany({

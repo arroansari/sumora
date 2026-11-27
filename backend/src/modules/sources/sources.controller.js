@@ -4,11 +4,8 @@ class SourcesController {
   async listSources(req, res, next) {
     try {
       const { platform } = req.query;
-      const sources = await sourcesService.listTrackedSources(req.user.id, { platform });
-      res.status(200).json({
-        success: true,
-        data: sources,
-      });
+      const jsonBody = await sourcesService.listTrackedSourcesHttpJson(req.user.id, { platform });
+      res.status(200).type('application/json').send(jsonBody);
     } catch (error) {
       next(error);
     }

@@ -41,6 +41,7 @@ model ConnectedAccount {
   token          PlatformToken?
 
   @@unique([userId, platform])
+  @@index([platform, status])
   @@map("connected_accounts")
 }
 
@@ -73,7 +74,11 @@ model TrackedSource {
 
   @@unique([userId, platform, sourceId])
   @@index([platform, sourceId])
+  @@index([platform, sourceId, isActive])
   @@index([userId, platform])
+  @@index([userId, platform, isActive])
+  @@index([userId, platform, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
   @@map("tracked_sources")
 }
 
@@ -96,7 +101,10 @@ model Video {
 
   @@index([channelId])
   @@index([publishedAt])
+  @@index([publishedAt(sort: Desc), id(sort: Desc)])
   @@index([channelId, publishedAt])
+  @@index([channelId, publishedAt(sort: Desc), id(sort: Desc)], map: "videos_channelId_publishedAt_desc_id_idx")
+  @@index([summaryStatus])
   @@map("videos")
 }
 
@@ -175,6 +183,7 @@ model DeviceToken {
   createdAt   DateTime @default(now())
 
   @@unique([userId, deviceToken])
+  @@index([userId])
   @@map("device_tokens")
 }
 

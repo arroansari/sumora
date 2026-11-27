@@ -1,6 +1,7 @@
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const prisma = require('../../config/db');
 const { signToken } = require('../../utils/jwt.util');
+const cache = require('../../utils/cache.util');
 
 class AuthService {
   /**
@@ -161,6 +162,8 @@ class AuthService {
     await prisma.user.delete({
       where: { id: userId },
     });
+
+    await cache.del(`cache:user:${userId}`, `cache:prefs:${userId}`, `cache:integrations:${userId}`);
 
     return { message: 'Account and all associated personal data have been permanently deleted.' };
   }

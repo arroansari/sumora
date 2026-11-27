@@ -1,4 +1,7 @@
 const prisma = require('../../config/db');
+const cache = require('../../utils/cache.util');
+
+const PREFS_CACHE_TTL_SEC = 300;
 
 class PreferencesService {
   /**
@@ -6,6 +9,10 @@ class PreferencesService {
    * @param {string} userId
    */
   async getPreferences(userId) {
+    const cacheKey = `cache:prefs:${userId}`;
+    const cached = await cache.getJson(cacheKey);
+    if (cached) return cached;
+
     const preferences = await prisma.notificationPreference.findMany({
       where: { userId },
     });
@@ -18,9 +25,12 @@ class PreferencesService {
           enabled: true,
         },
       });
-      return [defaultPref];
+      const result = [defaultPref];
+      await cache.setJson(cacheKey, result, PREFS_CACHE_TTL_SEC);
+      return result;
     }
 
+    await cache.setJson(cacheKey, preferences, PREFS_CACHE_TTL_SEC);
     return preferences;
   }
 
@@ -38,7 +48,7 @@ class PreferencesService {
       throw error;
     }
 
-    return prisma.notificationPreference.upsert({
+    const updated = await prisma.notificationPreference.upsert({
       where: {
         userId_platform: {
           userId,
@@ -54,6 +64,8 @@ class PreferencesService {
         enabled,
       },
     });
+    await cache.del(`cache:prefs:${userId}`);
+    return updated;
   }
 
   /**

@@ -1,5 +1,29 @@
 const prisma = require('../config/db');
 const { verifyToken } = require('../utils/jwt.util');
+const cache = require('../utils/cache.util');
+
+const USER_CACHE_TTL_SEC = 300;
+
+async function findUserByIdCached(userId) {
+  const cacheKey = `cache:user:${userId}`;
+  const cached = await cache.getJson(cacheKey);
+  if (cached) return cached;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (user) {
+    await cache.setJson(cacheKey, user, USER_CACHE_TTL_SEC);
+  }
+  return user;
+}
 
 async function authenticate(req, res, next) {
   try {
@@ -30,15 +54,7 @@ async function authenticate(req, res, next) {
       });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    const user = await findUserByIdCached(userId);
 
     if (!user) {
       return res.status(401).json({
@@ -65,15 +81,7 @@ async function optionalAuthenticate(req, res, next) {
     if (token) {
       try {
         const decoded = verifyToken(token);
-        const user = await prisma.user.findUnique({
-          where: { id: decoded.userId },
-          select: {
-            id: true,
-            email: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        });
+        const user = await findUserByIdCached(decoded.userId);
         if (user) {
           req.user = user;
         }

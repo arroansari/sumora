@@ -1,10 +1,12 @@
 const videosService = require('./videos.service');
+const aiStream = require('../../utils/aiStream.util');
 
 class VideosController {
   async getFeed(req, res, next) {
     try {
       const page = parseInt(req.query.page, 10) || 1;
-      const limit = parseInt(req.query.limit, 10) || 20;
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+      const cursor = req.query.cursor || null;
       const channelId = req.query.channelId || null;
       const from = req.query.from || null;
       const to = req.query.to || null;
@@ -20,12 +22,8 @@ class VideosController {
         });
       }
 
-      const result = await videosService.getFeed(req.user.id, { page, limit, channelId, from, to, search });
-      res.status(200).json({
-        success: true,
-        data: result.videos,
-        pagination: result.pagination,
-      });
+      const jsonBody = await videosService.getFeedHttpJson(req.user.id, { page, limit, cursor, channelId, from, to, search });
+      res.status(200).type('application/json').send(jsonBody);
     } catch (error) {
       next(error);
     }
@@ -79,6 +77,82 @@ class VideosController {
         success: true,
         data: result,
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async streamSummary(req, res, next) {
+    try {
+      const { videoId } = req.params;
+      const snapshot = await videosService.getSummaryStreamSnapshot(videoId);
+
+      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      if (typeof res.flushHeaders === 'function') res.flushHeaders();
+
+      let closed = false;
+      let unsubscribe = () => {};
+      let keepaliveTimer = null;
+
+      const cleanup = () => {
+        if (closed) return;
+        closed = true;
+        if (keepaliveTimer) clearInterval(keepaliveTimer);
+        unsubscribe();
+        if (!res.writableEnded) {
+          res.end();
+        }
+      };
+
+      const sendEvent = (payload) => {
+        if (closed || res.writableEnded) return;
+        res.write(`data: ${JSON.stringify(payload)}\n\n`);
+      };
+
+      const hasDetailed = Boolean(snapshot.summary && snapshot.summary.videoOverview);
+      if (snapshot.summaryStatus === 'completed' && hasDetailed) {
+        sendEvent({
+          videoId,
+          stage: 'completed',
+          transcript: snapshot.transcript || null,
+          summary: snapshot.summary,
+        });
+        cleanup();
+        return;
+      }
+
+      if (snapshot.summaryStatus === 'transcript_unavailable') {
+        sendEvent({ videoId, stage: 'transcript_unavailable' });
+        cleanup();
+        return;
+      }
+
+      sendEvent({
+        videoId,
+        stage: snapshot.summaryStatus || 'pending',
+        transcriptStatus: snapshot.transcriptStatus,
+        transcript: snapshot.transcript || null,
+      });
+
+      unsubscribe = aiStream.subscribe(videoId, (event) => {
+        sendEvent(event);
+        if (['completed', 'failed', 'transcript_unavailable'].includes(event?.stage)) {
+          cleanup();
+        }
+      });
+
+      keepaliveTimer = setInterval(() => {
+        if (!closed && !res.writableEnded) {
+          res.write(': ping\n\n');
+        }
+      }, 15000);
+      keepaliveTimer.unref();
+
+      req.on('close', cleanup);
+      res.on('close', cleanup);
     } catch (error) {
       next(error);
     }

@@ -1,6 +1,10 @@
 const axios = require('axios');
+const https = require('https');
 const { BaseTranscriptProvider, TranscriptUnavailableError } = require('../transcript.provider');
 const config = require('../../../config');
+
+const supadataHttpsAgent = new https.Agent({ keepAlive: true, maxSockets: 64 });
+const SUPADATA_TIMEOUT_MS = parseInt(process.env.TRANSCRIPT_SUPADATA_TIMEOUT_MS, 10) || 8000;
 
 class SupadataTranscriptProvider extends BaseTranscriptProvider {
   constructor(apiKey = config.supadata?.apiKey) {
@@ -35,7 +39,9 @@ class SupadataTranscriptProvider extends BaseTranscriptProvider {
         headers: {
           'x-api-key': this.apiKey,
         },
-        timeout: 12000,
+        timeout: SUPADATA_TIMEOUT_MS,
+        httpsAgent: supadataHttpsAgent,
+        signal: options.signal,
       });
 
       const data = response.data;

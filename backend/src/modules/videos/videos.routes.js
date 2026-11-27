@@ -41,6 +41,11 @@ router.get('/:videoId/summary/status', (req, res, next) =>
   videosController.getSummaryStatus(req, res, next)
 );
 
+// Live Server-Sent Events (SSE) progress stream for summary generation
+router.get('/:videoId/summary/stream', (req, res, next) =>
+  videosController.streamSummary(req, res, next)
+);
+
 // Trigger summarization (capped to 25/day per user)
 router.post('/:videoId/summarize', summarizeLimiter, (req, res, next) =>
   videosController.requestSummarization(req, res, next)

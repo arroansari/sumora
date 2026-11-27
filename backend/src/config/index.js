@@ -47,7 +47,20 @@ module.exports = {
   ai: {
     provider: process.env.AI_PROVIDER || 'gemini',
     geminiApiKey: process.env.GEMINI_API_KEY,
+    geminiApiKeys: (process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '')
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean),
     openaiApiKey: process.env.OPENAI_API_KEY,
+    openaiApiKeys: (process.env.OPENAI_API_KEYS || process.env.OPENAI_API_KEY || '')
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean),
+    requestTimeoutMs: parseInt(process.env.AI_REQUEST_TIMEOUT_MS, 10) || 10000,
+    videoTimeoutMs: parseInt(process.env.AI_VIDEO_TIMEOUT_MS, 10) || 40000,
+    workerConcurrency: parseInt(process.env.AI_WORKER_CONCURRENCY, 10) || 10,
+    maxRequestsPerMinute: parseInt(process.env.AI_MAX_REQUESTS_PER_MINUTE, 10) || 120,
+    prewarmMinSubscribers: parseInt(process.env.PREWARM_MIN_SUBSCRIBERS, 10) || 0,
   },
   supadata: {
     apiKey: process.env.SUPADATA_API_KEY || 'sd_92410e265e753bc2cc4be134a377cb9c',

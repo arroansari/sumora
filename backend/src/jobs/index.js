@@ -110,4 +110,12 @@ function getQueue(name) {
 
 const connection = getConnectionOptions();
 
-module.exports = { QUEUE_NAMES, getQueue, connection, setRedisDisabled };
+async function closeAllQueues() {
+  const entries = Object.values(queuesCache).filter(Boolean);
+  queuesCache = {};
+  await Promise.all(
+    entries.map((q) => (typeof q.close === 'function' ? q.close().catch(() => {}) : Promise.resolve()))
+  );
+}
+
+module.exports = { QUEUE_NAMES, getQueue, closeAllQueues, connection, setRedisDisabled };

@@ -1,6 +1,8 @@
 const prisma = require('../../config/db');
 const { encrypt, decrypt } = require('../../utils/encryption.util');
 const { signOAuthState, verifyOAuthState } = require('../../utils/oauth.util');
+const { acquireLock, releaseLock } = require('../../utils/redisLock.util');
+const cache = require('../../utils/cache.util');
 const youTubeService = require('./youtube/youtube.service');
 const webSubService = require('./youtube/websub.service');
 
@@ -15,7 +17,11 @@ class IntegrationsService {
    * @param {string} userId
    */
   async listConnectedAccounts(userId) {
-    return prisma.connectedAccount.findMany({
+    const cacheKey = `cache:integrations:${userId}`;
+    const cached = await cache.getJson(cacheKey);
+    if (cached) return cached;
+
+    const accounts = await prisma.connectedAccount.findMany({
       where: { userId },
       select: {
         id: true,
@@ -25,6 +31,8 @@ class IntegrationsService {
         connectedAt: true,
       },
     });
+    await cache.setJson(cacheKey, accounts, 120);
+    return accounts;
   }
 
   /**
@@ -156,6 +164,9 @@ class IntegrationsService {
       }
     }
 
+    await cache.del(`cache:integrations:${userId}`, `cache:sources:${userId}:youtube`, `cache:sources:${userId}:all`);
+    await cache.bumpEpochs(`cache:feed_epoch:${userId}`);
+
     return {
       connectedAccount,
       syncedChannelsCount: syncedSources.length,
@@ -191,6 +202,19 @@ class IntegrationsService {
           new Date(account.token.expiresAt).getTime() <= Date.now() + FIVE_MINUTES_MS;
 
         if (isExpiringSoon && account.token.encryptedRefreshToken) {
+          const lockKey = `lock:oauth:refresh:youtube:${userId}`;
+          let lockToken = await acquireLock(lockKey, 15000);
+          if (!lockToken) {
+            // Another cluster worker is refreshing; wait briefly then re-read persisted token
+            await new Promise((r) => setTimeout(r, 300));
+            const latest = await prisma.connectedAccount.findUnique({
+              where: { userId_platform: { userId, platform: 'youtube' } },
+              include: { token: true },
+            });
+            if (latest?.token && latest.status !== 'revoked') {
+              return decrypt(latest.token.encryptedAccessToken);
+            }
+          }
           try {
             const refreshed = await youTubeService.refreshAccessToken(account.token.encryptedRefreshToken);
             accessToken = refreshed.accessToken;
@@ -229,6 +253,8 @@ class IntegrationsService {
               return accessToken;
             }
             return null;
+          } finally {
+            await releaseLock(lockKey, lockToken);
           }
         }
 
@@ -328,6 +354,7 @@ class IntegrationsService {
       where: { id: integrationId },
     });
 
+    await cache.del(`cache:integrations:${userId}`);
     return { success: true, message: `Successfully disconnected ${account.platform}` };
   }
 

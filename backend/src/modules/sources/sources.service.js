@@ -1,7 +1,48 @@
 const prisma = require('../../config/db');
 const webSubService = require('../integrations/youtube/websub.service');
+const cache = require('../../utils/cache.util');
+
+const SOURCES_CACHE_TTL_SEC = 60;
+
+const SOURCE_SELECT = {
+  id: true,
+  platform: true,
+  sourceId: true,
+  sourceName: true,
+  thumbnailUrl: true,
+  isPriority: true,
+  isActive: true,
+  memberCount: true,
+  createdAt: true,
+};
 
 class SourcesService {
+  async _invalidateSourceCaches(userId, platform) {
+    const norm = (platform || 'youtube').toLowerCase();
+    await cache.del(
+      `cache:sources:${userId}:all`,
+      `cache:sources:${userId}:${norm}`,
+      `cache:http:sources:${userId}:all`,
+      `cache:http:sources:${userId}:${norm}`
+    );
+    await cache.bumpEpochs(`cache:feed_epoch:${userId}`);
+  }
+
+  /**
+   * Pre-serialized JSON fast path for GET /api/sources — eliminates JSON.parse + JSON.stringify on cache hits.
+   */
+  async listTrackedSourcesHttpJson(userId, { platform = 'youtube' } = {}) {
+    const normPlatform = (platform || 'youtube').toLowerCase();
+    const httpKey = `cache:http:sources:${userId}:${platform === 'all' || !platform ? 'all' : normPlatform}`;
+    const cachedRaw = await cache.getRaw(httpKey);
+    if (cachedRaw) return cachedRaw;
+
+    const sources = await this.listTrackedSources(userId, { platform });
+    const serialized = JSON.stringify({ success: true, data: sources });
+    await cache.setRaw(httpKey, serialized, SOURCES_CACHE_TTL_SEC);
+    return serialized;
+  }
+
   /**
    * Retrieves all tracked sources/channels for a user.
    * Defaults to 'youtube' to ensure separation between channels and subreddits.
@@ -11,12 +52,17 @@ class SourcesService {
    */
   async listTrackedSources(userId, { platform = 'youtube' } = {}) {
     const normPlatform = (platform || 'youtube').toLowerCase();
+    const cacheKey = `cache:sources:${userId}:${platform === 'all' || !platform ? 'all' : normPlatform}`;
+    const cached = await cache.getJson(cacheKey);
+    if (cached) return cached;
+
     const where = { userId };
     if (platform && platform !== 'all') {
-      where.platform = { in: [normPlatform, platform.toUpperCase()] };
+      where.platform = normPlatform;
     }
     let sources = await prisma.trackedSource.findMany({
       where,
+      select: SOURCE_SELECT,
       orderBy: { createdAt: 'desc' },
     });
 
@@ -32,21 +78,24 @@ class SourcesService {
         { sourceId: 'productivity', sourceName: 'Productivity & Habits', memberCount: 18 },
         { sourceId: 'wealth', sourceName: 'Wealth & Decision Making', memberCount: 11 },
       ];
-      for (const b of defaultBooks) {
-        try {
-          await prisma.trackedSource.create({
-            data: {
-              userId,
-              platform: 'books',
-              sourceId: b.sourceId,
-              sourceName: b.sourceName,
-              memberCount: b.memberCount,
-              isActive: true,
-            },
-          });
-        } catch {}
-      }
-      sources = await prisma.trackedSource.findMany({ where, orderBy: { createdAt: 'desc' } });
+      await prisma.trackedSource
+        .createMany({
+          data: defaultBooks.map((b) => ({
+            userId,
+            platform: 'books',
+            sourceId: b.sourceId,
+            sourceName: b.sourceName,
+            memberCount: b.memberCount,
+            isActive: true,
+          })),
+          skipDuplicates: true,
+        })
+        .catch(() => {});
+      sources = await prisma.trackedSource.findMany({
+        where,
+        select: SOURCE_SELECT,
+        orderBy: { createdAt: 'desc' },
+      });
     }
 
     // Auto-seed high-signal Cinema & OTT streaming radars if user has none tracked in PostgreSQL
@@ -59,21 +108,24 @@ class SourcesService {
         { sourceId: 'scifi', sourceName: 'Sci-Fi & Cyberpunk Radar', memberCount: 15 },
         { sourceId: 'a24', sourceName: 'A24 & Independent Cinema', memberCount: 9 },
       ];
-      for (const c of defaultCinema) {
-        try {
-          await prisma.trackedSource.create({
-            data: {
-              userId,
-              platform: 'cinema',
-              sourceId: c.sourceId,
-              sourceName: c.sourceName,
-              memberCount: c.memberCount,
-              isActive: true,
-            },
-          });
-        } catch {}
-      }
-      sources = await prisma.trackedSource.findMany({ where, orderBy: { createdAt: 'desc' } });
+      await prisma.trackedSource
+        .createMany({
+          data: defaultCinema.map((c) => ({
+            userId,
+            platform: 'cinema',
+            sourceId: c.sourceId,
+            sourceName: c.sourceName,
+            memberCount: c.memberCount,
+            isActive: true,
+          })),
+          skipDuplicates: true,
+        })
+        .catch(() => {});
+      sources = await prisma.trackedSource.findMany({
+        where,
+        select: SOURCE_SELECT,
+        orderBy: { createdAt: 'desc' },
+      });
     }
 
     // Auto-cap active channels to at most 50 if legacy database had all active
@@ -81,7 +133,6 @@ class SourcesService {
       (s) => s.platform.toLowerCase() === 'youtube' && s.isActive
     );
     if (activeYoutube.length > 50) {
-      // Keep only top 50 active to prevent API cost overruns and match priority slots
       const keepIds = new Set(activeYoutube.slice(0, 50).map((s) => s.id));
       const deactivateIds = activeYoutube
         .filter((s) => !keepIds.has(s.id))
@@ -97,24 +148,21 @@ class SourcesService {
             console.warn('[SourcesService] Failed to auto-cap legacy active sources:', err.message)
           );
 
+        const deactivateSet = new Set(deactivateIds);
         for (const s of sources) {
-          if (deactivateIds.includes(s.id)) {
+          if (deactivateSet.has(s.id)) {
             s.isActive = false;
           }
         }
       }
     }
 
+    await cache.setJson(cacheKey, sources, SOURCES_CACHE_TTL_SEC);
     return sources;
   }
 
   /**
    * Adds a channel/source to the user's tracked list.
-   * @param {string} userId
-   * @param {object} sourceData
-   * @param {string} sourceData.platform
-   * @param {string} sourceData.sourceId
-   * @param {string} sourceData.sourceName
    */
   async addTrackedSource(userId, { platform = 'youtube', sourceId, sourceName }) {
     if (!sourceId || !sourceName) {
@@ -164,20 +212,18 @@ class SourcesService {
       },
     });
 
-    // If platform is youtube, ensure WebSub subscription is active
     if (platform === 'youtube') {
       webSubService.subscribeToChannel(sourceId).catch((err) => {
         console.warn(`[WebSub] Subscribe failed for ${sourceId}:`, err.message);
       });
     }
 
+    await this._invalidateSourceCaches(userId, normPlatform);
     return tracked;
   }
 
   /**
    * Removes a source from user's tracked list.
-   * @param {string} userId
-   * @param {string} sourceRecordId
    */
   async removeTrackedSource(userId, sourceRecordId) {
     const source = await prisma.trackedSource.findFirst({
@@ -194,6 +240,7 @@ class SourcesService {
       where: { id: sourceRecordId },
     });
 
+    await this._invalidateSourceCaches(userId, source.platform);
     return {
       success: true,
       message: `Stopped tracking ${source.sourceName}`,
@@ -202,9 +249,6 @@ class SourcesService {
 
   /**
    * Toggles active tracking status (isActive) for a source.
-   * Enables selective AI summarization to prevent excessive API costs.
-   * @param {string} userId
-   * @param {string} sourceIdOrRecordId
    */
   async toggleTrackedSource(userId, sourceIdOrRecordId) {
     const source = await prisma.trackedSource.findFirst({
@@ -227,16 +271,15 @@ class SourcesService {
       data: { isActive: nextActive },
     });
 
-    // If enabling YouTube channel, ensure WebSub subscription is active
     if (updated.platform.toLowerCase() === 'youtube' && nextActive) {
       webSubService.subscribeToChannel(updated.sourceId).catch((err) => {
         console.warn(`[WebSub] Re-subscribe failed for ${updated.sourceId}:`, err.message);
       });
     }
 
+    await this._invalidateSourceCaches(userId, updated.platform);
     return updated;
   }
 }
 
 module.exports = new SourcesService();
-
